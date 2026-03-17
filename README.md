@@ -1,6 +1,6 @@
 # AI 个人助理
 
-> 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书机器人对话交互（长连接，无需公网），自动处理会议纪要、管理飞书知识库，并支持通过自然语言驱动 Claude Code 完成自迭代开发。
+> 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书/钉钉机器人对话交互（长连接，无需公网），自动处理会议纪要、读写飞书知识库，并支持通过自然语言驱动 Claude Code 完成自迭代开发。
 
 ## 当前状态
 
@@ -10,9 +10,9 @@
 | 钉钉机器人（流模式） | ✅ 连接中 | Stream 连接已建立 |
 | 火山云 Ark LLM | ✅ 正常 | `ep-20260317143459-qtgqn` |
 | OpenRouter fallback | ✅ 就绪 | 火山云失败时自动切换 |
-| SQLite 记忆 | ✅ 正常 | `data/memory.db` |
+| SQLite 记忆 | ✅ 正常 | `data/memory.db`，LangGraph checkpointer |
 | APScheduler 定时任务 | ✅ 运行中 | 邮件轮询5分钟/同步30分钟 |
-| 飞书知识库 | ⚠️ 待配置 | `FEISHU_WIKI_SPACE_ID` 未填 |
+| 飞书知识库 | ✅ 正常 | 读写均可，docx API via `get_node` |
 | 钉钉文档读取 | ⚠️ 待修复 | API 路径需确认 |
 | 163 IMAP 邮件 | ⚠️ 待修复 | 需在邮箱重新开启 IMAP |
 
@@ -22,11 +22,11 @@
 |------|------|
 | 飞书机器人 | 长连接收消息 → Agent 推理 → 回复，无需公网 IP |
 | 钉钉机器人 | 流模式收消息 → Agent 推理 → 回复，无需公网 IP |
+| 飞书知识库 | 读取/追加/覆盖任意 wiki 页面，搜索关键词 |
+| 上下文同步 | 本地 SQLite 记忆定期推送至飞书知识库页面 |
 | 会议处理 | 163邮箱轮询 → LLM 提取会议信息 → 写入飞书知识库 |
-| 钉钉文档 | 读取钉钉文档空间的会议纪要（含文字版录音总结） |
-| 项目管理 | 对话式读写飞书知识库，维护项目上下文 |
+| 钉钉文档 | 读取钉钉文档空间的会议纪要 |
 | 自迭代开发 | Agent 向本机 Claude Code CLI 下发需求，自动完成开发并回收结果 |
-| 上下文同步 | 本地 SQLite 记忆 ↔ 飞书知识库定期同步 |
 | 本机操作 | 白名单内执行 git/ls/python 等 shell 命令 |
 
 ## 系统架构
@@ -36,14 +36,24 @@
                    ├──► LangGraph ReAct Agent ──► 工具层
 钉钉（流模式 WS）──┘         │
                         SQLite 记忆            │
-                    (LangGraph Checkpointer)   ├── 飞书知识库
+                    (LangGraph Checkpointer)   ├── 飞书知识库（读/追加/覆盖/搜索）
                                               ├── 钉钉文档
 APScheduler ──► 邮件轮询                       ├── Claude Code CLI（自迭代）
-             └► 上下文同步                     └── Shell 命令（白名单）
+             └► 上下文同步 ──────────────────► └── Shell 命令（白名单）
 
 LLM 链：火山云 Ark ──(失败)──► OpenRouter (Claude/GPT-4o)
 Claude API：仅供 Claude Code CLI，不作为 agent LLM
 ```
+
+## 飞书知识库权限说明
+
+飞书 Wiki Space API 不支持 `tenant_access_token`（需要用户 OAuth），但**单个文档的 docx API 可以通过 tenant token 直接读写**，只需：
+
+1. 在飞书页面的「文档权限 → 可管理应用」里添加该应用
+2. 通过 `GET /wiki/v2/spaces/get_node` 将 wiki token 转为 `obj_token`
+3. 用 docx API 对 `obj_token` 进行读写
+
+配置：在 `.env` 中填写 `FEISHU_WIKI_CONTEXT_PAGE`（wiki URL 末尾的 token）。
 
 ## 快速启动
 
@@ -71,14 +81,12 @@ cp .env.example .env
 # 按照 docs/setup.md 填写各项配置
 ```
 
-**最关键的几项：**
+**飞书知识库关键配置：**
 
 ```bash
-# 获取飞书 Wiki Space ID
-python -m tools.list_feishu_spaces
-
-# 填入 .env
-FEISHU_WIKI_SPACE_ID=xxxxx
+# 在飞书新建一个专用页面（如「AI助理上下文」），从 URL /wiki/XXXX 取 token
+FEISHU_WIKI_SPACE_ID=7618158120166034630
+FEISHU_WIKI_CONTEXT_PAGE=FalZwGDOkiqpbQkeAjGc8jaznMd
 ```
 
 ### 启动
@@ -109,10 +117,13 @@ ai-assistant/
 │   ├── agent.py             # 图定义 + SQLite checkpointer
 │   ├── nodes.py             # 节点（LLM调用 / 工具执行）
 │   ├── state.py             # AgentState 定义
-│   └── tools.py             # 工具函数注册（8个工具）
+│   └── tools.py             # 工具函数注册（9个工具）
 │
 ├── integrations/
-│   ├── feishu/              # 飞书：长连接机器人 + 知识库
+│   ├── feishu/              # 飞书：长连接机器人 + 知识库读写
+│   │   ├── bot.py           # 长连接消息处理
+│   │   ├── client.py        # tenant_access_token + HTTP 封装
+│   │   └── knowledge.py     # wiki 读写（docx API via get_node）
 │   ├── dingtalk/            # 钉钉：流模式机器人 + 文档空间
 │   ├── email/               # 163 IMAP 轮询 + 会议信息提取
 │   └── storage/             # 文件存储抽象（LocalStorage / 待接 OSS）
@@ -127,6 +138,20 @@ ai-assistant/
     ├── integrations.md      # 各平台集成说明
     └── development.md       # 开发指南
 ```
+
+## Agent 工具列表
+
+| 工具 | 描述 |
+|------|------|
+| `feishu_read_page` | 读取飞书 wiki 页面内容（传 URL 或 token） |
+| `feishu_append_to_page` | 向飞书页面末尾追加内容 |
+| `feishu_overwrite_page` | 清空并覆盖写入飞书页面 |
+| `feishu_search_wiki` | 在上下文页面中搜索关键词 |
+| `sync_context_to_feishu` | 将本地 SQLite 记忆同步至飞书 |
+| `get_latest_meeting_docs` | 获取最新钉钉会议纪要列表 |
+| `read_meeting_doc` | 读取钉钉文档完整内容 |
+| `trigger_self_iteration` | 触发 Claude Code 自迭代开发 |
+| `run_shell_command` | 执行白名单 Shell 命令 |
 
 ## LLM 策略
 
@@ -148,7 +173,6 @@ Agent 调用 `trigger_self_iteration`，在本机启动 `claude --dangerously-sk
 
 ## 待完成事项
 
-- [ ] 配置 `FEISHU_WIKI_SPACE_ID`（运行 `python -m tools.list_feishu_spaces`）
 - [ ] 修复钉钉文档 API 路径（`/v1.0/doc/spaces` 404 待查）
 - [ ] 163 邮箱重新开启 IMAP 并更新授权码
 - [ ] 火山云 OSS 文件存储接入

@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.4.0] - 2026-03-17
+
+### Added
+- **飞书知识库工具**（`graph/tools.py`）：新增 4 个独立 LangGraph tools
+  - `feishu_read_page`：读取任意 wiki 页面（支持 URL 或裸 token）
+  - `feishu_append_to_page`：向页面末尾追加内容
+  - `feishu_overwrite_page`：清空并覆盖写入整个页面
+  - `feishu_search_wiki`：在上下文页面中搜索关键词
+- **`.env` 新增配置项**：`FEISHU_WIKI_CONTEXT_PAGE`（AI上下文快照专用页面 token）
+
+### Fixed
+- **飞书知识库权限问题**：Wiki Space list/create nodes API 不支持 tenant_access_token；改用 `GET /wiki/v2/spaces/get_node` 解析 wiki token → `obj_token`，再通过 docx API 直接读写，完全避开 space-level 权限限制
+- **`FEISHU_WIKI_SPACE_ID`**：修正为正确值 `7618158120166034630`（原值 `7360567394534637571` 错误）
+- **`feishu_delete`**（`integrations/feishu/client.py`）：支持传递 JSON body（batch_delete 接口需要）
+- **`knowledge.py`**：重写，新增 `parse_wiki_token`（从 URL 提取 token）、`_clear_doc`（正确的 start/end_index）、`_append_text`
+
+### Changed
+- `graph/tools.py`：移除旧的 `write_meeting_note`、`read_feishu_knowledge`、`write_feishu_knowledge`，替换为更细粒度的新工具；所有工具加入异常捕获
+
+### Verified Working (2026-03-17)
+- ✅ 飞书知识库读取（`feishu_read_page`）
+- ✅ 飞书知识库追加（`feishu_append_to_page`）
+- ✅ 飞书知识库覆盖（`feishu_overwrite_page`）
+- ✅ 飞书知识库搜索（`feishu_search_wiki`）
+
+---
+
 ## [0.3.0] - 2026-03-17
 
 ### Fixed

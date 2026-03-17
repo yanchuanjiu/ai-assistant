@@ -16,7 +16,7 @@
 ✅ 火山云 LLM   — ep-20260317143459-qtgqn，调用正常
 ✅ SQLite 记忆  — data/memory.db，LangGraph checkpointer
 ✅ 定时任务      — 邮件5分钟/同步30分钟
-⚠️  飞书知识库  — FEISHU_WIKI_SPACE_ID 未填，写入功能不可用
+✅ 飞书知识库  — 读写正常（docx API via get_node），context page 已配置
 ⚠️  钉钉文档    — /v1.0/doc/spaces API 404，路径待修复
 ⚠️  163 IMAP   — Unsafe Login，需重新开启邮箱 IMAP
 ```

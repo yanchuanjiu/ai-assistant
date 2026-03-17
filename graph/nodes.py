@@ -5,9 +5,11 @@ LLM 链：火山云 Ark → OpenRouter（with_fallbacks 自动降级）
 Claude API 不在此使用，仅供 Claude Code CLI。
 """
 import os
+import re
+import json
 import logging
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.messages import SystemMessage, ToolMessage, AIMessage
 from graph.state import AgentState
 from graph.tools import ALL_TOOLS
 
@@ -62,6 +64,30 @@ def _build_llm_chain():
 llm_with_tools = _build_llm_chain()
 tools_by_name = {t.name: t for t in ALL_TOOLS}
 
+# 火山云 Ark 有时以文本形式返回工具调用，格式为：
+# <|FunctionCallBeginBegin|>[{"name":...,"parameters":...,"id":...}]
+_FUNC_CALL_RE = re.compile(r"<\|FunctionCallBeginBegin\|>(.*?)(?:<\|FunctionCallEndEnd\|>|$)", re.DOTALL)
+
+
+def _extract_text_tool_calls(content: str) -> list[dict] | None:
+    """将火山云文本格式的工具调用解析为 LangChain tool_calls 列表。"""
+    match = _FUNC_CALL_RE.search(content)
+    if not match:
+        return None
+    try:
+        raw = json.loads(match.group(1).strip())
+        return [
+            {
+                "id": f"call_{c.get('id', i)}",
+                "name": c["name"],
+                "args": c.get("parameters", c.get("arguments", {})),
+                "type": "tool_call",
+            }
+            for i, c in enumerate(raw)
+        ]
+    except Exception:
+        return None
+
 
 def _load_system_prompt() -> str:
     from datetime import date
@@ -81,6 +107,18 @@ SYSTEM_PROMPT = _load_system_prompt()
 def agent_node(state: AgentState) -> dict:
     messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
     response = llm_with_tools.invoke(messages)
+
+    # 处理火山云文本格式工具调用
+    if (
+        isinstance(response.content, str)
+        and "<|FunctionCallBeginBegin|>" in response.content
+        and not getattr(response, "tool_calls", None)
+    ):
+        tool_calls = _extract_text_tool_calls(response.content)
+        if tool_calls:
+            logger.debug(f"解析文本格式工具调用: {[c['name'] for c in tool_calls]}")
+            response = AIMessage(content="", tool_calls=tool_calls)
+
     return {"messages": [response]}
 
 

@@ -13,6 +13,7 @@ from lark_oapi.api.im.v1 import (
     CreateMessageRequestBody,
 )
 from pydantic_settings import BaseSettings
+from integrations.feishu.client import feishu_post, feishu_delete
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +60,15 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
 
     user_id = sender.sender_id.open_id or ""
     chat_id = msg.chat_id or ""
+    message_id = msg.message_id or ""
 
     logger.info(f"[飞书长连接] user={user_id} chat={chat_id} msg={text[:80]}")
 
+    bot = FeishuBot()
+
     # 在新线程里跑 Agent，避免阻塞 WebSocket 事件循环
     def run():
+        processing_reaction_id = bot.add_reaction(message_id, "THUMBSUP")
         try:
             reply = invoke(
                 message=text,
@@ -71,10 +76,13 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
                 user_id=user_id,
                 chat_id=chat_id,
             )
-            FeishuBot().send_text(chat_id=chat_id, text=reply)
+            bot.send_text(chat_id=chat_id, text=reply)
+            bot.remove_reaction(message_id, processing_reaction_id)
+            bot.add_reaction(message_id, "OK")
         except Exception as e:
             logger.error(f"[飞书] Agent 处理失败: {e}")
-            FeishuBot().send_text(chat_id=chat_id, text=f"处理出错：{e}")
+            bot.remove_reaction(message_id, processing_reaction_id)
+            bot.send_text(chat_id=chat_id, text=f"处理出错：{e}")
 
     threading.Thread(target=run, daemon=True).start()
 
@@ -105,6 +113,29 @@ def start_feishu_longconn():
 # 发消息（REST API）
 # --------------------------------------------------------------------------- #
 class FeishuBot:
+    def add_reaction(self, message_id: str, emoji_type: str) -> str:
+        """给消息加 emoji reaction，返回 reaction_id（删除时用）。"""
+        if not message_id:
+            return ""
+        try:
+            resp = feishu_post(
+                f"/im/v1/messages/{message_id}/reactions",
+                json={"reaction_type": {"emoji_type": emoji_type}},
+            )
+            return resp.get("data", {}).get("reaction_id", "")
+        except Exception as e:
+            logger.warning(f"[飞书] 添加 reaction 失败: {e}")
+            return ""
+
+    def remove_reaction(self, message_id: str, reaction_id: str):
+        """删除消息上的 emoji reaction。"""
+        if not message_id or not reaction_id:
+            return
+        try:
+            feishu_delete(f"/im/v1/messages/{message_id}/reactions/{reaction_id}")
+        except Exception as e:
+            logger.warning(f"[飞书] 删除 reaction 失败: {e}")
+
     def send_text(self, chat_id: str, text: str):
         if not chat_id:
             logger.warning("[飞书] chat_id 为空，跳过发送")

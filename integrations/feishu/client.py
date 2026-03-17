@@ -51,6 +51,19 @@ def feishu_get(path: str, params: dict = None) -> dict:
     return resp.json()
 
 
+def feishu_delete(path: str, json: dict = None) -> dict:
+    token = get_tenant_access_token()
+    resp = httpx.request(
+        "DELETE",
+        f"{FEISHU_BASE}{path}",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json=json,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
 def feishu_post(path: str, json: dict = None, data: dict = None) -> dict:
     token = get_tenant_access_token()
     resp = httpx.post(

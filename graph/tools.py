@@ -15,32 +15,116 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # --------------------------------------------------------------------------- #
-# 飞书知识库
+# 飞书知识库 — 读
 # --------------------------------------------------------------------------- #
 @tool
-def write_meeting_note(title: str, content: str) -> str:
-    """将会议纪要写入飞书知识库。title: 会议标题，content: Markdown 格式正文。"""
-    kb = FeishuKnowledge()
-    url = kb.create_or_update_page(title=f"[会议] {title}", content=content)
-    return f"已写入飞书知识库：{url}"
+def feishu_read_page(wiki_url_or_token: str) -> str:
+    """
+    读取飞书知识库页面的纯文本内容。
+
+    参数：
+      wiki_url_or_token — 飞书 wiki 页面 URL 或 token。
+        支持完整 URL：https://xxx.feishu.cn/wiki/Qo4nwLphWiWZyfkGAHHcoHwQnEf
+        也支持裸 token：Qo4nwLphWiWZyfkGAHHcoHwQnEf
+
+    返回页面的纯文本内容。
+    """
+    try:
+        kb = FeishuKnowledge()
+        content = kb.read_page(wiki_url_or_token)
+        return content or "（页面内容为空）"
+    except Exception as e:
+        logger.error(f"[feishu_read_page] {e}")
+        return f"读取失败：{e}"
 
 
+# --------------------------------------------------------------------------- #
+# 飞书知识库 — 写（追加）
+# --------------------------------------------------------------------------- #
 @tool
-def read_feishu_knowledge(query: str) -> str:
-    """从飞书知识库检索相关内容。query: 搜索关键词。"""
-    kb = FeishuKnowledge()
-    results = kb.search(query)
-    if not results:
-        return "知识库中未找到相关内容。"
-    return "\n\n---\n\n".join(results[:3])
+def feishu_append_to_page(wiki_url_or_token: str, content: str) -> str:
+    """
+    向飞书知识库页面末尾追加文本内容，不影响已有内容。
+
+    参数：
+      wiki_url_or_token — 飞书 wiki 页面 URL 或 token
+      content           — 要追加的文本（支持多行）
+
+    适用场景：记录新信息、追加日志、在已有文档末尾补充内容。
+    """
+    try:
+        kb = FeishuKnowledge()
+        kb.append_to_page(wiki_url_or_token, content)
+        return "内容已追加到飞书页面。"
+    except Exception as e:
+        logger.error(f"[feishu_append_to_page] {e}")
+        return f"追加失败：{e}"
 
 
+# --------------------------------------------------------------------------- #
+# 飞书知识库 — 写（覆盖）
+# --------------------------------------------------------------------------- #
 @tool
-def write_feishu_knowledge(title: str, content: str) -> str:
-    """在飞书知识库新建或更新页面。"""
-    kb = FeishuKnowledge()
-    url = kb.create_or_update_page(title=title, content=content)
-    return f"已保存至飞书知识库：{url}"
+def feishu_overwrite_page(wiki_url_or_token: str, content: str) -> str:
+    """
+    清空飞书知识库页面并写入新内容（覆盖模式）。
+
+    参数：
+      wiki_url_or_token — 飞书 wiki 页面 URL 或 token
+      content           — 新的完整内容（会替换页面所有原有内容）
+
+    注意：此操作不可撤销，原有内容将被清除。
+    适用场景：更新上下文快照、重写文档、定期刷新页面内容。
+    """
+    try:
+        kb = FeishuKnowledge()
+        kb.overwrite_page(wiki_url_or_token, content)
+        return "飞书页面内容已覆盖更新。"
+    except Exception as e:
+        logger.error(f"[feishu_overwrite_page] {e}")
+        return f"覆盖写入失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 飞书知识库 — 搜索
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_search_wiki(query: str) -> str:
+    """
+    在飞书知识库（AI上下文页面）中搜索包含关键词的内容。
+
+    参数：
+      query — 搜索关键词
+
+    返回匹配的页面内容摘要。若无匹配则返回提示。
+    适用场景：查找历史记录、检索已记录的信息。
+    """
+    try:
+        kb = FeishuKnowledge()
+        results = kb.search(query)
+        if not results:
+            return f"知识库中未找到包含「{query}」的内容。"
+        return "\n\n---\n\n".join(results[:3])
+    except Exception as e:
+        logger.error(f"[feishu_search_wiki] {e}")
+        return f"搜索失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 飞书知识库 — 上下文快照同步
+# --------------------------------------------------------------------------- #
+@tool
+def sync_context_to_feishu() -> str:
+    """
+    将本地 SQLite 记忆（LangGraph checkpoints）快照同步到飞书知识库上下文页面。
+    自动覆盖更新，保持飞书页面与本地记忆同步。
+    """
+    try:
+        ContextSync().push_to_feishu()
+        return "本地上下文已同步至飞书知识库。"
+    except Exception as e:
+        logger.error(f"[sync_context_to_feishu] {e}")
+        return f"同步失败：{e}"
 
 
 # --------------------------------------------------------------------------- #
@@ -49,23 +133,31 @@ def write_feishu_knowledge(title: str, content: str) -> str:
 @tool
 def get_latest_meeting_docs(limit: int = 5) -> str:
     """从钉钉文档空间获取最新会议纪要列表。"""
-    docs = DingTalkDocs()
-    items = docs.list_recent_files(limit=limit)
-    if not items:
-        return "暂无会议文档。"
-    lines = [f"- [{d['name']}]({d['url']})  {d['updated_at']}" for d in items]
-    return "\n".join(lines)
+    try:
+        docs = DingTalkDocs()
+        items = docs.list_recent_files(limit=limit)
+        if not items:
+            return "暂无会议文档。"
+        lines = [f"- [{d['name']}]({d['url']})  {d['updated_at']}" for d in items]
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error(f"[get_latest_meeting_docs] {e}")
+        return f"获取失败：{e}"
 
 
 @tool
 def read_meeting_doc(file_id: str) -> str:
     """读取钉钉文档完整文本内容。file_id: 文档 ID。"""
-    docs = DingTalkDocs()
-    return docs.read_file_content(file_id)
+    try:
+        docs = DingTalkDocs()
+        return docs.read_file_content(file_id)
+    except Exception as e:
+        logger.error(f"[read_meeting_doc] {e}")
+        return f"读取失败：{e}"
 
 
 # --------------------------------------------------------------------------- #
-# 自迭代：启动本机 Claude Code，全自动执行，回收结果
+# 自迭代：启动本机 Claude Code
 # --------------------------------------------------------------------------- #
 @tool
 def trigger_self_iteration(requirement: str) -> str:
@@ -79,7 +171,6 @@ def trigger_self_iteration(requirement: str) -> str:
     """
     logger.info(f"[自迭代] 启动 Claude Code，需求：{requirement[:100]}")
 
-    # 构造完整 prompt，含项目上下文
     prompt = f"""你正在开发 /root/ai-assistant 项目（AI 个人助理）。
 请根据以下需求进行开发，直到完成为止：
 
@@ -89,8 +180,8 @@ def trigger_self_iteration(requirement: str) -> str:
 
     cmd = [
         "claude",
-        "--dangerously-skip-permissions",  # 自动同意所有操作
-        "--print",                          # 非交互模式，输出后退出
+        "--dangerously-skip-permissions",
+        "--print",
         prompt,
     ]
 
@@ -100,32 +191,20 @@ def trigger_self_iteration(requirement: str) -> str:
             capture_output=True,
             text=True,
             cwd=PROJECT_DIR,
-            timeout=600,  # 最长等待 10 分钟
+            timeout=600,
             env={**os.environ, "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", "")},
         )
         output = result.stdout.strip()
         if result.returncode != 0:
             err = result.stderr.strip()[:500]
-            logger.error(f"[自迭代] Claude Code 退出码={result.returncode}: {err}")
+            logger.error(f"[自迭代] 退出码={result.returncode}: {err}")
             return f"Claude Code 执行失败（exit={result.returncode}）：\n{err}"
-
         logger.info(f"[自迭代] 完成，输出长度={len(output)}")
         return f"Claude Code 自迭代完成：\n\n{output[:3000]}"
-
     except subprocess.TimeoutExpired:
         return "Claude Code 超时（>10分钟），请检查需求是否过于复杂。"
     except FileNotFoundError:
-        return "未找到 claude 命令，请确认 Claude Code CLI 已安装（npm install -g @anthropic-ai/claude-code）。"
-
-
-# --------------------------------------------------------------------------- #
-# 上下文同步
-# --------------------------------------------------------------------------- #
-@tool
-def sync_context_to_feishu() -> str:
-    """将本地 SQLite 记忆快照同步到飞书知识库。"""
-    ContextSync().push_to_feishu()
-    return "本地上下文已同步至飞书知识库。"
+        return "未找到 claude 命令，请确认 Claude Code CLI 已安装。"
 
 
 # --------------------------------------------------------------------------- #
@@ -157,13 +236,20 @@ def run_shell_command(command: str) -> str:
         return "命令执行超时（>30s）"
 
 
+# --------------------------------------------------------------------------- #
+# 导出所有工具
+# --------------------------------------------------------------------------- #
 ALL_TOOLS = [
-    write_meeting_note,
-    read_feishu_knowledge,
-    write_feishu_knowledge,
+    # 飞书知识库
+    feishu_read_page,
+    feishu_append_to_page,
+    feishu_overwrite_page,
+    feishu_search_wiki,
+    sync_context_to_feishu,
+    # 钉钉文档
     get_latest_meeting_docs,
     read_meeting_doc,
+    # 系统
     trigger_self_iteration,
-    sync_context_to_feishu,
     run_shell_command,
 ]

@@ -18,8 +18,8 @@ class DingTalkDocs:
         """列出空间内最近更新的文件，按更新时间倒序。"""
         try:
             resp = dt_get(
-                f"/v1.0/doc/spaces/{self.space_id}/files",
-                params={"maxResults": limit, "orderBy": "modifiedTime", "order": "desc"},
+                f"/v1.0/drive/spaces/{self.space_id}/files",
+                params={"parentId": "0", "maxResults": limit, "orderBy": "modifiedTime", "order": "desc"},
             )
             files = resp.get("files", [])
             return [
@@ -38,7 +38,7 @@ class DingTalkDocs:
     def read_file_content(self, file_id: str) -> str:
         """读取钉钉文档的纯文本内容。"""
         try:
-            resp = dt_get(f"/v1.0/doc/documents/{file_id}/content")
+            resp = dt_get(f"/v1.0/drive/files/{file_id}/content")
             return resp.get("content", "") or resp.get("text", "")
         except Exception as e:
             logger.error(f"读取钉钉文档 {file_id} 失败: {e}")
