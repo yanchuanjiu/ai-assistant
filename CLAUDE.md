@@ -17,6 +17,8 @@
 ✅ SQLite 记忆  — data/memory.db，LangGraph checkpointer
 ✅ 定时任务      — 邮件5分钟/同步30分钟
 ✅ 飞书知识库  — 读写正常（docx API via get_node），context page 已配置
+✅ Claude Code 流式迭代 — session_manager，stream-json 实时推送到 IM
+✅ 无限制 CLI   — run_command（个人服务器，无白名单）
 ⚠️  钉钉文档    — /v1.0/doc/spaces API 404，路径待修复
 ⚠️  163 IMAP   — Unsafe Login，需重新开启邮箱 IMAP
 ```

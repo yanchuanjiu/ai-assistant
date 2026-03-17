@@ -31,6 +31,7 @@ _cfg = DingTalkBotSettings()
 class _BotHandler(_ChatbotHandlerBase):
     def process(self, callback: dingtalk_stream.CallbackMessage):
         from graph.agent import invoke  # 延迟导入避免循环
+        from integrations.claude_code.session import reply_fn_registry, session_manager
 
         incoming = dingtalk_stream.ChatbotMessage.from_dict(callback.data)
         text = incoming.text.content.strip() if incoming.text else ""
@@ -40,13 +41,25 @@ class _BotHandler(_ChatbotHandlerBase):
 
         user_id = incoming.sender_staff_id or ""
         chat_id = incoming.conversation_id or user_id
+        thread_id = f"dingtalk:{chat_id}"
 
         logger.info(f"[钉钉流模式] user={user_id} msg={text[:80]}")
 
+        dt_bot = DingTalkBot()
+
+        # 注册 reply_fn
+        reply_fn_registry[thread_id] = lambda t, _uid=user_id: dt_bot.send_text(user_id=_uid, text=t)
+
+        # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────
+        if session_manager.get(thread_id):
+            session_manager.relay_input(thread_id, text)
+            self.reply_text("↩️ 已转发给 Claude", incoming)
+            return AckMessage.STATUS_OK, "OK"
+
+        # ── 正常 Agent 流程 ───────────────────────────────────────────
         # 先回复"处理中"避免钉钉超时重试（5秒限制）
         self.reply_text("处理中，请稍候...", incoming)
 
-        # 在新线程里跑 Agent，完成后用 REST API 发结果
         def run():
             try:
                 reply = invoke(
@@ -55,10 +68,10 @@ class _BotHandler(_ChatbotHandlerBase):
                     user_id=user_id,
                     chat_id=chat_id,
                 )
-                DingTalkBot().send_text(user_id=user_id, text=reply)
+                dt_bot.send_text(user_id=user_id, text=reply)
             except Exception as e:
                 logger.error(f"[钉钉] Agent 处理失败: {e}")
-                DingTalkBot().send_text(user_id=user_id, text=f"处理出错：{e}")
+                dt_bot.send_text(user_id=user_id, text=f"处理出错：{e}")
 
         threading.Thread(target=run, daemon=True).start()
         return AckMessage.STATUS_OK, "OK"

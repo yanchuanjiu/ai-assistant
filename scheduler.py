@@ -53,7 +53,7 @@ def _format_meeting(info: dict) -> str:
 
 
 def start():
-    scheduler.add_job(poll_email, "interval", minutes=5, id="email_poll")
+    scheduler.add_job(poll_email, "interval", minutes=60, id="email_poll")
     scheduler.add_job(sync_context, "interval", minutes=30, id="ctx_sync")
     scheduler.start()
     logger.info("Scheduler 已启动")

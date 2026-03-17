@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.5.0] - 2026-03-17
+
+### Added
+- **`integrations/claude_code/session.py`**：Claude Code 会话管理器
+  - `ClaudeCodeSession.start_streaming()` — 以 `--permission-mode acceptEdits --output-format stream-json --verbose` 启动 Claude，stream-json 实时解析并推送到 IM
+  - `SessionManager` 单例：管理活跃会话，支持多 thread 并发
+  - `reply_fn_registry`：全局 `{thread_id: send_fn}` 注册表，bot handler 注册，tool 读取
+- **`run_command` tool**：无白名单限制，执行任意 shell 命令（个人私有服务器）
+- **IM 交互会话**：用户在 Claude Code 执行期间发送的消息会被 relay_input 转发给 Claude stdin
+
+### Changed
+- **`trigger_self_iteration`**：改为异步流式模式，立即返回确认，执行进度实时推送 IM；降级同步模式作为兜底
+- **`run_shell_command`**（白名单版本）：已移除，替换为无限制的 `run_command`
+- **`graph/nodes.py`**：`tools_node` 执行前注入 `thread_id` 和 `send_fn` 到线程局部变量
+- **`integrations/feishu/bot.py`**：注册 `reply_fn_registry`；检测活跃 Claude 会话并拦截消息
+- **`integrations/dingtalk/bot.py`**：同上
+- **`integrations/email/imap_client.py`**：区分认证失败和连接失败，输出详细排查提示
+- **`scheduler.py`**：邮件轮询间隔从 5 分钟改为 60 分钟
+- **`prompts/system.md`**：更新工具描述，说明异步迭代和无限制 CLI 能力
+
+### Verified Working (2026-03-17)
+- ✅ `trigger_self_iteration` 异步启动，stream-json 流式推送到 IM mock
+- ✅ `run_command` 无限制执行（echo/git/python 等）
+- ✅ 所有 9 个工具正常导入
+- ✅ 邮件轮询间隔 60min
+- ✅ IMAP 错误日志详细化
+
+---
+
 ## [0.4.0] - 2026-03-17
 
 ### Added

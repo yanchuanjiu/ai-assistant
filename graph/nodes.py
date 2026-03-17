@@ -8,10 +8,26 @@ import os
 import re
 import json
 import logging
+import threading
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, ToolMessage, AIMessage
 from graph.state import AgentState
 from graph.tools import ALL_TOOLS
+
+# ------------------------------------------------------------------ #
+# Tool 执行上下文（线程局部变量，供工具读取当前会话信息）
+# ------------------------------------------------------------------ #
+_tool_ctx = threading.local()
+
+
+def set_tool_ctx(thread_id: str, send_fn):
+    _tool_ctx.thread_id = thread_id
+    _tool_ctx.send_fn = send_fn
+
+
+def get_tool_ctx() -> tuple[str | None, object]:
+    """返回 (thread_id, send_fn)。"""
+    return getattr(_tool_ctx, "thread_id", None), getattr(_tool_ctx, "send_fn", None)
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +139,13 @@ def agent_node(state: AgentState) -> dict:
 
 
 def tools_node(state: AgentState) -> dict:
+    from integrations.claude_code.session import reply_fn_registry
+
+    # 注入当前会话上下文，供 trigger_self_iteration 等工具使用
+    thread_id = f"{state['platform']}:{state['chat_id']}"
+    send_fn = reply_fn_registry.get(thread_id)
+    set_tool_ctx(thread_id, send_fn)
+
     last_msg = state["messages"][-1]
     tool_messages = []
     for call in last_msg.tool_calls:

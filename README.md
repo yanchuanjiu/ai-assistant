@@ -13,8 +13,10 @@
 | SQLite 记忆 | ✅ 正常 | `data/memory.db`，LangGraph checkpointer |
 | APScheduler 定时任务 | ✅ 运行中 | 邮件轮询5分钟/同步30分钟 |
 | 飞书知识库 | ✅ 正常 | 读写均可，docx API via `get_node` |
+| Claude Code 流式迭代 | ✅ 正常 | 异步执行，进度实时推送 IM |
+| 无限制 CLI | ✅ 正常 | `run_command`，个人服务器无白名单 |
 | 钉钉文档读取 | ⚠️ 待修复 | API 路径需确认 |
-| 163 IMAP 邮件 | ⚠️ 待修复 | 需在邮箱重新开启 IMAP |
+| 163 IMAP 邮件 | ⚠️ 待配置 | 需在 163 开启 IMAP 并更新授权码 |
 
 ## 功能概览
 
@@ -150,8 +152,8 @@ ai-assistant/
 | `sync_context_to_feishu` | 将本地 SQLite 记忆同步至飞书 |
 | `get_latest_meeting_docs` | 获取最新钉钉会议纪要列表 |
 | `read_meeting_doc` | 读取钉钉文档完整内容 |
-| `trigger_self_iteration` | 触发 Claude Code 自迭代开发 |
-| `run_shell_command` | 执行白名单 Shell 命令 |
+| `trigger_self_iteration` | 触发 Claude Code 异步迭代，进度实时推送 IM |
+| `run_command` | 执行任意 Shell 命令（无白名单，个人服务器） |
 
 ## LLM 策略
 

@@ -157,83 +157,80 @@ def read_meeting_doc(file_id: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# 自迭代：启动本机 Claude Code
+# 自迭代：异步启动 Claude Code，流式输出实时推送到 IM
 # --------------------------------------------------------------------------- #
 @tool
 def trigger_self_iteration(requirement: str) -> str:
     """
-    触发 Claude Code 自迭代开发。
+    触发 Claude Code 自迭代开发（异步）。
 
-    将需求描述传给本机 claude CLI，使用 --dangerously-skip-permissions 跳过
-    所有交互确认，自动完成文件编辑、命令执行等操作，返回执行摘要。
+    启动 claude CLI，以流式 JSON 模式运行，执行过程和结果实时通过 IM 推送给用户。
+    用户在 Claude 运行期间发送的消息会被转发给 Claude。
 
     requirement: 清晰的需求描述，包含目标、约束和验收标准。
     """
-    logger.info(f"[自迭代] 启动 Claude Code，需求：{requirement[:100]}")
+    from integrations.claude_code.session import session_manager
+    from graph.nodes import get_tool_ctx
 
-    prompt = f"""你正在开发 /root/ai-assistant 项目（AI 个人助理）。
-请根据以下需求进行开发，直到完成为止：
+    thread_id, send_fn = get_tool_ctx()
 
-{requirement}
+    if not thread_id:
+        logger.warning("[自迭代] 未获取到 thread_id，降级为同步模式")
+        return _trigger_sync(requirement)
 
-完成后输出：1) 修改了哪些文件  2) 做了什么  3) 如何验证"""
+    if not send_fn:
+        logger.warning(f"[自迭代] thread_id={thread_id} 无 send_fn，降级为同步模式")
+        return _trigger_sync(requirement)
 
-    cmd = [
-        "claude",
-        "--dangerously-skip-permissions",
-        "--print",
-        prompt,
-    ]
+    logger.info(f"[自迭代] 异步启动 thread={thread_id}，需求：{requirement[:80]}")
+    session_manager.start(thread_id, requirement, send_fn)
+    return "✅ Claude Code 已启动，正在执行中...\n执行过程将实时推送，期间你的消息可直接与 Claude 交互。"
 
+
+def _trigger_sync(requirement: str) -> str:
+    """降级同步模式：无 IM 推送，直接返回结果。"""
+    prompt = (
+        f"你正在开发 /root/ai-assistant 项目（AI 个人助理）。\n"
+        f"请根据以下需求进行开发，直到完成为止：\n\n{requirement}\n\n"
+        f"完成后输出：1) 修改了哪些文件  2) 做了什么  3) 如何验证"
+    )
     try:
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=PROJECT_DIR,
-            timeout=600,
-            env={**os.environ, "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY", "")},
+            ["claude", "--print", "--permission-mode", "acceptEdits", prompt],
+            capture_output=True, text=True, cwd=PROJECT_DIR, timeout=600,
+            env={**os.environ},
         )
         output = result.stdout.strip()
         if result.returncode != 0:
-            err = result.stderr.strip()[:500]
-            logger.error(f"[自迭代] 退出码={result.returncode}: {err}")
-            return f"Claude Code 执行失败（exit={result.returncode}）：\n{err}"
-        logger.info(f"[自迭代] 完成，输出长度={len(output)}")
-        return f"Claude Code 自迭代完成：\n\n{output[:3000]}"
+            return f"Claude Code 执行失败（exit={result.returncode}）：\n{result.stderr.strip()[:500]}"
+        return f"Claude Code 完成：\n\n{output[:3000]}"
     except subprocess.TimeoutExpired:
-        return "Claude Code 超时（>10分钟），请检查需求是否过于复杂。"
+        return "Claude Code 超时（>10分钟）。"
     except FileNotFoundError:
         return "未找到 claude 命令，请确认 Claude Code CLI 已安装。"
 
 
 # --------------------------------------------------------------------------- #
-# 本机 Shell（白名单）
+# 本机 Shell（无限制，个人私有服务器）
 # --------------------------------------------------------------------------- #
-SHELL_WHITELIST = (
-    "git ", "ls ", "cat ", "pwd", "echo ", "python ",
-    "pip ", "df ", "du ", "ps ", "which ", "find ",
-)
-
-
 @tool
-def run_shell_command(command: str) -> str:
+def run_command(command: str) -> str:
     """
-    在本机执行白名单内的 Shell 命令。
-    允许前缀：git / ls / cat / pwd / echo / python / pip / df / du / ps / which / find
+    在本机执行任意 Shell 命令（个人私有服务器，无限制）。
+    支持 git、ls、cat、python、pip、df、ps、find、curl 等所有命令。
+    超时 60 秒，输出截断至 3000 字符。
     """
-    stripped = command.strip()
-    if not any(stripped.startswith(p) for p in SHELL_WHITELIST):
-        return f"命令被拒绝：'{stripped}'\n允许的前缀：{', '.join(SHELL_WHITELIST)}"
     try:
         result = subprocess.run(
-            stripped, shell=True, capture_output=True, text=True,
-            timeout=30, cwd=PROJECT_DIR,
+            command, shell=True, capture_output=True, text=True,
+            timeout=60, cwd=PROJECT_DIR,
         )
         output = (result.stdout or result.stderr or "（无输出）").strip()
-        return output[:2000]
+        return output[:3000]
     except subprocess.TimeoutExpired:
-        return "命令执行超时（>30s）"
+        return "命令执行超时（>60s）"
+    except Exception as e:
+        return f"命令执行失败：{e}"
 
 
 # --------------------------------------------------------------------------- #
@@ -251,5 +248,5 @@ ALL_TOOLS = [
     read_meeting_doc,
     # 系统
     trigger_self_iteration,
-    run_shell_command,
+    run_command,
 ]

@@ -42,6 +42,7 @@ _lark_client = lark.Client.builder() \
 # --------------------------------------------------------------------------- #
 def _on_message(data: P2ImMessageReceiveV1) -> None:
     from graph.agent import invoke  # 延迟导入避免循环
+    from integrations.claude_code.session import reply_fn_registry, session_manager
 
     msg = data.event.message
     sender = data.event.sender
@@ -61,12 +62,22 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
     user_id = sender.sender_id.open_id or ""
     chat_id = msg.chat_id or ""
     message_id = msg.message_id or ""
+    thread_id = f"feishu:{chat_id}"
 
     logger.info(f"[飞书长连接] user={user_id} chat={chat_id} msg={text[:80]}")
 
     bot = FeishuBot()
 
-    # 在新线程里跑 Agent，避免阻塞 WebSocket 事件循环
+    # 注册 reply_fn（每次消息更新，确保 chat_id 绑定正确）
+    reply_fn_registry[thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
+
+    # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────────
+    if session_manager.get(thread_id):
+        session_manager.relay_input(thread_id, text)
+        bot.send_text(chat_id=chat_id, text="↩️ 已转发给 Claude")
+        return
+
+    # ── 正常 Agent 流程 ───────────────────────────────────────────────
     def run():
         processing_reaction_id = bot.add_reaction(message_id, "THUMBSUP")
         try:
