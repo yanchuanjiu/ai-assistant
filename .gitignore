@@ -1,4 +1,4 @@
-.env
+# .env intentionally tracked (private repo)
 data/
 __pycache__/
 *.pyc
