@@ -2,8 +2,13 @@
 工具函数，注册为 LangGraph tools，供 agent nodes 调用。
 """
 import os
+import re
 import subprocess
 import logging
+import textwrap
+import urllib.parse
+import urllib.request
+import html
 from langchain_core.tools import tool
 from integrations.feishu.knowledge import FeishuKnowledge
 from integrations.dingtalk.docs import DingTalkDocs
@@ -234,6 +239,264 @@ def run_command(command: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Claude Code 会话管理（tmux）
+# --------------------------------------------------------------------------- #
+@tool
+def list_claude_sessions() -> str:
+    """
+    列出当前所有活跃的 Claude Code tmux 会话。
+
+    返回每个会话的名称、对应的 IM 会话 ID、创建时间。
+    用于了解哪些 Claude 任务正在后台运行。
+    """
+    from integrations.claude_code.tmux_session import list_active_sessions
+    sessions = list_active_sessions()
+    if not sessions:
+        return "当前没有活跃的 Claude Code 会话。"
+    lines = ["活跃的 Claude Code 会话："]
+    for s in sessions:
+        lines.append(f"  • {s['session_name']}  thread={s['thread_id']}  创建于={s['created']}")
+    lines.append("\n可用 `tmux attach -t {session_name}` 直接查看会话。")
+    return "\n".join(lines)
+
+
+@tool
+def get_claude_session_output(thread_id: str, lines: int = 80) -> str:
+    """
+    获取指定 Claude Code 会话的最近输出内容。
+
+    参数：
+      thread_id — IM 会话 ID（如 feishu:oc_xxx），或 tmux session 名称
+      lines     — 获取最近多少行（默认 80）
+
+    适用于查看 Claude Code 当前执行进度或排查问题。
+    """
+    from integrations.claude_code.tmux_session import _sessions, _safe_name, _tmux
+    # 尝试在内存会话中查找
+    session = _sessions.get(thread_id)
+    if session:
+        return session.get_recent_output(lines)
+    # 尝试用 tmux 直接查
+    name = thread_id if thread_id.startswith("ai-claude-") else _safe_name(thread_id)
+    rc, out = _tmux("capture-pane", "-t", name, "-p", f"-{lines}")
+    if rc == 0:
+        return out.strip() or "（屏幕内容为空）"
+    return f"未找到会话 {thread_id}，请先用 list_claude_sessions 确认会话名称。"
+
+
+@tool
+def kill_claude_session(thread_id: str) -> str:
+    """
+    强制终止指定的 Claude Code tmux 会话。
+
+    参数：
+      thread_id — IM 会话 ID 或 tmux session 名称
+
+    适用场景：Claude 陷入循环、任务需要中止、重新下发新需求。
+    """
+    from integrations.claude_code.tmux_session import _sessions, _sessions_lock, _safe_name, _tmux
+    with _sessions_lock:
+        session = _sessions.pop(thread_id, None)
+    if session:
+        session._stop.set()
+        _tmux("kill-session", "-t", session.session_name)
+        return f"✅ 已终止会话 {session.session_name}。"
+    # 尝试直接 kill tmux session
+    name = thread_id if thread_id.startswith("ai-claude-") else _safe_name(thread_id)
+    rc, out = _tmux("kill-session", "-t", name)
+    if rc == 0:
+        return f"✅ 已终止 tmux 会话 {name}。"
+    return f"未找到会话 {thread_id}。当前活跃会话：{[s['session_name'] for s in __import__('integrations.claude_code.tmux_session', fromlist=['list_active_sessions']).list_active_sessions()]}"
+
+
+@tool
+def send_claude_input(thread_id: str, text: str) -> str:
+    """
+    向正在运行的 Claude Code 会话发送输入文本。
+
+    参数：
+      thread_id — IM 会话 ID 或 tmux session 名称
+      text      — 要发送的内容（Claude 的问题回答、追加指令等）
+
+    注意：仅对交互模式有效；stream-json 模式下 Claude 不读 stdin。
+    适合在 Claude 询问用户时提供回答。
+    """
+    from integrations.claude_code.tmux_session import session_manager, _safe_name, _tmux
+    ok = session_manager.relay_input(thread_id, text)
+    if ok:
+        return f"✅ 已向 {thread_id} 发送输入。"
+    # 尝试直接 tmux send-keys
+    name = thread_id if thread_id.startswith("ai-claude-") else _safe_name(thread_id)
+    rc, _ = _tmux("send-keys", "-t", name, text, "Enter")
+    if rc == 0:
+        return f"✅ 已通过 tmux 向 {name} 发送输入。"
+    return f"发送失败：会话 {thread_id} 不存在或未运行。"
+
+
+# --------------------------------------------------------------------------- #
+# Web 工具
+# --------------------------------------------------------------------------- #
+@tool
+def web_search(query: str, num_results: int = 5) -> str:
+    """
+    在网络上搜索信息，返回摘要结果列表。
+
+    参数：
+      query       — 搜索关键词（支持中英文）
+      num_results — 返回结果数量（默认 5，最多 10）
+
+    返回搜索结果标题、URL 和摘要。
+    """
+    num_results = min(int(num_results), 10)
+    try:
+        # 使用 DuckDuckGo lite（无需 API key）
+        encoded = urllib.parse.quote_plus(query)
+        url = f"https://duckduckgo.com/lite/?q={encoded}&kl=cn-zh"
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; AI-Assistant/1.0)"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+
+        # 解析结果：从 HTML 提取标题、链接、摘要
+        results = []
+        # DuckDuckGo lite 返回 <a class="result-link"> 和 <td class="result-snippet">
+        link_pat = re.compile(r'<a[^>]+class="result-link"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>', re.I)
+        snip_pat = re.compile(r'<td[^>]+class="result-snippet"[^>]*>(.*?)</td>', re.I | re.S)
+        links = link_pat.findall(body)
+        snips = snip_pat.findall(body)
+        for i, (href, title) in enumerate(links[:num_results]):
+            snip = snips[i] if i < len(snips) else ""
+            snip = re.sub(r"<[^>]+>", "", snip).strip()
+            snip = html.unescape(snip)[:200]
+            title = html.unescape(title.strip())
+            results.append(f"{i+1}. **{title}**\n   {href}\n   {snip}")
+
+        if not results:
+            return f"未找到关于「{query}」的搜索结果。"
+        return f"搜索「{query}」的结果：\n\n" + "\n\n".join(results)
+
+    except Exception as e:
+        logger.warning(f"[web_search] DuckDuckGo 失败: {e}，尝试 curl")
+        # fallback: 通过 run_command 调用 curl
+        try:
+            r = subprocess.run(
+                ["curl", "-s", "-L", "--max-time", "10",
+                 "-A", "Mozilla/5.0",
+                 f"https://duckduckgo.com/lite/?q={urllib.parse.quote_plus(query)}"],
+                capture_output=True, text=True, timeout=15,
+            )
+            if r.returncode == 0 and r.stdout:
+                # 简单提取文本
+                text = re.sub(r"<[^>]+>", " ", r.stdout)
+                text = re.sub(r"\s+", " ", text).strip()
+                return f"搜索「{query}」（原始文本）：\n\n{text[:2000]}"
+        except Exception:
+            pass
+        return f"搜索失败：{e}"
+
+
+@tool
+def web_fetch(url: str, max_chars: int = 3000) -> str:
+    """
+    获取指定 URL 的网页内容（提取纯文本，去除 HTML 标签）。
+
+    参数：
+      url       — 要访问的网址
+      max_chars — 返回的最大字符数（默认 3000）
+
+    适用场景：阅读文档、新闻、技术文章、API 参考等。
+    """
+    max_chars = min(int(max_chars), 8000)
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; AI-Assistant/1.0)"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+        # 去除 script/style/head
+        body = re.sub(r"<(script|style|head)[^>]*>.*?</\1>", "", body, flags=re.I | re.S)
+        # 去除 HTML 标签
+        text = re.sub(r"<[^>]+>", " ", body)
+        # 合并空白
+        text = re.sub(r"\s+", " ", html.unescape(text)).strip()
+        return text[:max_chars] + ("..." if len(text) > max_chars else "")
+    except Exception as e:
+        logger.error(f"[web_fetch] {url}: {e}")
+        return f"获取失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# Python 代码执行
+# --------------------------------------------------------------------------- #
+@tool
+def python_execute(code: str) -> str:
+    """
+    在本机执行 Python 代码片段并返回输出。
+
+    参数：
+      code — Python 代码（支持多行，可 import 任何已安装包）
+
+    适用场景：数据处理、计算、调用 Python 库、快速验证逻辑。
+    超时 30 秒，stdout+stderr 合并返回，截断至 3000 字符。
+    """
+    try:
+        result = subprocess.run(
+            ["python3", "-c", code],
+            capture_output=True, text=True,
+            timeout=30, cwd=PROJECT_DIR,
+        )
+        output = (result.stdout + result.stderr).strip()
+        return (output or "（无输出）")[:3000]
+    except subprocess.TimeoutExpired:
+        return "执行超时（>30s）"
+    except Exception as e:
+        return f"执行失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 系统状态
+# --------------------------------------------------------------------------- #
+@tool
+def get_system_status() -> str:
+    """
+    获取本机系统状态：CPU、内存、磁盘、运行进程概览。
+    用于监控服务器健康状况。
+    """
+    try:
+        r = subprocess.run(
+            "echo '=== CPU ===' && top -bn1 | head -5 && "
+            "echo '' && echo '=== 内存 ===' && free -h && "
+            "echo '' && echo '=== 磁盘 ===' && df -h / /root 2>/dev/null && "
+            "echo '' && echo '=== 进程 ===' && ps aux --sort=-%cpu | head -10",
+            shell=True, capture_output=True, text=True, timeout=10,
+        )
+        return (r.stdout + r.stderr).strip()[:3000]
+    except Exception as e:
+        return f"获取系统状态失败：{e}"
+
+
+@tool
+def get_service_status() -> str:
+    """
+    检查 AI 助理服务的运行状态：FastAPI 进程、tmux 会话、日志尾部。
+    """
+    try:
+        r = subprocess.run(
+            "echo '=== FastAPI 进程 ===' && ps aux | grep 'main.py\\|uvicorn' | grep -v grep && "
+            "echo '' && echo '=== 端口监听 ===' && ss -tlnp | grep 8000 && "
+            "echo '' && echo '=== Claude tmux 会话 ===' && tmux list-sessions 2>/dev/null | grep ai-claude || echo '无活跃 Claude 会话' && "
+            "echo '' && echo '=== 最近日志 ===' && tail -20 logs/app.log 2>/dev/null || echo '日志文件不存在'",
+            shell=True, capture_output=True, text=True, timeout=10, cwd=PROJECT_DIR,
+        )
+        return (r.stdout + r.stderr).strip()[:3000]
+    except Exception as e:
+        return f"获取服务状态失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
 # 导出所有工具
 # --------------------------------------------------------------------------- #
 ALL_TOOLS = [
@@ -246,7 +509,19 @@ ALL_TOOLS = [
     # 钉钉文档
     get_latest_meeting_docs,
     read_meeting_doc,
-    # 系统
+    # Claude Code 管理（tmux）
     trigger_self_iteration,
+    list_claude_sessions,
+    get_claude_session_output,
+    kill_claude_session,
+    send_claude_input,
+    # Web
+    web_search,
+    web_fetch,
+    # 代码执行
+    python_execute,
+    # 系统
     run_command,
+    get_system_status,
+    get_service_status,
 ]
