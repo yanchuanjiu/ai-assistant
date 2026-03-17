@@ -1,0 +1,14 @@
+INFO:     Started server process [12822]
+INFO:     Waiting for application startup.
+2026-03-17 15:15:49,468 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-17 15:15:49,468 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-17 15:15:49,469 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-17 15:15:49,469 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-17 15:15:49,469 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-17 15:15:49,469 [INFO] scheduler: Scheduler 已启动
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-03-17 15:15:49,732 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-17 15:15:49,733 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-17 15:15:49,982 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '2051ed74-21d1-11f1-8b7d-62521a28f68a'}
+2026-03-17 15:15:51,459 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...

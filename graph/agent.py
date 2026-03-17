@@ -1,15 +1,18 @@
 """
 LangGraph 主图：ReAct agent with SQLite checkpointing。
 
-流程：
-  START → agent → [tool_calls?] → tools → agent → ... → respond → END
+流程：START → agent → [tool_calls?] → tools → agent → ... → END
+消息发送由各平台 bot 模块负责，图本身只负责推理和工具调用。
 """
+from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 from graph.state import AgentState
-from graph.nodes import agent_node, tools_node, respond_node, should_continue
+from graph.nodes import agent_node, tools_node, should_continue
 
-# SQLite checkpointer（短/长期记忆持久化）
+import os
+os.makedirs("data", exist_ok=True)
+
 checkpointer = SqliteSaver.from_conn_string("data/memory.db")
 
 
@@ -18,29 +21,27 @@ def build_graph():
 
     g.add_node("agent", agent_node)
     g.add_node("tools", tools_node)
-    g.add_node("respond", respond_node)
 
     g.set_entry_point("agent")
 
     g.add_conditional_edges(
         "agent",
         should_continue,
-        {"tools": "tools", "respond": "respond"},
+        {"tools": "tools", "end": END},
     )
     g.add_edge("tools", "agent")
-    g.add_edge("respond", END)
 
     return g.compile(checkpointer=checkpointer)
 
 
-# 全局 graph 实例
 graph = build_graph()
 
 
 def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
-    """外部调用入口：传入用户消息，返回 AI 回复文本。"""
-    from langchain_core.messages import HumanMessage
-
+    """
+    外部调用入口：传入用户消息，返回 AI 回复文本。
+    消息发送由调用方（bot handler）负责。
+    """
     config = {"configurable": {"thread_id": f"{platform}:{chat_id}"}}
     state = {
         "messages": [HumanMessage(content=message)],

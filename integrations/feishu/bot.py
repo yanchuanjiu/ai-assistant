@@ -1,96 +1,129 @@
 """
-飞书机器人：
-- Webhook 事件接收（FastAPI router）
-- 主动发送消息
+飞书机器人 — 长连接模式（WebSocket，无需公网 Webhook）
+使用官方 lark-oapi SDK: pip install lark-oapi
 """
-import hashlib
-import hmac
 import json
 import logging
-import time
-import base64
-from fastapi import APIRouter, Request, Response
+import threading
+
+import lark_oapi as lark
+from lark_oapi.api.im.v1 import (
+    P2ImMessageReceiveV1,
+    CreateMessageRequest,
+    CreateMessageRequestBody,
+)
 from pydantic_settings import BaseSettings
-from integrations.feishu.client import feishu_post
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
 
 
-class BotSettings(BaseSettings):
-    feishu_verification_token: str = ""
-    feishu_encrypt_key: str = ""
+class FeishuBotSettings(BaseSettings):
+    feishu_app_id: str = ""
+    feishu_app_secret: str = ""
 
     class Config:
         env_file = ".env"
         extra = "ignore"
 
 
-_cfg = BotSettings()
+_cfg = FeishuBotSettings()
+
+# 全局 lark client（用于发消息）
+_lark_client = lark.Client.builder() \
+    .app_id(_cfg.feishu_app_id) \
+    .app_secret(_cfg.feishu_app_secret) \
+    .log_level(lark.LogLevel.WARNING) \
+    .build()
 
 
 # --------------------------------------------------------------------------- #
-# Webhook 入口
+# 消息处理
 # --------------------------------------------------------------------------- #
-@router.post("/feishu/webhook")
-async def feishu_webhook(request: Request):
-    body = await request.json()
-
-    # 1. URL 验证（首次配置时飞书发送 challenge）
-    if "challenge" in body:
-        return {"challenge": body["challenge"]}
-
-    # 2. 事件分发
-    schema = body.get("schema", "1.0")
-    if schema == "2.0":
-        event_type = body.get("header", {}).get("event_type", "")
-        event = body.get("event", {})
-    else:
-        event_type = body.get("event", {}).get("type", "")
-        event = body.get("event", {})
-
-    if event_type == "im.message.receive_v1":
-        await _handle_message(event)
-
-    return Response(status_code=200)
-
-
-async def _handle_message(event: dict):
+def _on_message(data: P2ImMessageReceiveV1) -> None:
     from graph.agent import invoke  # 延迟导入避免循环
 
-    msg = event.get("message", {})
-    sender = event.get("sender", {})
+    msg = data.event.message
+    sender = data.event.sender
 
-    msg_type = msg.get("message_type", "")
-    if msg_type != "text":
-        return  # 暂只处理文本
+    if msg.message_type != "text":
+        return
 
-    content = json.loads(msg.get("content", "{}"))
-    text = content.get("text", "").strip()
+    try:
+        content = json.loads(msg.content)
+        text = content.get("text", "").strip()
+    except Exception:
+        return
+
     if not text:
         return
 
-    user_id = sender.get("sender_id", {}).get("open_id", "")
-    chat_id = msg.get("chat_id", "")
+    user_id = sender.sender_id.open_id or ""
+    chat_id = msg.chat_id or ""
 
-    logger.info(f"[Feishu] user={user_id} chat={chat_id} msg={text[:80]}")
-    invoke(message=text, platform="feishu", user_id=user_id, chat_id=chat_id)
+    logger.info(f"[飞书长连接] user={user_id} chat={chat_id} msg={text[:80]}")
+
+    # 在新线程里跑 Agent，避免阻塞 WebSocket 事件循环
+    def run():
+        try:
+            reply = invoke(
+                message=text,
+                platform="feishu",
+                user_id=user_id,
+                chat_id=chat_id,
+            )
+            FeishuBot().send_text(chat_id=chat_id, text=reply)
+        except Exception as e:
+            logger.error(f"[飞书] Agent 处理失败: {e}")
+            FeishuBot().send_text(chat_id=chat_id, text=f"处理出错：{e}")
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 # --------------------------------------------------------------------------- #
-# 发送消息
+# 长连接客户端
+# --------------------------------------------------------------------------- #
+def start_feishu_longconn():
+    """启动飞书长连接，阻塞运行（在独立线程中调用）。"""
+    event_handler = (
+        lark.EventDispatcherHandler.builder("", "")
+        .register_p2_im_message_receive_v1(_on_message)
+        .build()
+    )
+
+    ws_client = lark.ws.Client(
+        _cfg.feishu_app_id,
+        _cfg.feishu_app_secret,
+        event_handler=event_handler,
+        log_level=lark.LogLevel.WARNING,
+    )
+
+    logger.info("[飞书] 长连接启动中...")
+    ws_client.start()  # 阻塞
+
+
+# --------------------------------------------------------------------------- #
+# 发消息（REST API）
 # --------------------------------------------------------------------------- #
 class FeishuBot:
     def send_text(self, chat_id: str, text: str):
-        feishu_post(
-            "/im/v1/messages",
-            json={
-                "receive_id": chat_id,
-                "msg_type": "text",
-                "content": json.dumps({"text": text}),
-            },
-        )
+        if not chat_id:
+            logger.warning("[飞书] chat_id 为空，跳过发送")
+            return
 
-    def send_markdown(self, chat_id: str, markdown: str):
-        """飞书卡片形式发送 Markdown 内容（富文本降级为 text）。"""
-        self.send_text(chat_id, markdown)
+        request = (
+            CreateMessageRequest.builder()
+            .receive_id_type("chat_id")
+            .request_body(
+                CreateMessageRequestBody.builder()
+                .receive_id(chat_id)
+                .msg_type("text")
+                .content(json.dumps({"text": text}, ensure_ascii=False))
+                .build()
+            )
+            .build()
+        )
+        resp = _lark_client.im.v1.message.create(request)
+        if not resp.success():
+            logger.error(
+                f"[飞书] 发消息失败: code={resp.code} msg={resp.msg}"
+            )
