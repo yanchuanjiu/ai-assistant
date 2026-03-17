@@ -2,7 +2,7 @@
 
 > 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书/钉钉机器人对话交互（长连接，无需公网），自动处理会议纪要、读写飞书知识库，并支持通过自然语言驱动 Claude Code 完成自迭代开发。
 
-## 当前状态
+## 当前状态（v0.5.0）
 
 | 组件 | 状态 | 说明 |
 |------|------|------|
@@ -11,9 +11,9 @@
 | 火山云 Ark LLM | ✅ 正常 | `ep-20260317143459-qtgqn` |
 | OpenRouter fallback | ✅ 就绪 | 火山云失败时自动切换 |
 | SQLite 记忆 | ✅ 正常 | `data/memory.db`，LangGraph checkpointer |
-| APScheduler 定时任务 | ✅ 运行中 | 邮件轮询5分钟/同步30分钟 |
+| APScheduler 定时任务 | ✅ 运行中 | 邮件轮询60分钟/同步30分钟 |
 | 飞书知识库 | ✅ 正常 | 读写均可，docx API via `get_node` |
-| Claude Code 流式迭代 | ✅ 正常 | 异步执行，进度实时推送 IM |
+| Claude Code 流式迭代 | ✅ 正常 | 异步执行，进度实时推送 IM，用户可交互 |
 | 无限制 CLI | ✅ 正常 | `run_command`，个人服务器无白名单 |
 | 钉钉文档读取 | ⚠️ 待修复 | API 路径需确认 |
 | 163 IMAP 邮件 | ⚠️ 待配置 | 需在 163 开启 IMAP 并更新授权码 |
@@ -28,8 +28,8 @@
 | 上下文同步 | 本地 SQLite 记忆定期推送至飞书知识库页面 |
 | 会议处理 | 163邮箱轮询 → LLM 提取会议信息 → 写入飞书知识库 |
 | 钉钉文档 | 读取钉钉文档空间的会议纪要 |
-| 自迭代开发 | Agent 向本机 Claude Code CLI 下发需求，自动完成开发并回收结果 |
-| 本机操作 | 白名单内执行 git/ls/python 等 shell 命令 |
+| 自迭代开发 | Agent 向本机 Claude Code CLI 下发需求，流式进度推送到 IM，支持 IM 消息实时交互 |
+| 本机操作 | 执行任意 shell 命令（`run_command`，无白名单） |
 
 ## 系统架构
 
@@ -40,11 +40,27 @@
                         SQLite 记忆            │
                     (LangGraph Checkpointer)   ├── 飞书知识库（读/追加/覆盖/搜索）
                                               ├── 钉钉文档
-APScheduler ──► 邮件轮询                       ├── Claude Code CLI（自迭代）
-             └► 上下文同步 ──────────────────► └── Shell 命令（白名单）
+APScheduler ──► 邮件轮询60min                  ├── Claude Code CLI（自迭代，流式推送）
+             └► 上下文同步30min ─────────────► └── Shell 命令（无限制）
 
-LLM 链：火山云 Ark ──(失败)──► OpenRouter (Claude/GPT-4o)
-Claude API：仅供 Claude Code CLI，不作为 agent LLM
+LLM 链：火山云 Ark ──(失败)──► OpenRouter (anthropic/claude-sonnet-4-5)
+Claude API：仅供 Claude Code CLI 自身使用（OAuth session token）
+```
+
+### Claude Code 流式迭代架构
+
+```
+用户发消息给 IM
+  ↓
+bot._on_message()
+  → 注册 reply_fn_registry[thread_id] = bot.send_text
+  → 检查是否有活跃 Claude 会话 → 有则 relay_input(stdin) 并返回
+  → 否则 invoke(agent)
+      → tools_node: set_tool_ctx(thread_id, send_fn)
+          → trigger_self_iteration: 读取 get_tool_ctx()
+              → session_manager.start(thread_id, requirement, send_fn)
+                  → ClaudeCodeSession.start_streaming()
+                      → 后台线程解析 stream-json → send_fn → IM 推送
 ```
 
 ## 飞书知识库权限说明
@@ -52,7 +68,7 @@ Claude API：仅供 Claude Code CLI，不作为 agent LLM
 飞书 Wiki Space API 不支持 `tenant_access_token`（需要用户 OAuth），但**单个文档的 docx API 可以通过 tenant token 直接读写**，只需：
 
 1. 在飞书页面的「文档权限 → 可管理应用」里添加该应用
-2. 通过 `GET /wiki/v2/spaces/get_node` 将 wiki token 转为 `obj_token`
+2. 通过 `GET /wiki/v2/spaces/get_node?token=WIKI_TOKEN` 将 wiki token 转为 `obj_token`
 3. 用 docx API 对 `obj_token` 进行读写
 
 配置：在 `.env` 中填写 `FEISHU_WIKI_CONTEXT_PAGE`（wiki URL 末尾的 token）。
@@ -63,7 +79,7 @@ Claude API：仅供 Claude Code CLI，不作为 agent LLM
 
 - Python 3.11+
 - Node.js 20+（用于 Claude Code CLI）
-- Claude Code CLI（`claude --version` 确认已安装）
+- Claude Code CLI（`claude --version` 确认已安装，已登录 OAuth session）
 
 ### 安装
 
@@ -86,9 +102,8 @@ cp .env.example .env
 **飞书知识库关键配置：**
 
 ```bash
-# 在飞书新建一个专用页面（如「AI助理上下文」），从 URL /wiki/XXXX 取 token
 FEISHU_WIKI_SPACE_ID=7618158120166034630
-FEISHU_WIKI_CONTEXT_PAGE=FalZwGDOkiqpbQkeAjGc8jaznMd
+FEISHU_WIKI_CONTEXT_PAGE=FalZwGDOkiqpbQkeAjGc8jaznMd  # AI助理上下文快照页
 ```
 
 ### 启动
@@ -102,6 +117,9 @@ nohup python main.py > logs/app.log 2>&1 &
 
 # 健康检查
 curl http://localhost:8000/health
+
+# 重启（改完代码后）
+kill $(lsof -ti:8000) 2>/dev/null; python main.py &
 ```
 
 ## 项目结构
@@ -109,24 +127,30 @@ curl http://localhost:8000/health
 ```
 ai-assistant/
 ├── main.py                  # FastAPI 入口 + 启动两个平台连接器
-├── scheduler.py             # 定时任务（邮件轮询 / 上下文同步）
+├── scheduler.py             # 定时任务（邮件轮询60min / 上下文同步30min）
 ├── requirements.txt
-├── .env.example             # 配置模板（勿将 .env 提交）
-├── CLAUDE.md                # Claude Code 自迭代上下文
+├── .env                     # 凭据（私有仓库，不公开）
+├── .env.example             # 配置模板
+├── CLAUDE.md                # Claude Code 自迭代上下文（首要参考）
 ├── CHANGELOG.md             # 版本迭代记录
 │
 ├── graph/                   # LangGraph Agent
 │   ├── agent.py             # 图定义 + SQLite checkpointer
-│   ├── nodes.py             # 节点（LLM调用 / 工具执行）
+│   ├── nodes.py             # 节点（LLM调用 / 工具执行 + tool context 注入）
 │   ├── state.py             # AgentState 定义
 │   └── tools.py             # 工具函数注册（9个工具）
 │
 ├── integrations/
 │   ├── feishu/              # 飞书：长连接机器人 + 知识库读写
-│   │   ├── bot.py           # 长连接消息处理
+│   │   ├── bot.py           # 长连接消息处理 + reply_fn 注册 + 会话拦截
 │   │   ├── client.py        # tenant_access_token + HTTP 封装
 │   │   └── knowledge.py     # wiki 读写（docx API via get_node）
 │   ├── dingtalk/            # 钉钉：流模式机器人 + 文档空间
+│   │   ├── bot.py           # 流模式消息处理 + 会话拦截
+│   │   ├── client.py        # DingTalk OAuth token
+│   │   └── docs.py          # 文档空间读取（API 路径待修复）
+│   ├── claude_code/         # Claude Code 会话管理
+│   │   └── session.py       # ClaudeCodeSession + SessionManager + reply_fn_registry
 │   ├── email/               # 163 IMAP 轮询 + 会议信息提取
 │   └── storage/             # 文件存储抽象（LocalStorage / 待接 OSS）
 │
@@ -141,7 +165,7 @@ ai-assistant/
     └── development.md       # 开发指南
 ```
 
-## Agent 工具列表
+## Agent 工具列表（9个）
 
 | 工具 | 描述 |
 |------|------|
@@ -152,7 +176,7 @@ ai-assistant/
 | `sync_context_to_feishu` | 将本地 SQLite 记忆同步至飞书 |
 | `get_latest_meeting_docs` | 获取最新钉钉会议纪要列表 |
 | `read_meeting_doc` | 读取钉钉文档完整内容 |
-| `trigger_self_iteration` | 触发 Claude Code 异步迭代，进度实时推送 IM |
+| `trigger_self_iteration` | 触发 Claude Code 异步迭代，进度实时推送 IM，支持 IM 交互 |
 | `run_command` | 执行任意 Shell 命令（无白名单，个人服务器） |
 
 ## LLM 策略
@@ -162,7 +186,7 @@ ai-assistant/
                 ↓ 失败/超时（30s）
            OpenRouter（anthropic/claude-sonnet-4-5）
 
-Claude API → 仅 claude CLI 自迭代，env: ANTHROPIC_API_KEY
+Claude Code CLI → 独立使用 OAuth session token（不依赖 ANTHROPIC_API_KEY）
 ```
 
 ## 自迭代开发
@@ -171,14 +195,16 @@ Claude API → 仅 claude CLI 自迭代，env: ANTHROPIC_API_KEY
 
 > "帮我新增一个工具，每天早上9点自动从钉钉拉取昨天的会议纪要发给我"
 
-Agent 调用 `trigger_self_iteration`，在本机启动 `claude --dangerously-skip-permissions`，自动完成代码修改后汇报结果。
+Agent 调用 `trigger_self_iteration`，在本机启动 Claude Code（`--permission-mode acceptEdits`），执行进度实时推送到 IM。在 Claude 运行期间，用户发送的消息会被转发给 Claude stdin，实现移动端远程交互。
+
+**重要**：Claude Code 子进程必须排除 `ANTHROPIC_API_KEY`，否则会覆盖 OAuth session 导致 401 认证失败。
 
 ## 待完成事项
 
 - [ ] 修复钉钉文档 API 路径（`/v1.0/doc/spaces` 404 待查）
-- [ ] 163 邮箱重新开启 IMAP 并更新授权码
+- [ ] 163 邮箱重新开启 IMAP 并更新授权码（`.env EMAIL_AUTH_CODE`）
 - [ ] 火山云 OSS 文件存储接入
-- [ ] 飞书知识库语义搜索
+- [ ] 飞书知识库语义搜索（当前为关键词匹配）
 
 ## 文档
 
@@ -187,6 +213,7 @@ Agent 调用 `trigger_self_iteration`，在本机启动 `claude --dangerously-sk
 - [开发指南](docs/development.md)
 - [集成平台说明](docs/integrations.md)
 - [版本记录](CHANGELOG.md)
+- [自迭代上下文](CLAUDE.md)
 
 ## License
 
