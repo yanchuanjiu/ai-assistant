@@ -1,0 +1,56 @@
+"""
+LangGraph 主图：ReAct agent with SQLite checkpointing。
+
+流程：
+  START → agent → [tool_calls?] → tools → agent → ... → respond → END
+"""
+from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.sqlite import SqliteSaver
+from graph.state import AgentState
+from graph.nodes import agent_node, tools_node, respond_node, should_continue
+
+# SQLite checkpointer（短/长期记忆持久化）
+checkpointer = SqliteSaver.from_conn_string("data/memory.db")
+
+
+def build_graph():
+    g = StateGraph(AgentState)
+
+    g.add_node("agent", agent_node)
+    g.add_node("tools", tools_node)
+    g.add_node("respond", respond_node)
+
+    g.set_entry_point("agent")
+
+    g.add_conditional_edges(
+        "agent",
+        should_continue,
+        {"tools": "tools", "respond": "respond"},
+    )
+    g.add_edge("tools", "agent")
+    g.add_edge("respond", END)
+
+    return g.compile(checkpointer=checkpointer)
+
+
+# 全局 graph 实例
+graph = build_graph()
+
+
+def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
+    """外部调用入口：传入用户消息，返回 AI 回复文本。"""
+    from langchain_core.messages import HumanMessage
+
+    config = {"configurable": {"thread_id": f"{platform}:{chat_id}"}}
+    state = {
+        "messages": [HumanMessage(content=message)],
+        "platform": platform,
+        "user_id": user_id,
+        "chat_id": chat_id,
+        "intent": None,
+        "skill_result": None,
+        "error": None,
+    }
+    result = graph.invoke(state, config=config)
+    last = result["messages"][-1]
+    return last.content if isinstance(last.content, str) else str(last.content)

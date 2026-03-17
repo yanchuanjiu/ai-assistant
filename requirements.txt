@@ -1,0 +1,14 @@
+anthropic>=0.40.0
+langgraph>=0.2.50
+langchain-anthropic>=0.3.0
+langchain-openai>=0.3.0
+langchain-core>=0.3.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+apscheduler>=3.10.0
+python-dotenv>=1.0.0
+imapclient>=3.0.1
+httpx>=0.28.0
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+python-multipart>=0.0.20
