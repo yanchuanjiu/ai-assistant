@@ -4,16 +4,19 @@ LangGraph 主图：ReAct agent with SQLite checkpointing。
 流程：START → agent → [tool_calls?] → tools → agent → ... → END
 消息发送由各平台 bot 模块负责，图本身只负责推理和工具调用。
 """
+import os
+import sqlite3
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 from graph.state import AgentState
 from graph.nodes import agent_node, tools_node, should_continue
 
-import os
 os.makedirs("data", exist_ok=True)
 
-checkpointer = SqliteSaver.from_conn_string("data/memory.db")
+# 直接用 sqlite3 连接初始化，避免 from_conn_string 返回 context manager
+_conn = sqlite3.connect("data/memory.db", check_same_thread=False)
+checkpointer = SqliteSaver(_conn)
 
 
 def build_graph():

@@ -14,3 +14,4 @@ pydantic-settings>=2.7.0
 python-multipart>=0.0.20
 lark-oapi>=1.5.0
 dingtalk-stream>=0.24.0
+langgraph-checkpoint-sqlite>=3.0.0
