@@ -153,20 +153,25 @@ class FeishuKnowledge:
             json={"start_index": 0, "end_index": child_count},
         )
 
-    def _append_text(self, obj_token: str, text: str):
-        """向文档末尾追加文本（按换行拆成段落块）。"""
+    def _append_text(self, obj_token: str, text: str, chunk_size: int = 40):
+        """向文档末尾追加文本（按换行拆成段落块，分批提交避免超限）。"""
+        import time
         lines = text.split("\n")
-        children = [
-            {
-                "block_type": 2,
-                "text": {
-                    "elements": [{"text_run": {"content": line}}],
-                    "style": {},
-                },
-            }
-            for line in lines
-        ]
-        feishu_post(
-            f"/docx/v1/documents/{obj_token}/blocks/{obj_token}/children",
-            json={"children": children, "index": -1},
-        )
+        for i in range(0, len(lines), chunk_size):
+            batch = lines[i : i + chunk_size]
+            children = [
+                {
+                    "block_type": 2,
+                    "text": {
+                        "elements": [{"text_run": {"content": line}}],
+                        "style": {},
+                    },
+                }
+                for line in batch
+            ]
+            feishu_post(
+                f"/docx/v1/documents/{obj_token}/blocks/{obj_token}/children",
+                json={"children": children, "index": -1},
+            )
+            if i + chunk_size < len(lines):
+                time.sleep(0.3)  # 防止限速
