@@ -119,10 +119,11 @@ def format_for_feishu(info: dict, doc_url: str = "") -> str:
 
 def write_to_feishu(info: dict, doc_url: str = "") -> str:
     """将分析结果追加到飞书会议纪要页面，返回写入结果描述。"""
-    meeting_page = os.getenv("FEISHU_WIKI_MEETING_PAGE", "")
+    from integrations.storage.config_store import get as cfg_get
+    meeting_page = cfg_get("FEISHU_WIKI_MEETING_PAGE") or os.getenv("FEISHU_WIKI_MEETING_PAGE", "")
     if not meeting_page:
         logger.warning("[MeetingAnalyzer] FEISHU_WIKI_MEETING_PAGE 未配置，跳过飞书写入")
-        return "FEISHU_WIKI_MEETING_PAGE 未配置"
+        return "FEISHU_WIKI_MEETING_PAGE 未配置，请通过 agent_config 工具设置"
 
     from integrations.feishu.knowledge import FeishuKnowledge
     content = format_for_feishu(info, doc_url)

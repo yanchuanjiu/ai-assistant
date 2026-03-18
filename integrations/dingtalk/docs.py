@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 class DingTalkDocs:
     def __init__(self, space_id: str = None):
-        self.space_id = space_id or _settings.dingtalk_docs_space_id
+        from integrations.storage.config_store import get as cfg_get
+        self.space_id = space_id or cfg_get("DINGTALK_DOCS_SPACE_ID") or _settings.dingtalk_docs_space_id
 
     def list_recent_files(self, limit: int = 20, keyword: str = None) -> list[dict]:
         """
@@ -85,18 +86,39 @@ class DingTalkDocs:
         }
 
     def read_file_content(self, file_id: str) -> str:
-        """读取钉钉文档的纯文本内容。"""
-        try:
-            resp = dt_get(f"/v1.0/wiki/nodes/{file_id}/content")
-            return resp.get("content", "") or resp.get("text", "")
-        except Exception as e:
-            logger.warning(f"[wiki/nodes/{file_id}/content] 失败: {e}，尝试 drive 接口")
-        try:
-            resp = dt_get(f"/v1.0/drive/files/{file_id}/content")
-            return resp.get("content", "") or resp.get("text", "")
-        except Exception as e2:
-            logger.error(f"读取钉钉文档 {file_id} 失败: {e2}")
-            return f"读取失败: {e2}"
+        """读取钉钉文档的纯文本内容。
+
+        优先使用 config_store 中已验证的 DINGTALK_WIKI_API_PATH（wiki 或 drive）。
+        若未配置，自动尝试两条路径，成功后将有效路径写入 config_store。
+        """
+        from integrations.storage.config_store import get as cfg_get, set as cfg_set
+
+        verified = cfg_get("DINGTALK_WIKI_API_PATH")  # "wiki" | "drive" | ""
+
+        paths = [
+            ("wiki", f"/v1.0/wiki/nodes/{file_id}/content"),
+            ("drive", f"/v1.0/drive/files/{file_id}/content"),
+        ]
+        # 已验证的路径排在最前
+        if verified == "drive":
+            paths = [paths[1], paths[0]]
+
+        last_err = None
+        for path_key, path in paths:
+            try:
+                resp = dt_get(path)
+                content = resp.get("content", "") or resp.get("text", "")
+                # 记录有效路径，避免下次重试
+                if verified != path_key:
+                    cfg_set("DINGTALK_WIKI_API_PATH", path_key)
+                    logger.info(f"[DingTalkDocs] 记录有效 API 路径: {path_key}")
+                return content
+            except Exception as e:
+                logger.warning(f"[{path}] 失败: {e}")
+                last_err = e
+
+        logger.error(f"读取钉钉文档 {file_id} 失败: {last_err}")
+        return f"读取失败: {last_err}"
 
     @staticmethod
     def _format_ts(ts) -> str:

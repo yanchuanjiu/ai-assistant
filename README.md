@@ -1,4 +1,4 @@
-# AI 个人助理（v0.7.1）
+# AI 个人助理（v0.7.2）
 
 > 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书 / 钉钉机器人对话，自动处理会议纪要、读写飞书知识库、搜索网络，并通过自然语言驱动 Claude Code 完成代码开发自迭代。
 
@@ -34,7 +34,7 @@
 │  处理：会议管理 / 知识库读写 / 网络搜索 /                  │
 │        系统运维 / 代码执行 / 开发需求路由                  │
 │                                                         │
-│  工具：26 个，渐进式披露（见下方工具表）                   │
+│  工具：27 个，渐进式披露（见下方工具表）                   │
 └───────────────────┬─────────────────────────────────────┘
                     │ 当任务=开发/代码改动时
                     │ 调用 trigger_self_iteration
@@ -70,14 +70,15 @@
 
 ---
 
-## 主 Agent 工具表（26 个）
+## 主 Agent 工具表（27 个）
 
-主 Agent 通过 LangGraph 的 ReAct 模式调用以下工具。采用**渐进式披露**：6 个核心工具每次必带，其余 20 个按消息关键词动态注入（节省约 87% token）。
+主 Agent 通过 LangGraph 的 ReAct 模式调用以下工具。采用**渐进式披露**：7 个核心工具每次必带，其余 20 个按消息关键词动态注入（节省约 87% token）。
 
-### 核心工具（6 个，每次必带）
+### 核心工具（7 个，每次必带）
 
 | 工具 | 用途 |
 |------|------|
+| `agent_config` | 运行时配置读写（get/set/delete/list），对话中直接配置，无需重启 |
 | `web_search` | DuckDuckGo 搜索（无需 API key） |
 | `web_fetch` | 获取任意 URL 的纯文本内容 |
 | `python_execute` | 直接执行 Python 代码片段（30s 超时） |
@@ -210,13 +211,14 @@
 
 ---
 
-## 当前运行状态（v0.7.1）
+## 当前运行状态（v0.7.2）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client）
 ✅ 钉钉机器人      — 流模式（dingtalk-stream）
 ✅ 火山云 LLM     — ep-20260317143459-qtgqn
 ✅ SQLite 记忆    — data/memory.db / data/meeting.db
+✅ 运行时配置      — agent_config 工具，对话中动态配置，无需重启
 ✅ 定时任务        — 钉钉会议30min / 邮件60min / 上下文同步30min
 ✅ 飞书知识库      — docx API via get_node（context page: FalZwGDOkiqpbQkeAjGc8jaznMd）
 ✅ 会议纪要闭环    — 钉钉知识库轮询 → LLM 分析 → 飞书写入（自动 + 按需）
@@ -227,10 +229,10 @@
 ✅ 代码执行        — python_execute + run_command（无白名单）
 ✅ 系统监控        — get_system_status / get_service_status
 ✅ 飞书扩展工具    — Bitable CRUD / 任务管理 / 文档搜索 / IM 消息读取
-✅ 渐进式工具披露  — 6 核心工具 + 按需动态注入（~87% token 节省）
+✅ 渐进式工具披露  — 7 核心工具 + 按需动态注入（~87% token 节省）
 
-⚠️  FEISHU_WIKI_MEETING_PAGE — 需在 .env 配置飞书会议纪要汇总页面 wiki token
-⚠️  钉钉文档内容读取 — /v1.0/wiki/nodes/{id}/content API 路径待验证
+⚠️  FEISHU_WIKI_MEETING_PAGE — 用 agent_config(set) 设置（无需重启）
+⚠️  钉钉文档内容读取 — 首次调用自动探测 API 路径并记忆
 ⚠️  163 IMAP     — 需重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```
 
@@ -315,8 +317,8 @@ tmux attach -t ai-claude-{session_name}
 
 ## 待完成事项
 
-- [ ] 配置 `FEISHU_WIKI_MEETING_PAGE`（在 .env 填入飞书会议纪要汇总页面 wiki token）
-- [ ] 验证钉钉文档内容读取 API（`/v1.0/wiki/nodes/{id}/content` 是否有效）
+- [ ] 设置 `FEISHU_WIKI_MEETING_PAGE`：在飞书新建汇总页面，然后在对话中发 `设置会议纪要页面为 <wiki_token>`
+- [ ] 钉钉文档 API 路径：首次调用 `read_meeting_doc` 后自动验证并记忆
 - [ ] 163 邮箱重新开启 IMAP 并更新 `EMAIL_AUTH_CODE`
 - [ ] 会议 action items 自动创建飞书任务（`feishu_task_task`）
 - [ ] 火山云 OSS 文件存储

@@ -1004,6 +1004,60 @@ def feishu_im_get_messages(
 
 
 # --------------------------------------------------------------------------- #
+# 运行时配置管理（长期记忆存储，无需重启）
+# --------------------------------------------------------------------------- #
+@tool
+def agent_config(action: str, key: str = "", value: str = "") -> str:
+    """
+    管理 Agent 运行时配置（持久化到 SQLite，优先级高于 .env，无需重启生效）。
+
+    action 可选：
+      get    — 读取指定 key 的值（key 必填）
+      set    — 写入 key=value（key、value 必填）
+      delete — 删除指定 key（key 必填）
+      list   — 列出所有配置项（key 可省略）
+
+    常用 key：
+      FEISHU_WIKI_MEETING_PAGE  — 飞书会议纪要汇总页面 wiki token（如 Qo4nwXxx）
+      DINGTALK_DOCS_SPACE_ID    — 钉钉知识库空间 ID
+      DINGTALK_WIKI_API_PATH    — 钉钉文档内容 API 路径（自动探测后写入：wiki 或 drive）
+
+    示例：
+      agent_config(action="set", key="FEISHU_WIKI_MEETING_PAGE", value="Qo4nwXxx")
+      agent_config(action="get", key="FEISHU_WIKI_MEETING_PAGE")
+      agent_config(action="list")
+    """
+    from integrations.storage.config_store import get as cfg_get, set as cfg_set, delete as cfg_del, list_all as cfg_list
+    import json
+
+    if action == "get":
+        if not key:
+            return "get 操作需要提供 key"
+        val = cfg_get(key)
+        return f"{key} = {val!r}" if val else f"{key} 未配置"
+    elif action == "set":
+        if not key or value == "":
+            return "set 操作需要提供 key 和 value"
+        cfg_set(key, value)
+        return f"已设置 {key} = {value!r}"
+    elif action == "delete":
+        if not key:
+            return "delete 操作需要提供 key"
+        existed = cfg_del(key)
+        return f"已删除 {key}" if existed else f"{key} 不存在"
+    elif action == "list":
+        data = cfg_list()
+        if not data:
+            return "暂无配置项"
+        lines = [f"共 {len(data)} 项："]
+        for k, v in data.items():
+            lines.append(f"  {k} = {v['value']!r}  （更新于 {v['updated_at'][:16]}）")
+        return "\n".join(lines)
+    else:
+        return f"未知 action: {action!r}，可选：get / set / delete / list"
+
+
+# --------------------------------------------------------------------------- #
 # 工具分类（渐进式披露）
 # --------------------------------------------------------------------------- #
 
@@ -1015,6 +1069,7 @@ CORE_TOOLS = [
     run_command,
     get_system_status,
     get_service_status,
+    agent_config,
 ]
 
 # 按需加载的分类工具
