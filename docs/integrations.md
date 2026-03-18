@@ -34,18 +34,36 @@
 - 文档空间 ID: `r9xmyYP7YK1w1mEO`（来自 https://alidocs.dingtalk.com/i/spaces/r9xmyYP7YK1w1mEO/overview）
 - 开放平台: https://open.dingtalk.com
 
-**已用 API**
+**已用 API（机器人消息）**
 
 | API | 用途 |
 |-----|------|
 | `POST /v1.0/oauth2/accessToken` | 获取 access_token |
 | `POST /v1.0/robot/oToMessages/batchSend` | 发送单聊消息 |
-| `GET /v1.0/doc/spaces/{spaceId}/files` | 列出文档空间文件 |
-| `GET /v1.0/documents/{fileId}/content` | 读取文档内容 |
+| `GET /v2.0/users/me` | 获取当前用户 unionid |
 
-**Webhook 路径**: `POST /dingtalk/webhook`
+**MCP 方式访问钉钉文档 / AI 表格**
 
-**会议纪要获取**：会议结束约30分钟后，钉钉文档空间自动更新文字版录音总结。通过 `get_latest_meeting_docs` 工具拉取。
+v0.7.4 起，文档和表格操作通过 **Streamable-HTTP MCP Server** 接入，不再直接调用 REST API：
+
+| 配置项 | 说明 |
+|--------|------|
+| `DINGTALK_MCP_URL` | 钉钉文档 MCP Server URL（来自钉钉开放平台 MCP 配置） |
+| `DINGTALK_MCP_TABLE_URL` | 钉钉 AI 表格 MCP Server URL |
+
+**文档 MCP 工具（12个）**：
+- 搜索：`search_documents` / `list_nodes`
+- 读取：`get_document_content` / `get_document_info`
+- 创建/编辑：`create_document` / `update_document` / `create_folder`
+- 块操作：`list_document_blocks` / `insert_document_block` / `update_document_block` / `delete_document_block` / `get_document_block`
+
+**AI 表格 MCP 工具（21个）**：
+- Base：`list_bases` / `search_bases` / `create_base` / `delete_base`
+- Table/Field：`get_tables` / `create_table` / `create_fields` / `get_fields`
+- Record CRUD：`create_records` / `query_records` / `update_records` / `delete_records`
+- 其他：`export_data` 等
+
+**会议纪要获取**：会议结束约30分钟后，钉钉文档空间自动更新录音总结。通过 MCP `search_documents` 搜索后，用 `get_document_content` 读取内容。
 
 ---
 
@@ -100,10 +118,9 @@ google/gemini-2.0-flash        # 快速、低成本
 
 ## Claude Code CLI（自迭代）
 
-- 版本: 2.1.77
 - 路径: `/root/.local/bin/claude`
-- 使用方式: `claude --dangerously-skip-permissions --print "<需求>"`
+- 使用方式: `claude --permission-mode acceptEdits --output-format stream-json --verbose`
 - 工作目录: `/root/ai-assistant`
-- API Key: 通过 `ANTHROPIC_API_KEY` 环境变量传入
+- 凭据: OAuth session token（**必须 `unset ANTHROPIC_API_KEY`**，否则 API Key 覆盖 OAuth 导致 401）
 
-**自迭代触发条件**：用户明确表达开发需求，且 Agent 判断需要修改代码时自动触发。
+**自迭代触发条件**：用户明确表达开发需求，且 Agent 判断需要修改代码时，调用 `trigger_self_iteration` 启动 tmux 会话，stream-json 实时推送到 IM。

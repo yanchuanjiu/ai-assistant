@@ -1,6 +1,6 @@
 # 部署配置指南
 
-> 最后更新：2026-03-18（v0.7.3）
+> 最后更新：2026-03-18（v0.7.4）
 
 ## 1. 环境准备
 
@@ -86,8 +86,14 @@ python -m tools.list_feishu_spaces
 DINGTALK_CLIENT_ID=ding5nridvxbae9dvfh1
 DINGTALK_CLIENT_SECRET=...
 DINGTALK_AGENT_ID=4342092316
-DINGTALK_DOCS_SPACE_ID=r9xmyYP7YK1w1mEO
+DINGTALK_DOCS_SPACE_ID=r9xmyYP7YK1w1mEO   # 已废弃，仅供 analyze_meeting_doc 内部兜底用
+
+# MCP Server URLs（钉钉开放平台 → 文档 MCP / AI 表格 MCP）
+DINGTALK_MCP_URL=https://mcp-gw.dingtalk.com/server/<your_doc_token>
+DINGTALK_MCP_TABLE_URL=https://mcp-gw.dingtalk.com/server/<your_table_token>
 ```
+
+> **MCP URL 获取**：钉钉开放平台 → 你的应用 → MCP Server → 复制 Streamable-HTTP 地址
 
 **钉钉控制台配置：**
 
@@ -179,8 +185,8 @@ checkpointer = SqliteSaver(conn)
 **Q: 163 邮件 `Unsafe Login`**
 → 到 mail.163.com 重新生成 IMAP 授权码，更新 `.env EMAIL_AUTH_CODE`
 
-**Q: 钉钉文档 404 / 403**
-→ v0.7.2 起 `read_file_content` 自动探测 API 路径并写入 `DINGTALK_WIKI_API_PATH`，首次调用后自动记忆，无需手动配置
+**Q: 钉钉文档相关操作失败**
+→ v0.7.4 起文档/表格操作通过 MCP 接入，确认 `DINGTALK_MCP_URL` 和 `DINGTALK_MCP_TABLE_URL` 已正确配置；启动日志中应有 `[tools] 钉钉 MCP 工具已注册: [...]`
 
 **Q: 飞书 WS 断连后不响应消息**
 → v0.7.3 起 supervised thread 会在 5s 内自动重启；查看 `logs/crash.log` 确认重启记录

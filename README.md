@@ -1,4 +1,4 @@
-# AI 个人助理（v0.7.3）
+# AI 个人助理（v0.7.4）
 
 > 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书 / 钉钉机器人对话，自动处理会议纪要、读写飞书知识库、搜索网络，并通过自然语言驱动 Claude Code 完成代码开发自迭代。
 
@@ -34,7 +34,7 @@
 │  处理：会议管理 / 知识库读写 / 网络搜索 /                  │
 │        系统运维 / 代码执行 / 开发需求路由                  │
 │                                                         │
-│  工具：27 个，渐进式披露（见下方工具表）                   │
+│  工具：7核心 + 按需注入（含 33个 MCP），渐进式披露         │
 └───────────────────┬─────────────────────────────────────┘
                     │ 当任务=开发/代码改动时
                     │ 调用 trigger_self_iteration
@@ -70,9 +70,9 @@
 
 ---
 
-## 主 Agent 工具表（27 个）
+## 主 Agent 工具表
 
-主 Agent 通过 LangGraph 的 ReAct 模式调用以下工具。采用**渐进式披露**：7 个核心工具每次必带，其余 20 个按消息关键词动态注入（节省约 87% token）。
+主 Agent 通过 LangGraph 的 ReAct 模式调用以下工具。采用**渐进式披露**：7 个核心工具每次必带，其余按消息关键词动态注入（节省约 87% token）。
 
 ### 核心工具（7 个，每次必带）
 
@@ -107,13 +107,24 @@
 | `feishu_search_doc_wiki` | 全文搜索文档/Wiki（需 user_access_token） |
 | `feishu_im_get_messages` | 读取群聊或单聊历史消息 |
 
-### 会议纪要（4 个，关键词：会议/纪要/钉钉）
+### 钉钉文档 MCP（33 个，关键词：钉钉/dingtalk）
+
+通过钉钉 MCP Server 直接调用，主要工具：
 
 | 工具 | 用途 |
 |------|------|
-| `get_latest_meeting_docs` | 获取钉钉知识库文档列表（支持 keyword/space_id） |
-| `read_meeting_doc` | 读取钉钉文档完整内容 |
-| `analyze_meeting_doc` | 立即 LLM 分析指定文档并写飞书（支持 force） |
+| `search_documents` | 按关键词搜索文档 |
+| `get_document_content` | 读取文档 Markdown 内容 |
+| `create_document` / `update_document` | 创建/覆盖写入文档 |
+| `list_document_blocks` / `insert_document_block` / `update_document_block` / `delete_document_block` | 块级精确编辑 |
+| `list_bases` / `query_records` / `create_records` / `update_records` | AI 表格 CRUD |
+| *(共 33 个，含文档 12 个 + AI 表格 21 个)* | |
+
+### 会议纪要流水线（2 个，关键词：会议/纪要）
+
+| 工具 | 用途 |
+|------|------|
+| `analyze_meeting_doc` | 立即 LLM 分析指定文档并写飞书（file_id 来自 MCP） |
 | `list_processed_meetings` | 查看已分析的会议文档列表 |
 
 ### Claude Code 管理（5 个，关键词：迭代/开发/claude）
@@ -138,7 +149,7 @@
 
 | Skill | 触发条件 | 典型工具组合 |
 |-------|---------|------------|
-| **会议管理** | "帮我整理会议纪要" / 接到钉钉文档 | `read_meeting_doc` → `feishu_overwrite_page` |
+| **会议管理** | "帮我整理会议纪要" / 接到钉钉文档 | `get_document_content`(MCP) → `analyze_meeting_doc` → `feishu_overwrite_page` |
 | **知识库管理** | "记录一下…" / "查一下…" | `feishu_search_wiki` → `feishu_append_to_page` |
 | **开发迭代** | "帮我加个功能" / "修复这个 bug" | `trigger_self_iteration` → `list_claude_sessions` |
 | **网络信息** | "搜一下…" / "查最新…" | `web_search` → `web_fetch` |
@@ -211,7 +222,7 @@
 
 ---
 
-## 当前运行状态（v0.7.3）
+## 当前运行状态（v0.7.4）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client）
@@ -230,10 +241,11 @@
 ✅ 代码执行        — python_execute + run_command（无白名单）
 ✅ 系统监控        — get_system_status / get_service_status
 ✅ 飞书扩展工具    — Bitable CRUD / 任务管理 / 文档搜索 / IM 消息读取
+✅ 钉钉文档 MCP   — 12个文档工具（搜索/读取/创建/块编辑），关键词"钉钉"触发
+✅ 钉钉AI表格 MCP — 21个表格工具（Base/Table/Field/Record CRUD），关键词"钉钉"触发
 ✅ 渐进式工具披露  — 7 核心工具 + 按需动态注入（~87% token 节省）
 
 ⚠️  FEISHU_WIKI_MEETING_PAGE — 用 agent_config(set) 设置（无需重启）
-⚠️  钉钉文档内容读取 — 首次调用自动探测 API 路径并记忆
 ⚠️  163 IMAP     — 需重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```
 
@@ -255,7 +267,7 @@ ai-assistant/
 │   ├── agent.py                 # 图定义 + SQLite checkpointer + invoke() 入口
 │   ├── nodes.py                 # agent_node（渐进式工具注入）/ tools_node / should_continue
 │   ├── state.py                 # AgentState TypedDict
-│   └── tools.py                 # 26 个工具，CORE_TOOLS + TOOL_CATEGORIES（渐进式披露）
+│   └── tools.py                 # 工具定义，CORE_TOOLS + TOOL_CATEGORIES（渐进式披露）
 │
 ├── integrations/
 │   ├── feishu/
@@ -275,6 +287,8 @@ ai-assistant/
 │   ├── email/
 │   │   ├── imap_client.py       # 163 IMAP 轮询
 │   │   └── parser.py            # Claude Haiku 提取会议信息
+│   ├── mcp/
+│   │   └── client.py            # MCP Streamable-HTTP 客户端（load_mcp_tools）
 │   └── storage/                 # 文件存储抽象（LocalStorage / 待接 OSS）
 │
 ├── sync/context_sync.py         # SQLite checkpoints → 飞书知识库
@@ -319,7 +333,6 @@ tmux attach -t ai-claude-{session_name}
 ## 待完成事项
 
 - [ ] 设置 `FEISHU_WIKI_MEETING_PAGE`：在飞书新建汇总页面，然后在对话中发 `设置会议纪要页面为 <wiki_token>`
-- [ ] 钉钉文档 API 路径：首次调用 `read_meeting_doc` 后自动验证并记忆
 - [ ] 163 邮箱重新开启 IMAP 并更新 `EMAIL_AUTH_CODE`
 - [ ] 会议 action items 自动创建飞书任务（`feishu_task_task`）
 - [ ] 火山云 OSS 文件存储

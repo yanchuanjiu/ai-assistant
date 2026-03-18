@@ -1,6 +1,6 @@
 # 系统架构说明
 
-> 最后更新：2026-03-18（v0.7.3）
+> 最后更新：2026-03-18（v0.7.4）
 
 ## 整体架构
 
@@ -38,7 +38,7 @@
               │                   │    │                        │
               │  1. 火山云 Ark     │    │  飞书知识库 读/写       │
               │     (主力)         │    │  飞书 Bitable/任务/搜索 │
-              │  2. OpenRouter     │    │  钉钉文档 读取          │
+              │  2. OpenRouter     │    │  钉钉文档/表格（MCP）   │
               │     (备用)         │    │  会议纪要 分析/写入      │
               │                   │    │  Claude Code 子 Agent  │
               │                   │    │  Shell/Python 执行      │
@@ -101,13 +101,16 @@ CORE_TOOLS（7个，每次必带）
   run_command / get_system_status / get_service_status
 
 TOOL_CATEGORIES（按关键词动态注入）
-  feishu_wiki    → 关键词：飞书/wiki/知识库    → 5 个工具
-  feishu_advanced→ 关键词：多维表格/任务/bitable→ 6 个工具
-  meeting        → 关键词：会议/纪要/钉钉      → 4 个工具
-  claude         → 关键词：迭代/开发/claude    → 5 个工具
+  feishu_wiki    → 关键词：飞书/wiki/知识库       → 5 个工具
+  feishu_advanced→ 关键词：多维表格/任务/bitable  → 6 个工具
+  meeting        → 关键词：会议/纪要/meeting      → 2 个工具
+  claude         → 关键词：迭代/开发/claude       → 5 个工具
+  dingtalk_mcp   → 关键词：钉钉/dingtalk/钉钉文档 → 33 个工具（MCP）
 ```
 
 无关键词时只传 7 个 → 节省约 87% token。
+
+> **MCP 工具注册**：`dingtalk_mcp` 分类在启动时通过 `_load_dingtalk_mcp()` 从 Streamable-HTTP MCP Server 动态拉取，需配置 `DINGTALK_MCP_URL` 和 `DINGTALK_MCP_TABLE_URL`。
 
 ### 4. LLM 链（`graph/nodes.py`）
 

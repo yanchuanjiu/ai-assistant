@@ -32,16 +32,28 @@ def my_new_tool(param: str) -> str:
     return "结果"
 ```
 
-**2. 加入 ALL_TOOLS 列表**
+**2. 加入 TOOL_CATEGORIES 对应分类**
 
 ```python
-ALL_TOOLS = [
+# 按工具用途选择合适的分类（meeting/feishu_wiki/feishu_advanced/claude/dingtalk_mcp）
+TOOL_CATEGORIES["meeting"] = [
     ...
     my_new_tool,   # 加在这里
 ]
 ```
 
+**3. 同步更新 CATEGORY_KEYWORDS（如需新触发词）**
+
+```python
+CATEGORY_KEYWORDS["meeting"] = [
+    "会议", "纪要", ...,
+    "my_keyword",   # 加在这里
+]
+```
+
 完成，无需修改其他文件。Agent 下次启动会自动识别新工具。
+
+> **注意**：若工具需要每次都可用，加入 `CORE_TOOLS` 而非 `TOOL_CATEGORIES`。
 
 ## 如何新增集成平台
 
@@ -55,11 +67,13 @@ integrations/
     └── bot.py       # Webhook 接收 + 消息发送（FastAPI router）
 ```
 
-在 `main.py` 注册 router：
+在 `main.py` 注册 supervised thread：
 
 ```python
-from integrations.wecom.bot import router as wecom_router
-app.include_router(wecom_router)
+threads = [
+    ...
+    threading.Thread(target=_supervised("wecom-ws", wecom_start), daemon=True),
+]
 ```
 
 在 `graph/nodes.py` 的 `respond_node` 加分支：

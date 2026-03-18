@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.4] - 2026-03-18
+
+### Changed
+- **`prompts/system.md`**：替换"会议与文档"节，新增"钉钉文档（MCP）"+"钉钉AI表格（MCP）"+"会议纪要流水线"三节，LLM 可感知 MCP 工具全量能力
+- **`graph/tools.py`**：
+  - `TOOL_CATEGORIES["meeting"]` 移除旧工具 `get_latest_meeting_docs` / `read_meeting_doc`（钉钉文档读取由 MCP 承担）
+  - `CATEGORY_KEYWORDS["dingtalk_mcp"]` 加入 `"钉钉"` / `"dingtalk"`，扩充触发词
+  - `CATEGORY_KEYWORDS["meeting"]` 移除 `"钉钉"` / `"dingtalk"`，避免路由冲突
+  - `analyze_meeting_doc` docstring：file_id 来源从 `get_latest_meeting_docs` 改为 MCP 工具
+- **`CLAUDE.md` / `README.md`**：同步状态表、版本历史、工具表至 v0.7.4
+
+---
+
 ## [0.7.3] - 2026-03-18
 
 ### Changed
