@@ -1,4 +1,4 @@
-# AI 个人助理（v0.7.2）
+# AI 个人助理（v0.7.3）
 
 > 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书 / 钉钉机器人对话，自动处理会议纪要、读写飞书知识库、搜索网络，并通过自然语言驱动 Claude Code 完成代码开发自迭代。
 
@@ -84,7 +84,7 @@
 | `python_execute` | 直接执行 Python 代码片段（30s 超时） |
 | `run_command` | 执行任意 shell 命令（无白名单） |
 | `get_system_status` | CPU / 内存 / 磁盘状态 |
-| `get_service_status` | FastAPI 进程、端口监听、Claude tmux 会话概览 |
+| `get_service_status` | 主进程、Claude tmux 会话概览、最近崩溃记录 |
 
 ### 飞书知识库（5 个，关键词：飞书/wiki/知识库）
 
@@ -211,7 +211,7 @@
 
 ---
 
-## 当前运行状态（v0.7.2）
+## 当前运行状态（v0.7.3）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client）
@@ -219,6 +219,7 @@
 ✅ 火山云 LLM     — ep-20260317143459-qtgqn
 ✅ SQLite 记忆    — data/memory.db / data/meeting.db
 ✅ 运行时配置      — agent_config 工具，对话中动态配置，无需重启
+✅ 进程管理        — supervised thread + 指数退避自动重启，崩溃写 logs/crash.log
 ✅ 定时任务        — 钉钉会议30min / 邮件60min / 上下文同步30min
 ✅ 飞书知识库      — docx API via get_node（context page: FalZwGDOkiqpbQkeAjGc8jaznMd）
 ✅ 会议纪要闭环    — 钉钉知识库轮询 → LLM 分析 → 飞书写入（自动 + 按需）
@@ -242,7 +243,7 @@
 
 ```
 ai-assistant/
-├── main.py                      # FastAPI 入口 + 启动两个平台连接线程
+├── main.py                      # 主入口：supervised thread 进程管理 + signal 优雅关闭
 ├── scheduler.py                 # APScheduler 定时任务
 ├── requirements.txt
 ├── .env                         # 所有凭据（私有仓库）
@@ -298,13 +299,13 @@ cp .env.example .env   # 填写 docs/setup.md 中的配置项
 # 启动（前台）
 python main.py
 
-# 后台运行（必须在激活 venv 后执行）
-nohup python main.py >> logs/app.log 2>> logs/server.log &
+# 后台运行（必须在激活 venv 后执行，所有输出合并到 app.log）
+nohup python main.py >> logs/app.log 2>&1 &
 
-# 重启
-kill $(lsof -ti:8000) 2>/dev/null
+# 重启（用 PID 文件 kill）
+kill $(cat logs/service.pid 2>/dev/null) 2>/dev/null
 source .venv/bin/activate
-nohup python main.py >> logs/app.log 2>> logs/server.log &
+nohup python main.py >> logs/app.log 2>&1 &
 
 # 查看 Claude Code 后台会话
 tmux list-sessions | grep ai-claude

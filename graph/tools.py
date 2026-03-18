@@ -1,6 +1,7 @@
 """
 工具函数，注册为 LangGraph tools，供 agent nodes 调用。
 """
+import json
 import os
 import re
 import subprocess
@@ -568,17 +569,40 @@ def get_system_status() -> str:
 @tool
 def get_service_status() -> str:
     """
-    检查 AI 助理服务的运行状态：FastAPI 进程、tmux 会话、日志尾部。
+    检查 AI 助理服务的运行状态：主进程、tmux 会话、日志尾部、最近崩溃记录。
     """
     try:
         r = subprocess.run(
-            "echo '=== FastAPI 进程 ===' && ps aux | grep 'main.py\\|uvicorn' | grep -v grep && "
-            "echo '' && echo '=== 端口监听 ===' && ss -tlnp | grep 8000 && "
-            "echo '' && echo '=== Claude tmux 会话 ===' && tmux list-sessions 2>/dev/null | grep ai-claude || echo '无活跃 Claude 会话' && "
+            "echo '=== 主进程 ===' && ps aux | grep 'main.py' | grep -v grep && "
+            "echo '' && echo '=== Claude tmux 会话 ===' && (tmux list-sessions 2>/dev/null | grep ai-claude || echo '无活跃 Claude 会话') && "
             "echo '' && echo '=== 最近日志 ===' && tail -20 logs/app.log 2>/dev/null || echo '日志文件不存在'",
             shell=True, capture_output=True, text=True, timeout=10, cwd=PROJECT_DIR,
         )
-        return (r.stdout + r.stderr).strip()[:3000]
+        output = (r.stdout + r.stderr).strip()
+
+        # 读 crash.log 最近 5 条
+        crash_log = os.path.join(PROJECT_DIR, "logs", "crash.log")
+        crash_section = "\n\n=== 最近崩溃记录 ==="
+        if os.path.exists(crash_log):
+            try:
+                with open(crash_log, encoding="utf-8") as f:
+                    lines = f.readlines()
+                recent = lines[-5:]
+                if recent:
+                    for line in recent:
+                        try:
+                            entry = json.loads(line)
+                            crash_section += f"\n[{entry.get('time','')}] {entry.get('thread','')} — {entry.get('error','')}"
+                        except Exception:
+                            crash_section += f"\n{line.rstrip()}"
+                else:
+                    crash_section += "\n无崩溃记录"
+            except Exception as e:
+                crash_section += f"\n读取失败: {e}"
+        else:
+            crash_section += "\n无崩溃记录"
+
+        return (output + crash_section)[:4000]
     except Exception as e:
         return f"获取服务状态失败：{e}"
 
