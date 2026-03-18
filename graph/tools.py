@@ -1191,13 +1191,6 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_search_doc_wiki,
         feishu_im_get_messages,
     ],
-    # 会议纪要流水线（MCP 工具优先，API 工具作为降级备选）
-    "meeting": [
-        get_latest_meeting_docs,
-        read_meeting_doc,
-        analyze_meeting_doc,
-        list_processed_meetings,
-    ],
     # Claude Code 自迭代
     "claude": [
         trigger_self_iteration,
@@ -1217,10 +1210,6 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "feishu_advanced": [
         "多维表格", "bitable", "表格", "任务", "task", "日程",
         "全文搜索", "群聊", "消息记录", "im消息",
-    ],
-    "meeting": [
-        "会议", "纪要", "alidocs", "meeting",
-        "会议室", "分析文档", "处理记录", "read_meeting_doc",
     ],
     "claude": [
         "迭代", "开发", "修复", "实现", "编写代码", "重构",
@@ -1248,15 +1237,25 @@ def _load_dingtalk_mcp() -> list:
 
 _dingtalk_mcp_tools = _load_dingtalk_mcp()
 
+# 会议纪要流水线工具（无论 MCP 是否连接，始终挂在 dingtalk_mcp 分类下）
+_pipeline_tools = [
+    get_latest_meeting_docs,
+    read_meeting_doc,
+    analyze_meeting_doc,
+    list_processed_meetings,
+]
+
+TOOL_CATEGORIES["dingtalk_mcp"] = _dingtalk_mcp_tools + _pipeline_tools
+CATEGORY_KEYWORDS["dingtalk_mcp"] = [
+    "钉钉", "dingtalk", "alidoc", "钉钉文档",
+    "创建文档", "编辑文档", "搜索文档", "文档块", "block",
+    "文件夹", "知识库文档", "文档内容",
+    "ai表格", "钉钉表格", "智能表格",
+    "会议", "纪要", "meeting", "会议室", "分析文档", "处理记录",
+]
 if _dingtalk_mcp_tools:
-    TOOL_CATEGORIES["dingtalk_mcp"] = _dingtalk_mcp_tools
-    CATEGORY_KEYWORDS["dingtalk_mcp"] = [
-        "钉钉", "dingtalk", "alidoc", "钉钉文档",
-        "创建文档", "编辑文档", "搜索文档", "文档块", "block",
-        "文件夹", "知识库文档", "文档内容",
-        "ai表格", "钉钉表格", "智能表格",
-    ]
     logger.info(f"[tools] 钉钉 MCP 工具已注册: {[t.name for t in _dingtalk_mcp_tools]}")
+logger.info(f"[tools] 会议纪要流水线工具已注册到 dingtalk_mcp 分类")
 
 # 全量工具列表（供执行层 tools_by_name 使用，不直接传给 LLM）
 ALL_TOOLS = CORE_TOOLS + [

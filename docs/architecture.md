@@ -101,11 +101,10 @@ CORE_TOOLS（7个，每次必带）
   run_command / get_system_status / get_service_status
 
 TOOL_CATEGORIES（按关键词动态注入）
-  feishu_wiki    → 关键词：飞书/wiki/知识库       → 6 个工具（含 feishu_wiki_page）
-  feishu_advanced→ 关键词：多维表格/任务/bitable  → 6 个工具
-  meeting        → 关键词：会议/纪要/meeting      → 2 个工具
-  claude         → 关键词：迭代/开发/claude       → 5 个工具
-  dingtalk_mcp   → 关键词：钉钉/dingtalk/钉钉文档 → 33 个工具（MCP）
+  feishu_wiki    → 关键词：飞书/wiki/知识库              → 6 个工具（含 feishu_wiki_page）
+  feishu_advanced→ 关键词：多维表格/任务/bitable         → 6 个工具
+  claude         → 关键词：迭代/开发/claude              → 5 个工具
+  dingtalk_mcp   → 关键词：钉钉/dingtalk/会议/纪要 → 33 个 MCP 工具 + 4 个 pipeline 工具
 ```
 
 无关键词时只传 7 个 → 节省约 87% token。

@@ -40,9 +40,12 @@
 - **记录 CRUD**：增删改查记录（`create_records` / `query_records` / `update_records` / `delete_records`）
 - **导出数据**：`export_data`
 
-## 会议纪要流水线
-- **触发分析**：`analyze_meeting_doc` — 对指定文档做 LLM 分析并写入飞书
-- **查看历史**：`list_processed_meetings` — 查看已处理的会议文档
+### 会议纪要处理（知识库同步 Skill）
+对比历史记录 → 搜索增量文档 → 读取内容 → 补充到飞书项目知识库：
+1. `list_processed_meetings` — 查看已处理记录，识别增量
+2. `search_documents` / `list_nodes` — 搜索钉钉知识库中的新增文档
+3. `get_document_content` — 读取文档 Markdown 内容
+4. `analyze_meeting_doc` — LLM 结构化分析，结果自动追加到飞书"📋 会议纪要汇总"页
 
 # 行为规范
 - 回复简洁，中文优先，技术内容可混用英文

@@ -120,13 +120,7 @@
 | `list_document_blocks` / `insert_document_block` / `update_document_block` / `delete_document_block` | 块级精确编辑 |
 | `list_bases` / `query_records` / `create_records` / `update_records` | AI 表格 CRUD |
 | *(共 33 个，含文档 12 个 + AI 表格 21 个)* | |
-
-### 会议纪要流水线（2 个，关键词：会议/纪要）
-
-| 工具 | 用途 |
-|------|------|
-| `analyze_meeting_doc` | 立即 LLM 分析指定文档并写飞书（file_id 来自 MCP） |
-| `list_processed_meetings` | 查看已分析的会议文档列表 |
+| `analyze_meeting_doc` / `list_processed_meetings` | 会议纪要 Skill：LLM 分析并写飞书 / 查看历史记录 |
 
 ### Claude Code 管理（5 个，关键词：迭代/开发/claude）
 
@@ -362,9 +356,6 @@ python tests/regression/run_all.py e2e       # 端到端流水线（11用例）
 
 ## 待完成事项
 
-- [ ] 163 邮箱重新开启 IMAP 并更新 `EMAIL_AUTH_CODE`
-- [ ] 会议 action items 自动创建飞书任务（`feishu_task_task`）
-- [ ] 火山云 OSS 文件存储
 - [ ] 飞书知识库语义搜索（当前为关键词匹配）
 
 ---
