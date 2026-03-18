@@ -1,6 +1,4 @@
-anthropic>=0.40.0
 langgraph>=0.2.50
-langchain-anthropic>=0.3.0
 langchain-openai>=0.3.0
 langchain-core>=0.3.0
 apscheduler>=3.10.0

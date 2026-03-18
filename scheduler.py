@@ -65,25 +65,52 @@ def poll_dingtalk_meetings():
 # --------------------------------------------------------------------------- #
 # 163 邮件轮询（辅助流程）
 # --------------------------------------------------------------------------- #
+def _build_email_prompt(mail: dict) -> str:
+    subject = mail.get("subject", "（无主题）")
+    sender = mail.get("sender", "")
+    date = mail.get("date", "")
+    body = (mail.get("body", "") or "")[:3000]
+    return (
+        "请处理以下邮件：判断是否为会议相关邮件（会议邀请、纪要、日程等）。\n"
+        "如果是会议邮件，提取关键信息（标题、时间、地点、参与者、议程、备注），"
+        "整理为 Markdown 并追加到飞书知识库上下文页面（feishu_append_to_page）。\n"
+        "如果不是会议邮件，回复【非会议邮件，已跳过】，不需要写飞书。\n\n"
+        f"主题：{subject}\n发件人：{sender}\n日期：{date}\n\n{body}"
+    )
+
+
 def poll_email():
     from integrations.email.imap_client import IMAPPoller
-    from integrations.email.parser import extract_meeting_info
-    from integrations.feishu.knowledge import FeishuKnowledge
+    from graph.agent import invoke
 
     logger.info("[Scheduler] 开始轮询邮件...")
     poller = IMAPPoller()
-    emails = poller.fetch_unread()
+    try:
+        emails = poller.fetch_unread()
+    except Exception as e:
+        logger.error(f"[Scheduler] 邮件拉取失败: {e}")
+        return
+
     if not emails:
         return
 
-    kb = FeishuKnowledge()
+    processed = 0
     for mail in emails:
-        info = extract_meeting_info(mail)
-        if info:
-            title = info.get("title", mail["subject"])
-            content = _format_email_meeting(info)
-            kb.create_or_update_page(title=f"[会议] {title}", content=content)
-            logger.info(f"会议邮件已写入飞书: {title}")
+        try:
+            prompt = _build_email_prompt(mail)
+            result = invoke(
+                message=prompt,
+                platform="scheduler",
+                user_id="scheduler",
+                chat_id="email_poll",
+            )
+            logger.info(f"[Scheduler] 邮件处理完毕: {mail.get('subject', '')} → {result[:100]}")
+            processed += 1
+        except Exception as e:
+            logger.error(f"[Scheduler] 处理邮件失败 ({mail.get('subject', '')}): {e}")
+
+    if processed:
+        logger.info(f"[Scheduler] 本轮处理 {processed} 封邮件")
 
 
 # --------------------------------------------------------------------------- #
@@ -93,24 +120,6 @@ def sync_context():
     from sync.context_sync import ContextSync
     logger.info("[Scheduler] 开始同步上下文至飞书...")
     ContextSync().push_to_feishu()
-
-
-# --------------------------------------------------------------------------- #
-# 内部工具
-# --------------------------------------------------------------------------- #
-def _format_email_meeting(info: dict) -> str:
-    lines = [f"# {info.get('title', '会议')}\n"]
-    if info.get("time"):
-        lines.append(f"**时间**: {info['time']}")
-    if info.get("location"):
-        lines.append(f"**地点**: {info['location']}")
-    if info.get("attendees"):
-        lines.append(f"**参与者**: {', '.join(info['attendees'])}")
-    if info.get("agenda"):
-        lines.append(f"\n## 议程\n{info['agenda']}")
-    if info.get("notes"):
-        lines.append(f"\n## 纪要\n{info['notes']}")
-    return "\n".join(lines)
 
 
 # --------------------------------------------------------------------------- #

@@ -197,10 +197,8 @@
 | 任务 | 频率 | 做什么 |
 |------|------|--------|
 | `poll_dingtalk_meetings` | 每 30 分钟 | 轮询钉钉知识库 → LLM 分析新会议纪要 → 写飞书知识库 |
-| `poll_email` | 每 60 分钟 | 拉取 163 邮件 → LLM（Haiku）提取会议信息 → 写飞书知识库 |
+| `poll_email` | 每 60 分钟 | 拉取 163 邮件 → 主 Agent 判断会议邮件 → 写飞书知识库 |
 | `sync_context` | 每 30 分钟 | SQLite checkpoints 快照 → 覆盖飞书上下文页面 |
-
-> 邮件处理使用**独立 LLM 调用**（`integrations/email/parser.py` 中的 Claude Haiku），与主 Agent 链路完全分离。
 
 ---
 
@@ -211,7 +209,6 @@
 | 火山云 Ark `ep-20260317143459-qtgqn` | 主 Agent（主力） | `VOLCENGINE_API_KEY` |
 | OpenRouter `anthropic/claude-sonnet-4-5` | 主 Agent（fallback） | `OPENROUTER_API_KEY` |
 | Claude Code CLI | 代码开发子 Agent | OAuth session token（**排除 `ANTHROPIC_API_KEY`**） |
-| Anthropic API（Haiku） | 邮件会议信息提取 | `ANTHROPIC_API_KEY` |
 
 ⚠️ **关键**：子 Agent（Claude Code CLI）启动时必须 `unset ANTHROPIC_API_KEY`，否则 OAuth session 被覆盖导致 401 失败。
 
@@ -283,7 +280,7 @@ ai-assistant/
 │   │   └── session.py           # 向后兼容重新导出
 │   ├── email/
 │   │   ├── imap_client.py       # 163 IMAP 轮询
-│   │   └── parser.py            # Claude Haiku 提取会议信息
+│   │   └── (parser.py 已删除，v0.7.8 改由主 Agent 处理)
 │   ├── mcp/
 │   │   └── client.py            # MCP Streamable-HTTP 客户端（load_mcp_tools）
 │   └── storage/                 # 文件存储抽象（LocalStorage / 待接 OSS）
@@ -291,7 +288,7 @@ ai-assistant/
 ├── sync/context_sync.py         # SQLite checkpoints → 飞书知识库
 ├── prompts/
 │   ├── system.md                # 主 Agent system prompt（Skills 声明 + 工具使用规则）
-│   ├── meeting_extract.md       # 邮件会议提取 prompt（供 Haiku 使用）
+│   ├── (meeting_extract.md 已删除，v0.7.8)
 │   └── meeting_analysis.md      # 会议纪要深度分析 prompt（钉钉文档场景）
 ├── tests/
 │   └── regression/              # 回归测试套件

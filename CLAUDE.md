@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-18（v0.7.6）
+> 最后更新：2026-03-18（v0.7.8）
 
 ---
 
@@ -63,6 +63,20 @@
 - 用户说"会议"/"纪要" → 触发 `dingtalk_mcp`（含 MCP 工具 + pipeline 工具）
 - 避免"会议"关键词触发孤立的 `meeting` 分类而缺失 MCP 工具的情况
 - pipeline 工具不依赖 MCP 连接状态，始终可用
+
+### v0.7.8（2026-03-18）— 邮件会议提取改由主 Agent 处理，移除 Haiku 独立调用
+
+**删除文件**：
+- `integrations/email/parser.py` — 原 Anthropic Haiku 调用入口，已移除
+- `prompts/meeting_extract.md` — 邮件提取 prompt，已移除（prompt 内联到 scheduler）
+
+**修改文件**：
+- `scheduler.py` — 重写 `poll_email()`：删除 `extract_meeting_info`/`FeishuKnowledge` 导入，改为构造 prompt 后调用 `graph.agent.invoke()`；删除 `_format_email_meeting()`；新增 `_build_email_prompt()`
+- `requirements.txt` — 删除 `anthropic>=0.40.0` 和 `langchain-anthropic>=0.3.0`
+
+**设计动机**：主 Agent（火山云 Ark）应是唯一处理此类判断任务的 LLM，独立 Haiku 调用与整体 LLM 分工设计不一致。改造后：
+- 定时任务拉取邮件 → 构造 prompt → 主 Agent 判断是否为会议邮件 → 自主决定是否写飞书
+- prompt 包含"会议"/"飞书"/"追加"等关键词，触发 `feishu_wiki` + `dingtalk_mcp` 分类工具
 
 ### v0.7.6（2026-03-18）— 飞书子页面创建 + 会议页面自发现 + 回归测试套件
 
@@ -268,7 +282,7 @@ integrations/
   │   └── docs.py        wiki/drive API 双路径 fallback，支持 keyword 过滤
   ├── email/
   │   ├── imap_client.py 163 IMAP 轮询
-  │   └── parser.py      Claude Haiku 提取会议信息（邮件场景）
+  │   └── (parser.py 已删除，v0.7.8 改由主 Agent 处理)
   ├── meeting/
   │   ├── __init__.py
   │   ├── analyzer.py    火山云 LLM 分析会议纪要 → 结构化 JSON → 飞书写入

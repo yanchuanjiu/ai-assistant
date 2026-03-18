@@ -156,7 +156,7 @@ APScheduler（每30min）
 | 任务 | 频率 | 说明 |
 |------|------|------|
 | `poll_dingtalk_meetings` | 每30分钟 | 钉钉知识库 → LLM 分析 → 飞书写入 |
-| `poll_email` | 每60分钟 | 163 IMAP → Claude Haiku 提取 → 飞书写入 |
+| `poll_email` | 每60分钟 | 163 IMAP → 主 Agent 判断会议邮件 → 飞书写入 |
 | `sync_context` | 每30分钟 | SQLite checkpoints 快照 → 覆盖飞书上下文页面 |
 
 ## 飞书知识库权限绕过
