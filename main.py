@@ -74,6 +74,11 @@ def _start_dingtalk():
     start_dingtalk_stream()
 
 
+def _start_admin():
+    from admin.server import start_admin_server
+    start_admin_server()
+
+
 def main():
     import scheduler as sched
 
@@ -89,6 +94,7 @@ def main():
     threads = [
         _supervised("feishu-ws", _start_feishu),
         _supervised("dingtalk-stream", _start_dingtalk),
+        _supervised("admin-http", _start_admin),
     ]
     for t in threads:
         t.start()

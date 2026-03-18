@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-18（v0.7.8）
+> 最后更新：2026-03-18（v0.7.9）
 
 ---
 
@@ -14,7 +14,7 @@
 
 ---
 
-## 当前运行状态（v0.7.6）
+## 当前运行状态（v0.7.9）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client），收发消息正常
@@ -38,6 +38,7 @@
 
 ✅ 运行时配置     — agent_config 工具，对话中动态读写，无需重启（data/memory.db）
 ✅ 进程管理       — supervised thread + 指数退避自动重启，崩溃写 logs/crash.log
+✅ Admin 配置界面  — http://localhost:8080（Web 管理配置，实时生效，无需重启）
 
 ✅ 飞书子页面创建  — find_or_create_child_page (tenant token，无需 user OAuth)
 ✅ 会议页面自发现  — FEISHU_WIKI_MEETING_PAGE 不再需要手动配置，自动在 context page 下创建
@@ -63,6 +64,25 @@
 - 用户说"会议"/"纪要" → 触发 `dingtalk_mcp`（含 MCP 工具 + pipeline 工具）
 - 避免"会议"关键词触发孤立的 `meeting` 分类而缺失 MCP 工具的情况
 - pipeline 工具不依赖 MCP 连接状态，始终可用
+
+### v0.7.9（2026-03-18）— Admin Web 配置管理界面
+
+**新增文件**：
+- `admin/__init__.py`
+- `admin/server.py` — 基于 Python stdlib `http.server` 的轻量 Web 管理服务（无新依赖）
+
+**修改文件**：
+- `main.py` — 新增 `_start_admin()` + `_supervised("admin-http", ...)` 线程
+
+**功能**：
+- 访问 `http://localhost:8080` 即可查看/添加/编辑/删除 agent_config 配置项
+- REST API：`GET /api/config`、`POST /api/config`、`DELETE /api/config/{key}`
+- 前端纯原生 JS，内嵌于 Python 字符串，无构建步骤
+- 预定义常用 key（FEISHU_WIKI_MEETING_PAGE 等）快速选择 + 说明提示
+- 配置写入 SQLite（同 `agent_config` 工具），实时生效，无需重启
+- 端口可通过环境变量 `ADMIN_PORT` 覆盖（默认 8080）
+
+**设计动机**：`agent_config` 工具只能通过 IM 对话管理配置，非技术用户不友好。Web 界面允许直接在浏览器中配置知识库 ID 等参数，且与现有存储层（config_store）完全复用。
 
 ### v0.7.8（2026-03-18）— 邮件会议提取改由主 Agent 处理，移除 Haiku 独立调用
 
@@ -265,6 +285,10 @@ Claude Code tmux 会话自动完成，内容：
 ## 目录结构
 
 ```
+admin/
+  ├── __init__.py
+  └── server.py          Admin 配置管理 Web 服务（端口 8080，stdlib http.server）
+
 graph/
   ├── agent.py           图定义 + SQLite checkpointer + invoke() 入口
   ├── nodes.py           agent_node（含 LLM 日志） / tools_node / should_continue
