@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.7.6] - 2026-03-18
+
+### Added
+- **回归测试套件**（`tests/regression/`）：
+  - `test_feishu_wiki.py`：14 用例（读取/追加/子页面/工具端到端），全部通过
+  - `test_dingtalk_mcp.py`：8 用例（MCP工具加载/搜索/节点列表/参数验证），全部通过
+  - `test_e2e_pipeline.py`：11 用例（LLM分析/写飞书/去重），8通过3跳过（LLM超时外部依赖）
+  - `run_all.py`：CLI 入口，支持 `python tests/regression/run_all.py [feishu|dingtalk|e2e]`
+- **飞书子页面创建**（`integrations/feishu/knowledge.py`）：
+  - `list_wiki_children(parent_wiki_token)` — 列出子页面（`/wiki/v2/spaces/{id}/nodes`）
+  - `create_wiki_child_page(title, parent_wiki_token)` — 两步创建：`POST /docx/v1/documents` → `move_docs_to_wiki` 异步任务轮询 → 返回 `node_token`（全程 tenant token，无需 user OAuth）
+  - `find_or_create_child_page(title, parent, cache_key)` — 三级缓存：config_store → list_children 精确匹配 → create
+- **`feishu_wiki_page` 工具**（`graph/tools.py`）：子页面管理（`list_children` / `find_or_create`），加入 `feishu_wiki` 分类
+- **`_get_or_create_meeting_page()`**（`integrations/meeting/analyzer.py`）：`write_to_feishu` 自动在 context page 下创建"📋 会议纪要汇总"子页面
+
+### Fixed
+- **`_append_text` 超 50 块限制**（`integrations/feishu/knowledge.py`）：分批写入（每批40行，批间 sleep 0.3s），修复大段内容追加时的 400 错误
+
+---
+
+## [0.7.5] - 2026-03-18
+
+### Fixed
+- **钉钉文档 URL 访问**（`integrations/dingtalk/docs.py`）：
+  - 新增 `extract_node_id_from_url()`，支持直接传入 alidocs URL
+  - `_list_wiki_nodes` 扩充响应格式（`result.*` / `nodeList` / 列表），升级日志输出
+  - `_normalize_node` 新增 `object_id` 字段
+  - `read_file_content` 支持 URL 输入 + 更完整内容字段解析
+- **`read_meeting_doc` 工具**（`graph/tools.py`）：支持 URL 输入，失败时提示改用 MCP `get_document_content`
+
+### Changed
+- **`prompts/system.md`**：新增原则——收到 alidocs URL 时直接提取 nodeId 调用 `get_document_content`，禁止 `web_fetch`/`feishu_read_page`（需登录的内容无法通过 HTTP 抓取）
+
+---
+
 ## [0.7.4] - 2026-03-18
 
 ### Changed

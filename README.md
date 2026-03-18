@@ -1,4 +1,4 @@
-# AI 个人助理（v0.7.4）
+# AI 个人助理（v0.7.6）
 
 > 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书 / 钉钉机器人对话，自动处理会议纪要、读写飞书知识库、搜索网络，并通过自然语言驱动 Claude Code 完成代码开发自迭代。
 
@@ -72,7 +72,7 @@
 
 ## 主 Agent 工具表
 
-主 Agent 通过 LangGraph 的 ReAct 模式调用以下工具。采用**渐进式披露**：7 个核心工具每次必带，其余按消息关键词动态注入（节省约 87% token）。
+主 Agent 通过 LangGraph 的 ReAct 模式调用以下工具。采用**渐进式披露**：7 个核心工具每次必带，其余按消息关键词动态注入（节省约 87% token）。共 **28 个工具**（含 6 个飞书知识库、6 个飞书高级、2 个会议、5 个 Claude 管理，另有 33 个 MCP 工具按需注入）。
 
 ### 核心工具（7 个，每次必带）
 
@@ -86,7 +86,7 @@
 | `get_system_status` | CPU / 内存 / 磁盘状态 |
 | `get_service_status` | 主进程、Claude tmux 会话概览、最近崩溃记录 |
 
-### 飞书知识库（5 个，关键词：飞书/wiki/知识库）
+### 飞书知识库（6 个，关键词：飞书/wiki/知识库）
 
 | 工具 | 用途 | 典型场景 |
 |------|------|---------|
@@ -223,7 +223,7 @@
 
 ---
 
-## 当前运行状态（v0.7.4）
+## 当前运行状态（v0.7.6）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client）
@@ -234,7 +234,9 @@
 ✅ 进程管理        — supervised thread + 指数退避自动重启，崩溃写 logs/crash.log
 ✅ 定时任务        — 钉钉会议30min / 邮件60min / 上下文同步30min
 ✅ 飞书知识库      — docx API via get_node（context page: FalZwGDOkiqpbQkeAjGc8jaznMd）
+✅ 飞书子页面      — find_or_create_child_page（tenant token，无需 user OAuth）
 ✅ 会议纪要闭环    — 钉钉知识库轮询 → LLM 分析 → 飞书写入（自动 + 按需）
+✅ 会议页面自发现  — "📋 会议纪要汇总"页面自动在 context page 下创建，无需手动配置
 ✅ LLM 调用日志   — logs/llm.jsonl（JSONL）
 ✅ Claude Code    — tmux 会话（持久化），stream-json 推送 IM
 ✅ Claude 会话管理 — list / get_output / kill / send_input
@@ -245,8 +247,8 @@
 ✅ 钉钉文档 MCP   — 12个文档工具（搜索/读取/创建/块编辑），关键词"钉钉"触发
 ✅ 钉钉AI表格 MCP — 21个表格工具（Base/Table/Field/Record CRUD），关键词"钉钉"触发
 ✅ 渐进式工具披露  — 7 核心工具 + 按需动态注入（~87% token 节省）
+✅ 回归测试套件    — tests/regression/（飞书/钉钉MCP/端到端，共33用例）
 
-⚠️  FEISHU_WIKI_MEETING_PAGE — 用 agent_config(set) 设置（无需重启）
 ⚠️  163 IMAP     — 需重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```
 
@@ -268,19 +270,19 @@ ai-assistant/
 │   ├── agent.py                 # 图定义 + SQLite checkpointer + invoke() 入口
 │   ├── nodes.py                 # agent_node（渐进式工具注入）/ tools_node / should_continue
 │   ├── state.py                 # AgentState TypedDict
-│   └── tools.py                 # 工具定义，CORE_TOOLS + TOOL_CATEGORIES（渐进式披露）
+│   └── tools.py                 # 28个工具，CORE_TOOLS + TOOL_CATEGORIES（渐进式披露）
 │
 ├── integrations/
 │   ├── feishu/
 │   │   ├── bot.py               # 长连接消息处理，Claude 会话拦截，reply_fn 注册
 │   │   ├── client.py            # tenant/user_access_token + HTTP 封装
-│   │   └── knowledge.py         # wiki 读写（get_node → obj_token → docx API）
+│   │   └── knowledge.py         # wiki 读写 + 子页面创建（get_node → docx → move_docs_to_wiki）
 │   ├── dingtalk/
 │   │   ├── bot.py               # 流模式消息处理，Claude 会话拦截
 │   │   ├── client.py            # DingTalk OAuth token；get_current_user_unionid（/v2.0/users/me）
 │   │   └── docs.py              # wiki/drive 双路径 fallback，keyword 过滤
 │   ├── meeting/
-│   │   ├── analyzer.py          # 火山云 LLM 分析会议纪要 → 结构化 JSON → 飞书写入
+│   │   ├── analyzer.py          # 火山云 LLM 分析会议纪要 → 结构化 JSON → 飞书写入（自动创建子页面）
 │   │   └── tracker.py           # SQLite（data/meeting.db）记录已处理文档，避免重复
 │   ├── claude_code/
 │   │   ├── tmux_session.py      # TmuxClaudeSession + SessionManager（核心实现）
@@ -297,6 +299,13 @@ ai-assistant/
 │   ├── system.md                # 主 Agent system prompt（Skills 声明 + 工具使用规则）
 │   ├── meeting_extract.md       # 邮件会议提取 prompt（供 Haiku 使用）
 │   └── meeting_analysis.md      # 会议纪要深度分析 prompt（钉钉文档场景）
+├── tests/
+│   └── regression/              # 回归测试套件
+│       ├── conftest.py          # pytest 配置（加载 .env，设置 sys.path）
+│       ├── run_all.py           # CLI 入口（python tests/regression/run_all.py）
+│       ├── test_feishu_wiki.py  # 飞书知识库（14用例）
+│       ├── test_dingtalk_mcp.py # 钉钉 MCP 工具（8用例）
+│       └── test_e2e_pipeline.py # 端到端流水线（11用例）
 └── docs/                        # 详细文档
 ```
 
@@ -331,9 +340,28 @@ tmux attach -t ai-claude-{session_name}
 
 ---
 
+## 回归测试
+
+每次迭代后运行，确保已有功能不被破坏：
+
+```bash
+source .venv/bin/activate
+
+# 运行全部（需真实 .env 凭据）
+python tests/regression/run_all.py
+
+# 按套件单独运行
+python tests/regression/run_all.py feishu    # 飞书知识库（14用例）
+python tests/regression/run_all.py dingtalk  # 钉钉 MCP（8用例）
+python tests/regression/run_all.py e2e       # 端到端流水线（11用例）
+```
+
+> LLM 调用类测试（`TestAnalyze`）因外部依赖超时会自动 skip，属正常现象。
+
+---
+
 ## 待完成事项
 
-- [ ] 设置 `FEISHU_WIKI_MEETING_PAGE`：在飞书新建汇总页面，然后在对话中发 `设置会议纪要页面为 <wiki_token>`
 - [ ] 163 邮箱重新开启 IMAP 并更新 `EMAIL_AUTH_CODE`
 - [ ] 会议 action items 自动创建飞书任务（`feishu_task_task`）
 - [ ] 火山云 OSS 文件存储

@@ -8,17 +8,22 @@
 
 **已用 API**
 
-| API | 用途 |
-|-----|------|
-| `POST /auth/v3/tenant_access_token/internal` | 获取 tenant_access_token |
-| `POST /im/v1/messages` | 发送消息 |
-| `GET /wiki/v2/spaces` | 列出知识库空间 |
-| `GET /wiki/v2/spaces/{space_id}/nodes` | 列出知识库节点 |
-| `POST /wiki/v2/spaces/{space_id}/nodes` | 创建知识库页面 |
-| `GET /docx/v1/documents/{doc_token}/raw_content` | 读取文档内容 |
-| `POST /docx/v1/documents/{doc_token}/blocks/batch_update` | 更新文档内容 |
+| API | 用途 | Token 类型 |
+|-----|------|-----------|
+| `POST /auth/v3/tenant_access_token/internal` | 获取 tenant_access_token | — |
+| `POST /im/v1/messages` | 发送消息 | tenant |
+| `GET /wiki/v2/spaces/get_node` | wiki token → obj_token | tenant |
+| `GET /wiki/v2/spaces/{id}/nodes` | 列出子页面 | tenant |
+| `POST /docx/v1/documents` | 创建裸文档（子页面创建第一步） | tenant |
+| `POST /wiki/v2/spaces/{id}/nodes/move_docs_to_wiki` | 移入知识库（子页面创建第二步） | tenant |
+| `GET /wiki/v2/tasks/{task_id}` | 轮询移动任务状态 | tenant |
+| `GET /docx/v1/documents/{obj_token}/raw_content` | 读取文档内容 | tenant |
+| `POST /docx/v1/documents/{obj_token}/blocks/{id}/children` | 追加文档内容块 | tenant |
+| `POST /docx/v1/documents/{obj_token}/blocks/batch_update` | 更新文档内容 | tenant |
 
-**Webhook 路径**: `POST /feishu/webhook`
+> ⚠️ `POST /wiki/v2/spaces/{id}/nodes`（直接创建 wiki 节点）不支持 tenant token，只能用 user OAuth。子页面创建须走 "create docx → move" 两步。
+
+**连接方式**: 长连接（lark-oapi ws.Client），无需公网 Webhook
 
 事件类型：`im.message.receive_v1`（仅处理文本消息）
 

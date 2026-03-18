@@ -1,6 +1,6 @@
 # 系统架构说明
 
-> 最后更新：2026-03-18（v0.7.4）
+> 最后更新：2026-03-18（v0.7.6）
 
 ## 整体架构
 
@@ -34,7 +34,7 @@
                     └──────┬──────────────────────┬──────────────┘
                            │                      │
               ┌────────────▼──────┐    ┌──────────▼────────────┐
-              │    LLM 调用层      │    │      工具执行层（27个）  │
+              │    LLM 调用层      │    │      工具执行层（28个）  │
               │                   │    │                        │
               │  1. 火山云 Ark     │    │  飞书知识库 读/写       │
               │     (主力)         │    │  飞书 Bitable/任务/搜索 │
@@ -93,7 +93,7 @@ _supervised(name, target, base_delay=5, max_delay=300)
 
 ### 3. 渐进式工具披露（`graph/nodes.py` + `graph/tools.py`）
 
-全量 27 个工具的 schema 传给 LLM 会消耗大量 token。解决方案：
+全量 28 个工具的 schema 传给 LLM 会消耗大量 token。解决方案：
 
 ```
 CORE_TOOLS（7个，每次必带）
@@ -101,7 +101,7 @@ CORE_TOOLS（7个，每次必带）
   run_command / get_system_status / get_service_status
 
 TOOL_CATEGORIES（按关键词动态注入）
-  feishu_wiki    → 关键词：飞书/wiki/知识库       → 5 个工具
+  feishu_wiki    → 关键词：飞书/wiki/知识库       → 6 个工具（含 feishu_wiki_page）
   feishu_advanced→ 关键词：多维表格/任务/bitable  → 6 个工具
   meeting        → 关键词：会议/纪要/meeting      → 2 个工具
   claude         → 关键词：迭代/开发/claude       → 5 个工具
@@ -164,6 +164,7 @@ APScheduler（每30min）
 
 `/wiki/v2/spaces` 系列 API 不支持 tenant_access_token。绕过方案：
 
+**读写现有页面**：
 ```
 GET /wiki/v2/spaces/get_node?token=WIKI_TOKEN
   → 返回 obj_token（tenant token 可用）
@@ -171,6 +172,17 @@ GET/POST /docx/v1/documents/{obj_token}/...
   → docx API 直接读写（tenant token 可用）
 前提：飞书页面「文档权限 → 可管理应用」添加该应用
 ```
+
+**创建子页面**（v0.7.6 新增，同样无需 user OAuth）：
+```
+POST /docx/v1/documents          → 创建裸文档，获取 document_id（tenant token 可用）
+POST /wiki/v2/spaces/{id}/nodes/move_docs_to_wiki  → 异步移入知识库（tenant token 可用）
+  payload: { parent_wiki_token, obj_type: "docx", obj_token: document_id }
+GET  /wiki/v2/tasks/{task_id}?task_type=move → 轮询任务（每1s，最多10次）
+  → task.move_result[0].node.node_token  → 新页面的 wiki token
+```
+
+> ⚠️ `POST /wiki/v2/spaces/{id}/nodes`（直接创建 wiki 节点）不支持 tenant token，会返回 400。必须走 "create docx → move" 两步路。
 
 ## 安全设计
 

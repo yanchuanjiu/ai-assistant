@@ -1,6 +1,6 @@
 # 部署配置指南
 
-> 最后更新：2026-03-18（v0.7.4）
+> 最后更新：2026-03-18（v0.7.6）
 
 ## 1. 环境准备
 
@@ -58,6 +58,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 FEISHU_APP_ID=cli_a8fec6e8585d100d
 FEISHU_APP_SECRET=...
 FEISHU_WIKI_SPACE_ID=         # 见下方获取方式 ⬇️
+FEISHU_WIKI_CONTEXT_PAGE=     # AI助理上下文快照页 wiki token（知识库根页面）
 ```
 
 **获取 Wiki Space ID：**
@@ -86,7 +87,7 @@ python -m tools.list_feishu_spaces
 DINGTALK_CLIENT_ID=ding5nridvxbae9dvfh1
 DINGTALK_CLIENT_SECRET=...
 DINGTALK_AGENT_ID=4342092316
-DINGTALK_DOCS_SPACE_ID=r9xmyYP7YK1w1mEO   # 已废弃，仅供 analyze_meeting_doc 内部兜底用
+DINGTALK_DOCS_SPACE_ID=r9xmyYP7YK1w1mEO   # 钉钉知识库空间 ID（兜底用）
 
 # MCP Server URLs（钉钉开放平台 → 文档 MCP / AI 表格 MCP）
 DINGTALK_MCP_URL=https://mcp-gw.dingtalk.com/server/<your_doc_token>
@@ -184,6 +185,9 @@ checkpointer = SqliteSaver(conn)
 
 **Q: 163 邮件 `Unsafe Login`**
 → 到 mail.163.com 重新生成 IMAP 授权码，更新 `.env EMAIL_AUTH_CODE`
+
+**Q: 会议纪要没有写入飞书**
+→ v0.7.6 起 `FEISHU_WIKI_MEETING_PAGE` 不再是必配项。服务会自动在 `FEISHU_WIKI_CONTEXT_PAGE` 下创建"📋 会议纪要汇总"子页面。只需确认 `FEISHU_WIKI_CONTEXT_PAGE` 已正确配置，且应用有该页面的「可管理」权限。
 
 **Q: 钉钉文档相关操作失败**
 → v0.7.4 起文档/表格操作通过 MCP 接入，确认 `DINGTALK_MCP_URL` 和 `DINGTALK_MCP_TABLE_URL` 已正确配置；启动日志中应有 `[tools] 钉钉 MCP 工具已注册: [...]`

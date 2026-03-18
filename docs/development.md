@@ -110,6 +110,37 @@ Ctrl+C → python main.py
 # 未来可让 Agent 自动触发重启（加入白名单命令）
 ```
 
+## 回归测试
+
+`tests/regression/` 是功能回归测试套件，确保每次迭代后已有能力不被破坏。
+
+```bash
+source .venv/bin/activate
+
+# 运行全部套件
+python tests/regression/run_all.py
+
+# 单独运行某套件
+python tests/regression/run_all.py feishu    # 飞书知识库（14用例）
+python tests/regression/run_all.py dingtalk  # 钉钉 MCP（8用例）
+python tests/regression/run_all.py e2e       # 端到端流水线（11用例）
+
+# 标准 pytest 命令（同样有效）
+python -m pytest tests/regression/ -v
+```
+
+**测试分类原则（问题分类方法论）**：
+
+| 测试类型 | 用途 | 示例 |
+|---------|------|------|
+| 回归测试（`tests/regression/`） | 验证系统调用、API 成功/失败、数据格式 | API 返回 200、token 非空、结果含指定字段 |
+| 手动场景测试 | 验证 LLM 选择工具是否正确、回复是否符合预期 | 发"搜索钉钉文档" → 触发 `search_documents` |
+
+> **代码问题**（API 失败、参数错误、Python 异常）→ 修 `integrations/`、写回归测试
+> **提示词/技能问题**（LLM 选错工具、理解歧义）→ 修 `prompts/system.md` 或工具 docstring，手动测试验证
+
+**注意**：`TestAnalyze` 类因 LLM 超时会自动 skip（`pytest.skip`），属预期行为，不影响套件结果。
+
 ## 代码规范
 
 - **语言**：Python 3.11+，类型注解尽量完整
