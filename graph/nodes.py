@@ -2,6 +2,7 @@
 LangGraph 节点。
 
 LLM 链：火山云 Ark → OpenRouter（with_fallbacks 自动降级）
+工具渐进式披露：每次 LLM 调用只传递当前上下文相关的工具，节省 token。
 Claude API 不在此使用，仅供 Claude Code CLI。
 """
 import os
@@ -13,7 +14,7 @@ import threading
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, ToolMessage, AIMessage
 from graph.state import AgentState
-from graph.tools import ALL_TOOLS
+from graph.tools import ALL_TOOLS, CORE_TOOLS, TOOL_CATEGORIES, CATEGORY_KEYWORDS
 
 # ------------------------------------------------------------------ #
 # Tool 执行上下文（线程局部变量，供工具读取当前会话信息）
@@ -32,9 +33,15 @@ def get_tool_ctx() -> tuple[str | None, object]:
 
 logger = logging.getLogger(__name__)
 
+# 工具名 → 分类映射（用于多轮连续性检测）
+_TOOL_TO_CATEGORY: dict[str, str] = {
+    t.name: cat
+    for cat, tools in TOOL_CATEGORIES.items()
+    for t in tools
+}
 
 # --------------------------------------------------------------------------- #
-# LLM 链
+# LLM 链（不预先 bind_tools，动态绑定）
 # --------------------------------------------------------------------------- #
 def _make_llm(model: str, api_key: str, base_url: str, timeout: int) -> ChatOpenAI | None:
     if not api_key:
@@ -48,7 +55,8 @@ def _make_llm(model: str, api_key: str, base_url: str, timeout: int) -> ChatOpen
     )
 
 
-def _build_llm_chain():
+def _build_base_llm():
+    """构建不绑定工具的基础 LLM 链（工具在每次调用时动态绑定）。"""
     ark = _make_llm(
         model=os.getenv("VOLCENGINE_MODEL", "doubao-pro-32k"),
         api_key=os.getenv("VOLCENGINE_API_KEY", ""),
@@ -74,11 +82,10 @@ def _build_llm_chain():
     if router:
         names.append(f"OpenRouter({os.getenv('OPENROUTER_MODEL')})")
     logger.info(f"LLM 链：{' → '.join(names)}")
+    return llm
 
-    return llm.bind_tools(ALL_TOOLS)
 
-
-llm_with_tools = _build_llm_chain()
+_llm_base = _build_base_llm()
 tools_by_name = {t.name: t for t in ALL_TOOLS}
 
 # 火山云 Ark 有时以文本形式返回工具调用，格式为：
@@ -120,7 +127,54 @@ SYSTEM_PROMPT = _load_system_prompt()
 _LLM_LOG_PATH = "logs/llm.jsonl"
 
 
-def _log_llm_call(thread_id: str, messages: list, response, latency_ms: float):
+# --------------------------------------------------------------------------- #
+# 渐进式工具选择
+# --------------------------------------------------------------------------- #
+def _select_tools(messages: list) -> list:
+    """
+    根据对话内容动态选择工具集，实现渐进式披露。
+
+    规则：
+    1. 始终包含 CORE_TOOLS（6个，~911 tokens）
+    2. 扫描最近 5 条消息的文本关键词，加载匹配分类
+    3. 扫描历史消息中已实际调用的工具，保持同类工具连续可用
+
+    目标：从全量 ~6795 tokens 降至 ~1000-3000 tokens/call。
+    """
+    selected_categories: set[str] = set()
+
+    # 1. 关键词触发：检查最近 5 条消息
+    recent_text = ""
+    for m in messages[-5:]:
+        content = m.content if isinstance(m.content, str) else ""
+        recent_text += content.lower() + " "
+
+    for cat, keywords in CATEGORY_KEYWORDS.items():
+        if any(kw in recent_text for kw in keywords):
+            selected_categories.add(cat)
+
+    # 2. 连续性保持：历史中已调用过的工具，保持其分类可用
+    for m in messages:
+        for tc in getattr(m, "tool_calls", None) or []:
+            cat = _TOOL_TO_CATEGORY.get(tc.get("name", ""))
+            if cat:
+                selected_categories.add(cat)
+
+    # 组装最终工具列表
+    tools = list(CORE_TOOLS)
+    for cat in selected_categories:
+        tools.extend(TOOL_CATEGORIES[cat])
+
+    if selected_categories:
+        logger.debug(f"[ToolSelect] 激活分类: {sorted(selected_categories)}，工具数: {len(tools)}")
+
+    return tools
+
+
+# --------------------------------------------------------------------------- #
+# 日志
+# --------------------------------------------------------------------------- #
+def _log_llm_call(thread_id: str, messages: list, response, latency_ms: float, tools: list):
     """将每次 LLM 调用记录到 logs/llm.jsonl（JSONL 格式，供后续分析）。"""
     try:
         def _msg_repr(m) -> dict:
@@ -133,6 +187,8 @@ def _log_llm_call(thread_id: str, messages: list, response, latency_ms: float):
             "thread": thread_id,
             "latency_ms": round(latency_ms),
             "model": meta.get("model_name") or meta.get("model") or "",
+            "tools_count": len(tools),
+            "tools_active": [t.name for t in tools],
             "usage": meta.get("token_usage") or meta.get("usage") or {},
             "input_msgs": [_msg_repr(m) for m in messages],
             "output": response.content[:1000] if isinstance(response.content, str) else str(response.content)[:1000],
@@ -151,8 +207,13 @@ def _log_llm_call(thread_id: str, messages: list, response, latency_ms: float):
 def agent_node(state: AgentState) -> dict:
     thread_id = f"{state.get('platform', '?')}:{state.get('chat_id', '?')}"
     messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
+
+    # 动态选择工具（渐进式披露）
+    tools = _select_tools(messages)
+    llm = _llm_base.bind_tools(tools)
+
     t0 = time.monotonic()
-    response = llm_with_tools.invoke(messages)
+    response = llm.invoke(messages)
     latency_ms = (time.monotonic() - t0) * 1000
 
     # 处理火山云文本格式工具调用
@@ -166,7 +227,7 @@ def agent_node(state: AgentState) -> dict:
             logger.debug(f"解析文本格式工具调用: {[c['name'] for c in tool_calls]}")
             response = AIMessage(content="", tool_calls=tool_calls)
 
-    _log_llm_call(thread_id, messages, response, latency_ms)
+    _log_llm_call(thread_id, messages, response, latency_ms, tools)
 
     return {"messages": [response]}
 

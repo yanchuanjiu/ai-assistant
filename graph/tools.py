@@ -1004,42 +1004,76 @@ def feishu_im_get_messages(
 
 
 # --------------------------------------------------------------------------- #
-# 导出所有工具
+# 工具分类（渐进式披露）
 # --------------------------------------------------------------------------- #
-ALL_TOOLS = [
-    # 飞书知识库
-    feishu_read_page,
-    feishu_append_to_page,
-    feishu_overwrite_page,
-    feishu_search_wiki,
-    sync_context_to_feishu,
-    # 飞书多维表格
-    feishu_bitable_record,
-    feishu_bitable_meta,
-    # 飞书任务
-    feishu_task_task,
-    feishu_task_tasklist,
-    # 飞书搜索 & IM
-    feishu_search_doc_wiki,
-    feishu_im_get_messages,
-    # 钉钉文档 & 会议分析
-    get_latest_meeting_docs,
-    read_meeting_doc,
-    analyze_meeting_doc,
-    list_processed_meetings,
-    # Claude Code 管理（tmux）
-    trigger_self_iteration,
-    list_claude_sessions,
-    get_claude_session_output,
-    kill_claude_session,
-    send_claude_input,
-    # Web
+
+# 每次调用都会携带的最小工具集
+CORE_TOOLS = [
     web_search,
     web_fetch,
-    # 代码执行
     python_execute,
-    # 系统
     run_command,
     get_system_status,
     get_service_status,
+]
+
+# 按需加载的分类工具
+TOOL_CATEGORIES: dict[str, list] = {
+    # 飞书基础知识库读写（高频）
+    "feishu_wiki": [
+        feishu_read_page,
+        feishu_append_to_page,
+        feishu_overwrite_page,
+        feishu_search_wiki,
+        sync_context_to_feishu,
+    ],
+    # 飞书高级工具（Bitable / Task / 搜索 / IM）——schema 较重，按需加载
+    "feishu_advanced": [
+        feishu_bitable_record,
+        feishu_bitable_meta,
+        feishu_task_task,
+        feishu_task_tasklist,
+        feishu_search_doc_wiki,
+        feishu_im_get_messages,
+    ],
+    # 钉钉会议文档
+    "meeting": [
+        get_latest_meeting_docs,
+        read_meeting_doc,
+        analyze_meeting_doc,
+        list_processed_meetings,
+    ],
+    # Claude Code 自迭代
+    "claude": [
+        trigger_self_iteration,
+        list_claude_sessions,
+        get_claude_session_output,
+        kill_claude_session,
+        send_claude_input,
+    ],
+}
+
+# 触发各分类的关键词（中英文，小写匹配）
+CATEGORY_KEYWORDS: dict[str, list[str]] = {
+    "feishu_wiki": [
+        "飞书", "feishu", "知识库", "wiki", "页面", "同步上下文",
+        "读取文档", "追加", "覆盖",
+    ],
+    "feishu_advanced": [
+        "多维表格", "bitable", "表格", "任务", "task", "日程",
+        "全文搜索", "群聊", "消息记录", "im消息",
+    ],
+    "meeting": [
+        "会议", "纪要", "钉钉", "dingtalk", "alidocs", "meeting",
+        "会议室", "分析文档", "处理记录",
+    ],
+    "claude": [
+        "迭代", "开发", "修复", "实现", "编写代码", "重构",
+        "claude", "session", "会话", "调试", "自迭代",
+    ],
+}
+
+# 全量工具列表（供执行层 tools_by_name 使用，不直接传给 LLM）
+ALL_TOOLS = CORE_TOOLS + [
+    t for tools in TOOL_CATEGORIES.values() for t in tools
 ]
