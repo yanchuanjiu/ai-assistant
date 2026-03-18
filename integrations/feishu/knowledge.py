@@ -2,13 +2,15 @@
 飞书知识库（Wiki）操作：
 - 解析 wiki URL/token → obj_token（get_node API）
 - 读取 / 追加 / 覆盖页面内容（docx API）
+- 列出/创建子页面（全程 tenant_access_token，无需 user OAuth）
 
 权限说明：
-  tenant_access_token 无法调用 wiki spaces list / create nodes API，
-  但可以通过 get_node 解析 obj_token 后直接操作 docx。
+  tenant_access_token 无法直接 create wiki nodes，
+  但可以：① docx API 创建文档  ② move_docs_to_wiki 移入 wiki 作为子页面
   前提：在飞书页面的"文档权限"里给应用授予查看/编辑权限。
 """
 import re
+import time
 import logging
 from pydantic_settings import BaseSettings
 from integrations.feishu.client import feishu_get, feishu_post, feishu_delete
@@ -114,6 +116,91 @@ class FeishuKnowledge:
         self._clear_doc(obj_token)
         self._append_text(obj_token, full_content)
         return f"https://open.feishu.cn/docx/{obj_token}"
+
+    # ------------------------------------------------------------------ #
+    # 子页面：列出 / 查找 / 创建
+    # ------------------------------------------------------------------ #
+    def list_wiki_children(self, parent_wiki_token: str) -> list[dict]:
+        """列出指定 wiki 节点的直属子页面。返回节点列表（含 title / node_token / has_child）。"""
+        resp = feishu_get(
+            f"/wiki/v2/spaces/{self.space_id}/nodes",
+            params={"parent_node_token": parent_wiki_token, "page_size": 50},
+        )
+        return resp.get("data", {}).get("items", [])
+
+    def create_wiki_child_page(self, title: str, parent_wiki_token: str) -> str:
+        """
+        在指定 wiki 节点下创建子页面，返回新页面的 wiki node_token。
+
+        流程（全程 tenant_access_token，无需 user OAuth）：
+          ① POST /docx/v1/documents  → 创建空 docx，得到 document_id
+          ② POST move_docs_to_wiki   → 将 docx 移入 wiki 子节点
+          ③ 轮询任务直到完成         → 返回 node_token
+        """
+        # ① 创建 docx
+        doc_resp = feishu_post("/docx/v1/documents", json={"title": title})
+        doc_id = doc_resp["data"]["document"]["document_id"]
+
+        # ② 移入 wiki
+        move_resp = feishu_post(
+            f"/wiki/v2/spaces/{self.space_id}/nodes/move_docs_to_wiki",
+            json={
+                "parent_wiki_token": parent_wiki_token,
+                "obj_type": "docx",
+                "obj_token": doc_id,
+            },
+        )
+        task_id = move_resp["data"]["task_id"]
+
+        # ③ 轮询任务（最多等 10 秒）
+        for _ in range(10):
+            time.sleep(1)
+            task_resp = feishu_get(f"/wiki/v2/tasks/{task_id}", params={"task_type": "move"})
+            results = task_resp.get("data", {}).get("task", {}).get("move_result", [])
+            if results and results[0].get("status") == 0:
+                node_token = results[0]["node"]["node_token"]
+                logger.info(f"[FeishuKnowledge] 创建子页面成功: {title!r} → {node_token}")
+                return node_token
+        raise RuntimeError(f"创建子页面超时（task_id={task_id}）")
+
+    def find_or_create_child_page(
+        self, title: str, parent_wiki_token: str, cache_key: str = ""
+    ) -> str:
+        """
+        在指定 wiki 节点下查找或创建命名子页面，返回 wiki node_token。
+
+        查找顺序：
+          1. config_store 缓存（cache_key 非空时）
+          2. list_children 按 title 精确匹配
+          3. 以上均无则调用 create_wiki_child_page 新建
+
+        结果自动写入 config_store（cache_key 非空时）以供后续复用。
+        """
+        from integrations.storage.config_store import get as cfg_get, set as cfg_set
+
+        # 1. 缓存
+        if cache_key:
+            cached = cfg_get(cache_key)
+            if cached:
+                logger.debug(f"[FeishuKnowledge] 命中缓存 {cache_key}={cached}")
+                return cached
+
+        # 2. 列子节点查找同名
+        children = self.list_wiki_children(parent_wiki_token)
+        for child in children:
+            if child.get("title") == title:
+                token = child["node_token"]
+                logger.info(f"[FeishuKnowledge] 找到已有子页面: {title!r} → {token}")
+                if cache_key:
+                    cfg_set(cache_key, token)
+                return token
+
+        # 3. 新建
+        logger.info(f"[FeishuKnowledge] 子页面不存在，新建: {title!r}")
+        token = self.create_wiki_child_page(title, parent_wiki_token)
+        if cache_key:
+            cfg_set(cache_key, token)
+        return token
 
     # ------------------------------------------------------------------ #
     # 搜索（在指定页面列表中检索关键词）

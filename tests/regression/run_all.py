@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+"""
+回归测试 CLI 入口
+
+用法：
+  python tests/regression/run_all.py           # 运行全部
+  python tests/regression/run_all.py feishu    # 只跑飞书知识库
+  python tests/regression/run_all.py dingtalk  # 只跑钉钉 MCP
+  python tests/regression/run_all.py e2e       # 只跑端到端流水线
+
+退出码：
+  0 — 全部通过
+  1 — 有测试失败
+"""
+import sys
+import os
+
+# 确保项目根在 path
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
+import subprocess
+
+SUITE_MAP = {
+    "feishu":   "tests/regression/test_feishu_wiki.py",
+    "dingtalk": "tests/regression/test_dingtalk_mcp.py",
+    "e2e":      "tests/regression/test_e2e_pipeline.py",
+}
+
+def main():
+    args = sys.argv[1:]
+
+    if args and args[0] in SUITE_MAP:
+        targets = [SUITE_MAP[args[0]]]
+        label = args[0]
+    else:
+        targets = list(SUITE_MAP.values())
+        label = "all"
+
+    print(f"\n{'='*60}")
+    print(f"  AI 助理回归测试 — {label.upper()}")
+    print(f"{'='*60}\n")
+
+    cmd = [
+        sys.executable, "-m", "pytest",
+        "-v", "--tb=short", "--no-header",
+        "--color=yes",
+    ] + targets
+
+    result = subprocess.run(cmd, cwd=ROOT)
+    sys.exit(result.returncode)
+
+
+if __name__ == "__main__":
+    main()

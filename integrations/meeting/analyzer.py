@@ -117,16 +117,53 @@ def format_for_feishu(info: dict, doc_url: str = "") -> str:
     return "\n".join(lines)
 
 
-def write_to_feishu(info: dict, doc_url: str = "") -> str:
-    """将分析结果追加到飞书会议纪要页面，返回写入结果描述。"""
+def _get_or_create_meeting_page() -> str:
+    """
+    自动查找或创建飞书会议纪要汇总子页面，返回其 wiki node_token。
+
+    查找顺序：
+      1. config_store 缓存 WIKI_PAGE_MEETING_NOTES
+      2. FEISHU_WIKI_MEETING_PAGE（.env 手动配置，向后兼容）
+      3. 在 FEISHU_WIKI_CONTEXT_PAGE 下查找同名子页面
+      4. 以上均无则自动新建子页面
+    """
     from integrations.storage.config_store import get as cfg_get
-    meeting_page = cfg_get("FEISHU_WIKI_MEETING_PAGE") or os.getenv("FEISHU_WIKI_MEETING_PAGE", "")
-    if not meeting_page:
-        logger.warning("[MeetingAnalyzer] FEISHU_WIKI_MEETING_PAGE 未配置，跳过飞书写入")
-        return "FEISHU_WIKI_MEETING_PAGE 未配置，请通过 agent_config 工具设置"
+    from integrations.feishu.knowledge import FeishuKnowledge
+
+    # 旧配置项兼容
+    legacy = cfg_get("FEISHU_WIKI_MEETING_PAGE") or os.getenv("FEISHU_WIKI_MEETING_PAGE", "")
+    if legacy:
+        return legacy
+
+    wiki_root = os.getenv("FEISHU_WIKI_CONTEXT_PAGE", "")
+    if not wiki_root:
+        raise RuntimeError("FEISHU_WIKI_CONTEXT_PAGE 未配置，无法自动创建会议纪要子页面")
+
+    kb = FeishuKnowledge()
+    token = kb.find_or_create_child_page(
+        title="📋 会议纪要汇总",
+        parent_wiki_token=wiki_root,
+        cache_key="WIKI_PAGE_MEETING_NOTES",
+    )
+    return token
+
+
+def write_to_feishu(info: dict, doc_url: str = "") -> str:
+    """
+    将分析结果追加到飞书会议纪要子页面，返回写入结果描述。
+    目标页面自动发现（无需手动配置 FEISHU_WIKI_MEETING_PAGE）：
+      - 优先读 config_store / .env 中的已有配置
+      - 否则在 FEISHU_WIKI_CONTEXT_PAGE 下查找或创建「📋 会议纪要汇总」子页面
+    """
+    try:
+        meeting_page = _get_or_create_meeting_page()
+    except Exception as e:
+        logger.warning(f"[MeetingAnalyzer] 无法获取目标页面: {e}")
+        return f"无法获取飞书目标页面: {e}"
 
     from integrations.feishu.knowledge import FeishuKnowledge
     content = format_for_feishu(info, doc_url)
     kb = FeishuKnowledge()
     kb.append_to_page(meeting_page, content)
+    logger.info(f"[MeetingAnalyzer] 会议纪要已写入: {meeting_page}")
     return meeting_page

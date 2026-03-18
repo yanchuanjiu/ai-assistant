@@ -94,6 +94,7 @@
 | `feishu_append_to_page` | 向页面末尾追加内容 | 记录新信息、追加日志 |
 | `feishu_overwrite_page` | 清空并重写页面 | 更新上下文快照 |
 | `feishu_search_wiki` | 在上下文页面中搜索 | 检索已记录内容 |
+| `feishu_wiki_page` | 子页面管理（list_children / find_or_create） | 自动创建/查找子页面 |
 | `sync_context_to_feishu` | SQLite 记忆快照 → 飞书 | 手动触发同步 |
 
 ### 飞书高级工具（6 个，关键词：多维表格/任务/bitable）

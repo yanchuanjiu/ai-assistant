@@ -622,6 +622,67 @@ def get_service_status() -> str:
 
 
 # --------------------------------------------------------------------------- #
+# 飞书知识库子页面管理（list / find_or_create）
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_wiki_page(
+    action: str,
+    title: str = "",
+    parent_wiki_token: str = "",
+    cache_key: str = "",
+) -> str:
+    """
+    飞书知识库子页面管理（全程 tenant_access_token，无需 user OAuth）。
+
+    action 可选：
+      list_children   — 列出 parent_wiki_token 下的子页面
+                        （需 parent_wiki_token）
+      find_or_create  — 查找或创建命名子页面，返回 wiki node_token
+                        （需 title + parent_wiki_token；cache_key 可选，用于加速后续查找）
+
+    find_or_create 查找顺序：
+      1. config_store 缓存（cache_key 非空时）
+      2. 列出子页面按 title 精确匹配
+      3. 以上均无则新建（创建 docx → move_docs_to_wiki）
+
+    示例：
+      feishu_wiki_page(action="find_or_create",
+                       title="📋 会议纪要汇总",
+                       parent_wiki_token="FalZwGDOkiqpbQkeAjGc8jaznMd",
+                       cache_key="WIKI_PAGE_MEETING_NOTES")
+    """
+    try:
+        from integrations.feishu.knowledge import FeishuKnowledge
+        kb = FeishuKnowledge()
+
+        if action == "list_children":
+            if not parent_wiki_token:
+                return "list_children 需要提供 parent_wiki_token"
+            items = kb.list_wiki_children(parent_wiki_token)
+            if not items:
+                return f"{parent_wiki_token} 下暂无子页面"
+            lines = [f"共 {len(items)} 个子页面："]
+            for it in items:
+                child_hint = "（有子页）" if it.get("has_child") else ""
+                lines.append(f"  - {it['title']}{child_hint}  token={it['node_token']}")
+            return "\n".join(lines)
+
+        elif action == "find_or_create":
+            if not title or not parent_wiki_token:
+                return "find_or_create 需要提供 title 和 parent_wiki_token"
+            token = kb.find_or_create_child_page(title, parent_wiki_token, cache_key)
+            url = f"https://pw46ob73t1c.feishu.cn/wiki/{token}"
+            return f"✅ 页面 token={token}\n链接：{url}"
+
+        else:
+            return f"未知 action: {action!r}，可选：list_children / find_or_create"
+
+    except Exception as e:
+        logger.error(f"[feishu_wiki_page] {e}")
+        return f"操作失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
 # 飞书多维表格（Bitable）— 记录 CRUD
 # --------------------------------------------------------------------------- #
 @tool
@@ -1119,6 +1180,7 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_overwrite_page,
         feishu_search_wiki,
         sync_context_to_feishu,
+        feishu_wiki_page,
     ],
     # 飞书高级工具（Bitable / Task / 搜索 / IM）——schema 较重，按需加载
     "feishu_advanced": [
