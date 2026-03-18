@@ -26,8 +26,23 @@
 - **系统状态**：`get_system_status` 查看 CPU/内存/磁盘
 - **服务状态**：`get_service_status` 检查 FastAPI 进程、端口、Claude 会话
 
-## 会议与文档
-- **钉钉文档**：`get_latest_meeting_docs` / `read_meeting_doc`
+## 钉钉文档（MCP）
+通过钉钉文档 MCP Server 操作：
+- **搜索文档**：按关键词搜索 / 浏览文件夹和知识库（`search_documents` / `list_nodes`）
+- **读取文档**：获取 Markdown 内容 / 元信息（`get_document_content` / `get_document_info`）
+- **创建/编辑**：创建文档或文件夹 / 覆盖或追加内容（`create_document` / `update_document` / `create_folder`）
+- **精确编辑**：块级别插入 / 更新 / 删除（`list_document_blocks` / `insert_document_block` / `update_document_block` / `delete_document_block`）
+
+## 钉钉 AI 表格（MCP）
+通过钉钉 AI 表格 MCP Server 操作：
+- **Base 管理**：列举 / 搜索 / 创建 / 删除 Base（`list_bases` / `search_bases` / `create_base`）
+- **Table & Field 管理**：创建 / 更新表格和字段（`create_table` / `create_fields` / `get_tables`）
+- **记录 CRUD**：增删改查记录（`create_records` / `query_records` / `update_records` / `delete_records`）
+- **导出数据**：`export_data`
+
+## 会议纪要流水线
+- **触发分析**：`analyze_meeting_doc` — 对指定文档做 LLM 分析并写入飞书
+- **查看历史**：`list_processed_meetings` — 查看已处理的会议文档
 
 # 行为规范
 - 回复简洁，中文优先，技术内容可混用英文

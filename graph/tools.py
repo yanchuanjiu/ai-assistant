@@ -184,7 +184,7 @@ def analyze_meeting_doc(file_id: str, force: bool = False) -> str:
     立即分析指定钉钉文档并写入飞书会议纪要页面。
 
     参数：
-      file_id — 钉钉文档 ID（从 get_latest_meeting_docs 获取）
+      file_id — 钉钉文档 ID（从 MCP 工具 search_documents / list_nodes 获取）
       force   — 是否强制重新分析已处理过的文档（默认 False）
 
     流程：读取内容 → LLM 分析 → 写入飞书 → 返回摘要。
@@ -1115,10 +1115,8 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_search_doc_wiki,
         feishu_im_get_messages,
     ],
-    # 钉钉会议文档
+    # 会议纪要流水线（文档读取由 MCP 工具承担）
     "meeting": [
-        get_latest_meeting_docs,
-        read_meeting_doc,
         analyze_meeting_doc,
         list_processed_meetings,
     ],
@@ -1143,7 +1141,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "全文搜索", "群聊", "消息记录", "im消息",
     ],
     "meeting": [
-        "会议", "纪要", "钉钉", "dingtalk", "alidocs", "meeting",
+        "会议", "纪要", "alidocs", "meeting",
         "会议室", "分析文档", "处理记录",
     ],
     "claude": [
@@ -1175,9 +1173,10 @@ _dingtalk_mcp_tools = _load_dingtalk_mcp()
 if _dingtalk_mcp_tools:
     TOOL_CATEGORIES["dingtalk_mcp"] = _dingtalk_mcp_tools
     CATEGORY_KEYWORDS["dingtalk_mcp"] = [
-        "钉钉文档", "dingtalk doc", "alidoc", "创建文档", "编辑文档",
-        "文档块", "block", "文件夹", "知识库文档", "文档内容",
-        "ai表格", "钉钉表格", "智能表格", "多维表格",
+        "钉钉", "dingtalk", "alidoc", "钉钉文档",
+        "创建文档", "编辑文档", "搜索文档", "文档块", "block",
+        "文件夹", "知识库文档", "文档内容",
+        "ai表格", "钉钉表格", "智能表格",
     ]
     logger.info(f"[tools] 钉钉 MCP 工具已注册: {[t.name for t in _dingtalk_mcp_tools]}")
 
