@@ -5,7 +5,7 @@
 """
 import logging
 from datetime import datetime
-from integrations.dingtalk.client import dt_get, dt_post, _settings
+from integrations.dingtalk.client import dt_get, dt_post, _settings, get_current_user_unionid
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,13 @@ class DingTalkDocs:
     def _list_wiki_nodes(self, limit: int = 50) -> list[dict] | None:
         """调用钉钉知识库节点列表 API。"""
         try:
+            union_id = get_current_user_unionid()
+            params: dict = {"maxResults": limit, "orderBy": "modifiedTime", "order": "desc"}
+            if union_id:
+                params["unionId"] = union_id
             resp = dt_get(
                 f"/v1.0/wiki/spaces/{self.space_id}/nodes",
-                params={"maxResults": limit, "orderBy": "modifiedTime", "order": "desc"},
+                params=params,
             )
             logger.debug(f"[wiki/nodes] resp keys={list(resp.keys())}")
             # 可能的字段名：nodes / items / files / data
@@ -56,9 +60,13 @@ class DingTalkDocs:
     def _list_drive_files(self, limit: int = 50) -> list[dict] | None:
         """Fallback：尝试旧版 drive/spaces 接口。"""
         try:
+            union_id = get_current_user_unionid()
+            params: dict = {"parentId": "0", "maxResults": limit, "orderBy": "modifiedTime", "order": "desc"}
+            if union_id:
+                params["unionId"] = union_id
             resp = dt_get(
                 f"/v1.0/drive/spaces/{self.space_id}/files",
-                params={"parentId": "0", "maxResults": limit, "orderBy": "modifiedTime", "order": "desc"},
+                params=params,
             )
             files = resp.get("files", [])
             return [self._normalize_node(f) for f in files]

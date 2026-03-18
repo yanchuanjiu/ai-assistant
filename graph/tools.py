@@ -177,6 +177,77 @@ def read_meeting_doc(file_id: str) -> str:
         return f"读取失败：{e}"
 
 
+@tool
+def analyze_meeting_doc(file_id: str, force: bool = False) -> str:
+    """
+    立即分析指定钉钉文档并写入飞书会议纪要页面。
+
+    参数：
+      file_id — 钉钉文档 ID（从 get_latest_meeting_docs 获取）
+      force   — 是否强制重新分析已处理过的文档（默认 False）
+
+    流程：读取内容 → LLM 分析 → 写入飞书 → 返回摘要。
+    需要在 .env 中配置 FEISHU_WIKI_MEETING_PAGE（飞书会议纪要汇总页面 wiki token）。
+    """
+    from integrations.meeting import analyzer, tracker
+    try:
+        docs = DingTalkDocs()
+        # 查找文档元信息
+        items = docs.list_recent_files(limit=50)
+        item = next((i for i in items if i.get("id") == file_id), {"id": file_id, "name": file_id, "url": ""})
+        doc_name = item.get("name", file_id)
+
+        if not force and tracker.is_processed(file_id):
+            rec = next((r for r in tracker.list_processed(50) if r["doc_id"] == file_id), {})
+            return f"文档已于 {rec.get('analyzed_at', '?')} 处理过。传 force=true 可强制重新分析。"
+
+        if force:
+            tracker.unmark(file_id)
+
+        content = docs.read_file_content(file_id)
+        if not content:
+            return "文档内容为空，无法分析。"
+
+        info = analyzer.analyze(content, doc_name=doc_name)
+        if info is None:
+            tracker.mark_processed(file_id, docs.space_id, doc_name, "not_meeting")
+            return "该文档不像是会议纪要，未写入飞书。"
+
+        doc_url = item.get("url", "")
+        feishu_page = analyzer.write_to_feishu(info, doc_url=doc_url)
+        tracker.mark_processed(file_id, docs.space_id, doc_name, feishu_page)
+
+        summary = info.get("summary", "")
+        decisions = "\n".join(f"  - {d}" for d in (info.get("decisions") or []))
+        actions = "\n".join(
+            f"  - {a['task']}（{a.get('owner','?')} / {a.get('deadline','无截止')}）"
+            for a in (info.get("action_items") or [])
+        )
+        return (
+            f"✅ 分析完成：{doc_name}\n"
+            f"摘要：{summary}\n"
+            + (f"决策：\n{decisions}\n" if decisions else "")
+            + (f"待办：\n{actions}\n" if actions else "")
+            + f"已写入飞书：{feishu_page}"
+        )
+    except Exception as e:
+        logger.error(f"[analyze_meeting_doc] {e}")
+        return f"分析失败：{e}"
+
+
+@tool
+def list_processed_meetings(limit: int = 10) -> str:
+    """列出已分析过的钉钉会议文档（最近 N 条）。"""
+    from integrations.meeting.tracker import list_processed
+    items = list_processed(limit)
+    if not items:
+        return "尚未分析过任何会议文档。"
+    lines = [f"最近 {len(items)} 条已处理会议："]
+    for r in items:
+        lines.append(f"- [{r['doc_name']}] {r['analyzed_at']}  → {r['feishu_page']}")
+    return "\n".join(lines)
+
+
 # --------------------------------------------------------------------------- #
 # 自迭代：异步启动 Claude Code，流式输出实时推送到 IM
 # --------------------------------------------------------------------------- #
@@ -951,9 +1022,11 @@ ALL_TOOLS = [
     # 飞书搜索 & IM
     feishu_search_doc_wiki,
     feishu_im_get_messages,
-    # 钉钉文档
+    # 钉钉文档 & 会议分析
     get_latest_meeting_docs,
     read_meeting_doc,
+    analyze_meeting_doc,
+    list_processed_meetings,
     # Claude Code 管理（tmux）
     trigger_self_iteration,
     list_claude_sessions,

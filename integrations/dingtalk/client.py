@@ -22,6 +22,7 @@ class DingTalkSettings(BaseSettings):
 
 _settings = DingTalkSettings()
 _token_cache: dict = {"token": None, "expires_at": 0}
+_union_id_cache: dict = {"union_id": None}
 
 
 def get_access_token() -> str:
@@ -42,6 +43,22 @@ def get_access_token() -> str:
     _token_cache["token"] = data["accessToken"]
     _token_cache["expires_at"] = now + data.get("expireIn", 7200)
     return _token_cache["token"]
+
+
+def get_current_user_unionid() -> str:
+    """获取当前应用机器人对应的 unionId，用于需要用户身份的 Drive/Wiki API。"""
+    if _union_id_cache["union_id"]:
+        return _union_id_cache["union_id"]
+    try:
+        resp = dt_get("/v1.0/contact/users/me")
+        union_id = resp.get("unionId", "")
+        if union_id:
+            _union_id_cache["union_id"] = union_id
+            logger.info(f"[DingTalk] 获取 unionId 成功: {union_id}")
+        return union_id
+    except Exception as e:
+        logger.warning(f"[DingTalk] 获取 unionId 失败: {e}")
+        return ""
 
 
 def dt_get(path: str, params: dict = None, base: str = DINGTALK_BASE) -> dict:
