@@ -50,7 +50,7 @@ def get_current_user_unionid() -> str:
     if _union_id_cache["union_id"]:
         return _union_id_cache["union_id"]
     try:
-        resp = dt_get("/v1.0/contact/users/me")
+        resp = dt_get("/v2.0/users/me")
         union_id = resp.get("unionId", "")
         if union_id:
             _union_id_cache["union_id"] = union_id

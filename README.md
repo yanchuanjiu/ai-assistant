@@ -1,4 +1,4 @@
-# AI 个人助理（v0.6.0）
+# AI 个人助理（v0.7.1）
 
 > 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书 / 钉钉机器人对话，自动处理会议纪要、读写飞书知识库、搜索网络，并通过自然语言驱动 Claude Code 完成代码开发自迭代。
 
@@ -34,7 +34,7 @@
 │  处理：会议管理 / 知识库读写 / 网络搜索 /                  │
 │        系统运维 / 代码执行 / 开发需求路由                  │
 │                                                         │
-│  工具：18 个（见下方工具表）                              │
+│  工具：26 个，渐进式披露（见下方工具表）                   │
 └───────────────────┬─────────────────────────────────────┘
                     │ 当任务=开发/代码改动时
                     │ 调用 trigger_self_iteration
@@ -70,11 +70,22 @@
 
 ---
 
-## 主 Agent 工具表（18 个）
+## 主 Agent 工具表（26 个）
 
-主 Agent 通过 LangGraph 的 ReAct 模式调用以下工具。工具按能力域分组：
+主 Agent 通过 LangGraph 的 ReAct 模式调用以下工具。采用**渐进式披露**：6 个核心工具每次必带，其余 20 个按消息关键词动态注入（节省约 87% token）。
 
-### 飞书知识库（5 个）
+### 核心工具（6 个，每次必带）
+
+| 工具 | 用途 |
+|------|------|
+| `web_search` | DuckDuckGo 搜索（无需 API key） |
+| `web_fetch` | 获取任意 URL 的纯文本内容 |
+| `python_execute` | 直接执行 Python 代码片段（30s 超时） |
+| `run_command` | 执行任意 shell 命令（无白名单） |
+| `get_system_status` | CPU / 内存 / 磁盘状态 |
+| `get_service_status` | FastAPI 进程、端口监听、Claude tmux 会话概览 |
+
+### 飞书知识库（5 个，关键词：飞书/wiki/知识库）
 
 | 工具 | 用途 | 典型场景 |
 |------|------|---------|
@@ -84,14 +95,27 @@
 | `feishu_search_wiki` | 在上下文页面中搜索 | 检索已记录内容 |
 | `sync_context_to_feishu` | SQLite 记忆快照 → 飞书 | 手动触发同步 |
 
-### 钉钉文档（2 个）
+### 飞书高级工具（6 个，关键词：多维表格/任务/bitable）
 
 | 工具 | 用途 |
 |------|------|
-| `get_latest_meeting_docs` | 获取最近 N 个会议纪要列表 |
-| `read_meeting_doc` | 读取钉钉文档完整内容 |
+| `feishu_bitable_record` | 多维表格记录 CRUD（create/list/update/delete 等7种） |
+| `feishu_bitable_meta` | 列出数据表/字段/视图 |
+| `feishu_task_task` | 任务创建/查询/更新/子任务 |
+| `feishu_task_tasklist` | 任务清单管理 |
+| `feishu_search_doc_wiki` | 全文搜索文档/Wiki（需 user_access_token） |
+| `feishu_im_get_messages` | 读取群聊或单聊历史消息 |
 
-### Claude Code 管理（5 个）
+### 会议纪要（4 个，关键词：会议/纪要/钉钉）
+
+| 工具 | 用途 |
+|------|------|
+| `get_latest_meeting_docs` | 获取钉钉知识库文档列表（支持 keyword/space_id） |
+| `read_meeting_doc` | 读取钉钉文档完整内容 |
+| `analyze_meeting_doc` | 立即 LLM 分析指定文档并写飞书（支持 force） |
+| `list_processed_meetings` | 查看已分析的会议文档列表 |
+
+### Claude Code 管理（5 个，关键词：迭代/开发/claude）
 
 > 主 Agent 用这组工具全权管理 Claude Code 子 Agent 的生命周期。
 
@@ -102,27 +126,6 @@
 | `get_claude_session_output` | 获取会话最近输出 | 查看进度 / 排查问题 |
 | `kill_claude_session` | 强制终止会话 | 任务跑偏、需要重来 |
 | `send_claude_input` | 向会话发送追加指令 | 补充需求、回答 Claude 的问题 |
-
-### Web 信息获取（2 个）
-
-| 工具 | 用途 |
-|------|------|
-| `web_search` | DuckDuckGo 搜索（无需 API key），返回结构化摘要 |
-| `web_fetch` | 获取任意 URL 的纯文本内容（去除 HTML 标签） |
-
-### 代码与命令执行（2 个）
-
-| 工具 | 用途 |
-|------|------|
-| `python_execute` | 直接执行 Python 代码片段（30s 超时） |
-| `run_command` | 执行任意 shell 命令（无白名单，个人私有服务器） |
-
-### 系统监控（2 个）
-
-| 工具 | 用途 |
-|------|------|
-| `get_system_status` | CPU / 内存 / 磁盘状态 |
-| `get_service_status` | FastAPI 进程、端口监听、Claude tmux 会话概览 |
 
 ---
 
@@ -186,6 +189,7 @@
 
 | 任务 | 频率 | 做什么 |
 |------|------|--------|
+| `poll_dingtalk_meetings` | 每 30 分钟 | 轮询钉钉知识库 → LLM 分析新会议纪要 → 写飞书知识库 |
 | `poll_email` | 每 60 分钟 | 拉取 163 邮件 → LLM（Haiku）提取会议信息 → 写飞书知识库 |
 | `sync_context` | 每 30 分钟 | SQLite checkpoints 快照 → 覆盖飞书上下文页面 |
 
@@ -206,22 +210,27 @@
 
 ---
 
-## 当前运行状态（v0.6.0）
+## 当前运行状态（v0.7.1）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client）
 ✅ 钉钉机器人      — 流模式（dingtalk-stream）
 ✅ 火山云 LLM     — ep-20260317143459-qtgqn
-✅ SQLite 记忆    — data/memory.db
-✅ 定时任务        — 邮件60min / 上下文同步30min
+✅ SQLite 记忆    — data/memory.db / data/meeting.db
+✅ 定时任务        — 钉钉会议30min / 邮件60min / 上下文同步30min
 ✅ 飞书知识库      — docx API via get_node（context page: FalZwGDOkiqpbQkeAjGc8jaznMd）
+✅ 会议纪要闭环    — 钉钉知识库轮询 → LLM 分析 → 飞书写入（自动 + 按需）
+✅ LLM 调用日志   — logs/llm.jsonl（JSONL）
 ✅ Claude Code    — tmux 会话（持久化），stream-json 推送 IM
 ✅ Claude 会话管理 — list / get_output / kill / send_input
 ✅ Web 工具        — web_search + web_fetch
 ✅ 代码执行        — python_execute + run_command（无白名单）
 ✅ 系统监控        — get_system_status / get_service_status
+✅ 飞书扩展工具    — Bitable CRUD / 任务管理 / 文档搜索 / IM 消息读取
+✅ 渐进式工具披露  — 6 核心工具 + 按需动态注入（~87% token 节省）
 
-⚠️  钉钉文档      — API 路径待修复（/v1.0/doc/spaces 404）
+⚠️  FEISHU_WIKI_MEETING_PAGE — 需在 .env 配置飞书会议纪要汇总页面 wiki token
+⚠️  钉钉文档内容读取 — /v1.0/wiki/nodes/{id}/content API 路径待验证
 ⚠️  163 IMAP     — 需重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```
 
@@ -241,19 +250,22 @@ ai-assistant/
 │
 ├── graph/                       # 主 Agent（LangGraph）
 │   ├── agent.py                 # 图定义 + SQLite checkpointer + invoke() 入口
-│   ├── nodes.py                 # agent_node / tools_node / should_continue
+│   ├── nodes.py                 # agent_node（渐进式工具注入）/ tools_node / should_continue
 │   ├── state.py                 # AgentState TypedDict
-│   └── tools.py                 # 18 个工具，ALL_TOOLS 列表
+│   └── tools.py                 # 26 个工具，CORE_TOOLS + TOOL_CATEGORIES（渐进式披露）
 │
 ├── integrations/
 │   ├── feishu/
 │   │   ├── bot.py               # 长连接消息处理，Claude 会话拦截，reply_fn 注册
-│   │   ├── client.py            # tenant_access_token + HTTP 封装
+│   │   ├── client.py            # tenant/user_access_token + HTTP 封装
 │   │   └── knowledge.py         # wiki 读写（get_node → obj_token → docx API）
 │   ├── dingtalk/
 │   │   ├── bot.py               # 流模式消息处理，Claude 会话拦截
-│   │   ├── client.py            # DingTalk OAuth token
-│   │   └── docs.py              # 文档空间（API 路径待修复）
+│   │   ├── client.py            # DingTalk OAuth token；get_current_user_unionid（/v2.0/users/me）
+│   │   └── docs.py              # wiki/drive 双路径 fallback，keyword 过滤
+│   ├── meeting/
+│   │   ├── analyzer.py          # 火山云 LLM 分析会议纪要 → 结构化 JSON → 飞书写入
+│   │   └── tracker.py           # SQLite（data/meeting.db）记录已处理文档，避免重复
 │   ├── claude_code/
 │   │   ├── tmux_session.py      # TmuxClaudeSession + SessionManager（核心实现）
 │   │   └── session.py           # 向后兼容重新导出
@@ -265,7 +277,8 @@ ai-assistant/
 ├── sync/context_sync.py         # SQLite checkpoints → 飞书知识库
 ├── prompts/
 │   ├── system.md                # 主 Agent system prompt（Skills 声明 + 工具使用规则）
-│   └── meeting_extract.md       # 邮件会议提取 prompt（供 Haiku 使用）
+│   ├── meeting_extract.md       # 邮件会议提取 prompt（供 Haiku 使用）
+│   └── meeting_analysis.md      # 会议纪要深度分析 prompt（钉钉文档场景）
 └── docs/                        # 详细文档
 ```
 
@@ -283,11 +296,13 @@ cp .env.example .env   # 填写 docs/setup.md 中的配置项
 # 启动（前台）
 python main.py
 
-# 后台运行
-nohup python main.py > logs/app.log 2>&1 &
+# 后台运行（必须在激活 venv 后执行）
+nohup python main.py >> logs/app.log 2>> logs/server.log &
 
 # 重启
-kill $(lsof -ti:8000) 2>/dev/null; python main.py &
+kill $(lsof -ti:8000) 2>/dev/null
+source .venv/bin/activate
+nohup python main.py >> logs/app.log 2>> logs/server.log &
 
 # 查看 Claude Code 后台会话
 tmux list-sessions | grep ai-claude
@@ -300,9 +315,10 @@ tmux attach -t ai-claude-{session_name}
 
 ## 待完成事项
 
-- [ ] 修复钉钉文档 API 路径（`/v1.0/doc/spaces` 404）
+- [ ] 配置 `FEISHU_WIKI_MEETING_PAGE`（在 .env 填入飞书会议纪要汇总页面 wiki token）
+- [ ] 验证钉钉文档内容读取 API（`/v1.0/wiki/nodes/{id}/content` 是否有效）
 - [ ] 163 邮箱重新开启 IMAP 并更新 `EMAIL_AUTH_CODE`
-- [ ] 接入飞书 Bitable / Calendar / Task 工具（参考 `larksuite-openclaw-lark-*.tgz`）
+- [ ] 会议 action items 自动创建飞书任务（`feishu_task_task`）
 - [ ] 火山云 OSS 文件存储
 - [ ] 飞书知识库语义搜索（当前为关键词匹配）
 

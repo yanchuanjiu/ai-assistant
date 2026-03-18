@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-18（v0.7.0）
+> 最后更新：2026-03-18（v0.7.1）
 
 ---
 
@@ -14,7 +14,7 @@
 
 ---
 
-## 当前运行状态（v0.7.0）
+## 当前运行状态（v0.7.1）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client），收发消息正常
@@ -42,6 +42,24 @@
 ---
 
 ## 版本变更历史
+
+### v0.7.1（2026-03-18）— 渐进式工具披露 + DingTalk API 修复
+
+**修改文件**：
+- `graph/tools.py` — 拆分为 `CORE_TOOLS` + `TOOL_CATEGORIES`（渐进式披露，87% token 节省）
+- `graph/nodes.py` — `agent_node` 按消息关键词动态注入工具分类
+- `integrations/dingtalk/client.py` — `get_current_user_unionid` API 路径 `/v1.0/contact/users/me` → `/v2.0/users/me`
+
+**渐进式工具架构**：
+```
+CORE_TOOLS（6个，每次必带）：web_search / web_fetch / python_execute / run_command / get_system_status / get_service_status
+
+TOOL_CATEGORIES（按需注入，关键词匹配）：
+  feishu_wiki    — 飞书知识库关键词 → 5 个工具
+  feishu_advanced— 多维表格/任务/搜索关键词 → 6 个工具
+  meeting        — 会议/钉钉关键词 → 4 个工具
+  claude         — 迭代/开发/Claude关键词 → 5 个工具
+```
 
 ### v0.7.0（2026-03-18）— 会议纪要闭环 + LLM 日志
 
@@ -132,7 +150,7 @@ graph/
   ├── agent.py           图定义 + SQLite checkpointer + invoke() 入口
   ├── nodes.py           agent_node（含 LLM 日志） / tools_node / should_continue
   ├── state.py           AgentState TypedDict
-  └── tools.py           28 个工具，ALL_TOOLS 导出
+  └── tools.py           26 个工具，CORE_TOOLS + TOOL_CATEGORIES（渐进式披露）+ ALL_TOOLS
 
 integrations/
   ├── feishu/
@@ -141,7 +159,7 @@ integrations/
   │   └── knowledge.py   wiki 读写（parse_wiki_token → get_node → docx API）
   ├── dingtalk/
   │   ├── bot.py         流模式消息处理，同上 Claude 会话拦截
-  │   ├── client.py      DingTalk OAuth token
+  │   ├── client.py      DingTalk OAuth token；get_current_user_unionid（/v2.0/users/me）
   │   └── docs.py        wiki/drive API 双路径 fallback，支持 keyword 过滤
   ├── email/
   │   ├── imap_client.py 163 IMAP 轮询
@@ -157,7 +175,7 @@ integrations/
 
 sync/context_sync.py     SQLite checkpoints → 飞书知识库页面
 prompts/
-  ├── system.md          Agent system prompt（28 个工具的完整能力描述）
+  ├── system.md          Agent system prompt（工具能力描述）
   ├── meeting_extract.md 会议信息提取 prompt（邮件场景）
   └── meeting_analysis.md 会议纪要深度分析 prompt（钉钉文档场景）
 scheduler.py             APScheduler（钉钉会议30min / 邮件60min / 同步30min）
@@ -229,14 +247,23 @@ tmux session 名称：ai-claude-{safe_thread_id}
 - 直接 `python main.py` 会因缺少包导致 crash（`ModuleNotFoundError: No module named 'dotenv'`）
 - 推荐使用 `nohup python main.py >> logs/app.log 2>> logs/server.log &`，**在激活 venv 后**执行
 
-### 9. 会议纪要 SQLite 去重
+### 9. 渐进式工具披露（Progressive Tool Disclosure）
+LLM 每次调用时携带全量 26 个工具会消耗大量 token（schema 很重）。
+解决方案：`graph/nodes.py` 的 `agent_node` 根据用户消息关键词动态决定注入哪些分类：
+- `CORE_TOOLS`（6个）每次必带
+- 其余 20 个工具按 `CATEGORY_KEYWORDS` 匹配后追加
+- 无关键词匹配时只传 6 个 → 节省约 87% token
+
+新增工具时：在 `TOOL_CATEGORIES` 的对应分类中添加，并在 `CATEGORY_KEYWORDS` 中维护触发词。
+
+### 10. 会议纪要 SQLite 去重
 `data/meeting.db` 中 `meeting_docs` 表以 `doc_id` 为主键。
 每次轮询 `is_processed(doc_id)` 检查，避免重复分析。
 非会议文档也会标记为 `not_meeting`，避免每次都调用 LLM。
 
 ---
 
-## 工具列表（28个）
+## 工具列表（26个）
 
 | 工具 | 分类 | 描述 |
 |------|------|------|
@@ -314,14 +341,14 @@ tmux attach -t ai-claude-{session_name}
 
 1. **先读此文件**，理解现有架构再动手
 2. **最小改动原则**：只改需求涉及的文件
-3. **新增工具**：在 `graph/tools.py` 加 `@tool` 函数，加入 `ALL_TOOLS`，更新本文件工具表
+3. **新增工具**：在 `graph/tools.py` 加 `@tool` 函数，加入 `TOOL_CATEGORIES` 对应分类（同时更新 `CATEGORY_KEYWORDS`），更新本文件工具表
 4. **新增平台集成**：在 `integrations/` 新建子目录，在 `main.py` 注册启动线程
 5. **Claude Code 子进程**：必须 `unset ANTHROPIC_API_KEY`（wrapper script 中），使用 `--permission-mode acceptEdits`
 6. **完成后必做**：
    - ① 修改了哪些文件
    - ② 做了什么、为什么
    - ③ 如何验证
-   - ④ 更新本文件（CLAUDE.md）：状态表 + 变更历史 + 工具表
+   - ④ **更新 CLAUDE.md 和 README.md**：状态表 + 变更历史 + 工具表（两个文件都要同步）
    - ⑤ **提交并推送**：`git add -A && git commit -m "..." && git push`
 7. **重启方式**：`kill $(lsof -ti:8000) 2>/dev/null; source .venv/bin/activate && nohup python main.py >> logs/app.log 2>> logs/server.log &`
 
