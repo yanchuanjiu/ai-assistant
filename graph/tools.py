@@ -169,10 +169,24 @@ def get_latest_meeting_docs(limit: int = 20, keyword: str = None, space_id: str 
 
 @tool
 def read_meeting_doc(file_id: str) -> str:
-    """读取钉钉文档完整文本内容。file_id: 文档 ID。"""
+    """读取钉钉文档完整文本内容（通过钉钉 API）。
+
+    参数：
+      file_id — 钉钉文档 nodeId，或 alidocs 链接（https://alidocs.dingtalk.com/i/nodes/...）
+
+    注意：优先使用 MCP 工具 `get_document_content` 读取文档，本工具作为降级备选。
+    """
     try:
         docs = DingTalkDocs()
-        return docs.read_file_content(file_id)
+        node_id = DingTalkDocs.extract_node_id_from_url(file_id)
+        content = docs.read_file_content(node_id)
+        if not content or content.startswith("读取失败"):
+            return (
+                f"通过 API 读取失败（nodeId={node_id}）。\n"
+                f"建议改用 MCP 工具 get_document_content(docId='{node_id}') 读取。\n"
+                f"原始错误: {content}"
+            )
+        return content
     except Exception as e:
         logger.error(f"[read_meeting_doc] {e}")
         return f"读取失败：{e}"
@@ -1115,8 +1129,10 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_search_doc_wiki,
         feishu_im_get_messages,
     ],
-    # 会议纪要流水线（文档读取由 MCP 工具承担）
+    # 会议纪要流水线（MCP 工具优先，API 工具作为降级备选）
     "meeting": [
+        get_latest_meeting_docs,
+        read_meeting_doc,
         analyze_meeting_doc,
         list_processed_meetings,
     ],
@@ -1142,7 +1158,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     ],
     "meeting": [
         "会议", "纪要", "alidocs", "meeting",
-        "会议室", "分析文档", "处理记录",
+        "会议室", "分析文档", "处理记录", "read_meeting_doc",
     ],
     "claude": [
         "迭代", "开发", "修复", "实现", "编写代码", "重构",

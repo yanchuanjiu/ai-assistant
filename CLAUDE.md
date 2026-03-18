@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-18（v0.7.4）
+> 最后更新：2026-03-18（v0.7.5）
 
 ---
 
@@ -14,7 +14,7 @@
 
 ---
 
-## 当前运行状态（v0.7.4）
+## 当前运行状态（v0.7.5）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client），收发消息正常
@@ -46,6 +46,18 @@
 ---
 
 ## 版本变更历史
+
+### v0.7.5（2026-03-18）— 修复钉钉文档访问问题
+
+**修改文件**：
+- `integrations/dingtalk/docs.py` — 新增 `extract_node_id_from_url()`；`_list_wiki_nodes` 扩充响应格式（`result.*` / `nodeList` / 列表）+升级日志；`_normalize_node` 新增 `object_id`；`read_file_content` 支持 URL + 更完整内容字段解析
+- `graph/tools.py` — `read_meeting_doc` 支持 URL 输入 + 失败时提示改用 MCP；`TOOL_CATEGORIES["meeting"]` 恢复 `get_latest_meeting_docs` / `read_meeting_doc` 作为 MCP 降级备选
+- `prompts/system.md` — 新增原则：alidocs URL 必须提取 nodeId 调用 `get_document_content`，禁止 `web_fetch`/`feishu_read_page`
+
+**解决问题**：
+- 用户发 alidocs URL → agent 正确调用 MCP `get_document_content` 而非 web_fetch（需登录）
+- `_list_wiki_nodes` 失败时打印完整响应，方便排查权限/格式问题
+- `read_meeting_doc` 支持 alidocs URL 直接传入（自动提取 nodeId）
 
 ### v0.7.4（2026-03-18）— MCP 接管钉钉文档能力 + 系统提示词更新
 

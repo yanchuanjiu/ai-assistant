@@ -1,9 +1,10 @@
 """
 钉钉知识库（知识库/Wiki）空间操作：
 - 列出空间内所有文档节点（支持关键词过滤）
-- 读取文档文本内容
+- 读取文档文本内容（支持 nodeId 或 alidocs URL）
 """
 import logging
+import re
 from datetime import datetime
 from integrations.dingtalk.client import dt_get, dt_post, _settings, get_current_user_unionid
 
@@ -43,16 +44,24 @@ class DingTalkDocs:
                 f"/v1.0/wiki/spaces/{self.space_id}/nodes",
                 params=params,
             )
-            logger.debug(f"[wiki/nodes] resp keys={list(resp.keys())}")
-            # 可能的字段名：nodes / items / files / data
+            logger.info(f"[wiki/nodes] resp keys={list(resp.keys())} preview={str(resp)[:400]}")
+            # 兼容多种响应格式
             nodes_raw = (
                 resp.get("nodes")
                 or resp.get("items")
                 or resp.get("files")
-                or resp.get("data", {}).get("nodes")
-                or resp.get("data", {}).get("items")
-                or []
+                or resp.get("nodeList")
+                or (resp.get("result") or {}).get("nodes")
+                or (resp.get("result") or {}).get("items")
+                or (resp.get("data") or {}).get("nodes")
+                or (resp.get("data") or {}).get("items")
             )
+            # 响应本身即为列表
+            if nodes_raw is None and isinstance(resp, list):
+                nodes_raw = resp
+            if not nodes_raw:
+                logger.warning(f"[wiki/nodes] 未解析到节点，完整响应: {resp}")
+                return None
             return [self._normalize_node(n) for n in nodes_raw]
         except Exception as e:
             logger.warning(f"[wiki/nodes] 失败: {e}")
@@ -79,25 +88,45 @@ class DingTalkDocs:
         """统一节点字段格式。"""
         return {
             "id": n.get("nodeId") or n.get("fileId") or n.get("id", ""),
+            "object_id": n.get("objectId") or n.get("docId") or n.get("objId") or "",
             "name": n.get("title") or n.get("fileName") or n.get("name", ""),
             "url": n.get("url", ""),
-            "type": n.get("type", ""),
+            "type": n.get("type") or n.get("nodeType", ""),
             "updated_at": self._format_ts(n.get("modifiedTime") or n.get("updateTime", "")),
         }
+
+    @staticmethod
+    def extract_node_id_from_url(url_or_id: str) -> str:
+        """从钉钉文档 URL 提取节点 ID，或直接返回 ID。
+
+        支持格式：
+          https://alidocs.dingtalk.com/i/nodes/{nodeId}?...
+          直接传 nodeId 字符串
+        """
+        m = re.search(r'alidocs\.dingtalk\.com/[^/]+/nodes/([A-Za-z0-9]+)', url_or_id)
+        if m:
+            return m.group(1)
+        return url_or_id.strip()
 
     def read_file_content(self, file_id: str) -> str:
         """读取钉钉文档的纯文本内容。
 
+        支持传入文档 nodeId 或 alidocs URL。
         优先使用 config_store 中已验证的 DINGTALK_WIKI_API_PATH（wiki 或 drive）。
-        若未配置，自动尝试两条路径，成功后将有效路径写入 config_store。
+        若未配置，自动尝试多条路径，成功后将有效路径写入 config_store。
         """
         from integrations.storage.config_store import get as cfg_get, set as cfg_set
+
+        # 从 URL 中提取 nodeId
+        node_id = self.extract_node_id_from_url(file_id)
+        if node_id != file_id:
+            logger.info(f"[DingTalkDocs] 从 URL 提取 nodeId: {node_id}")
 
         verified = cfg_get("DINGTALK_WIKI_API_PATH")  # "wiki" | "drive" | ""
 
         paths = [
-            ("wiki", f"/v1.0/wiki/nodes/{file_id}/content"),
-            ("drive", f"/v1.0/drive/files/{file_id}/content"),
+            ("wiki", f"/v1.0/wiki/nodes/{node_id}/content"),
+            ("drive", f"/v1.0/drive/files/{node_id}/content"),
         ]
         # 已验证的路径排在最前
         if verified == "drive":
@@ -107,18 +136,27 @@ class DingTalkDocs:
         for path_key, path in paths:
             try:
                 resp = dt_get(path)
-                content = resp.get("content", "") or resp.get("text", "")
-                # 记录有效路径，避免下次重试
-                if verified != path_key:
-                    cfg_set("DINGTALK_WIKI_API_PATH", path_key)
-                    logger.info(f"[DingTalkDocs] 记录有效 API 路径: {path_key}")
-                return content
+                logger.info(f"[read_content] path={path} resp_keys={list(resp.keys())} preview={str(resp)[:300]}")
+                content = (
+                    resp.get("content")
+                    or resp.get("text")
+                    or (resp.get("data") or {}).get("content")
+                    or (resp.get("data") or {}).get("text")
+                    or (resp.get("result") or {}).get("content")
+                    or ""
+                )
+                if content:
+                    if verified != path_key:
+                        cfg_set("DINGTALK_WIKI_API_PATH", path_key)
+                        logger.info(f"[DingTalkDocs] 记录有效 API 路径: {path_key}")
+                    return content
+                logger.warning(f"[{path}] 响应无内容字段，完整响应: {resp}")
             except Exception as e:
                 logger.warning(f"[{path}] 失败: {e}")
                 last_err = e
 
-        logger.error(f"读取钉钉文档 {file_id} 失败: {last_err}")
-        return f"读取失败: {last_err}"
+        logger.error(f"读取钉钉文档 {node_id} 失败: {last_err}")
+        return f"读取失败（nodeId={node_id}）: {last_err}"
 
     @staticmethod
     def _format_ts(ts) -> str:

@@ -55,6 +55,7 @@
 - **新功能/Bug 修复**：直接调用 `trigger_self_iteration`（Claude Code 异步执行，进度推送到 IM）
 - **Claude 执行中**：用户发来的消息会自动转发给 Claude；如需手动发送，用 `send_claude_input`
 - **信息查询**：优先用 `web_search` + `web_fetch` 获取最新资讯，再结合 `feishu_read_page` 查本地记录
+- **钉钉文档 URL**：收到 `alidocs.dingtalk.com/i/nodes/{nodeId}` 链接时，**直接提取 nodeId** 调用 `get_document_content`（MCP 工具）读取内容，禁止对此类 URL 使用 `web_fetch`（需登录无法访问）或 `feishu_read_page`（飞书工具）
 - **数据处理**：用 `python_execute` 做计算、格式转换、数据分析
 - **系统运维**：用 `run_command` 操作文件、进程、服务；用 `get_service_status` 快速诊断
 
