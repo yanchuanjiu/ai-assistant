@@ -1152,6 +1152,27 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     ],
 }
 
+# --------------------------------------------------------------------------- #
+# 钉钉文档 MCP 工具（Streamable-HTTP MCP Server，按需加载）
+# --------------------------------------------------------------------------- #
+def _load_dingtalk_mcp() -> list:
+    mcp_url = os.getenv("DINGTALK_MCP_URL", "")
+    if not mcp_url:
+        return []
+    from integrations.mcp.client import load_mcp_tools
+    return load_mcp_tools(mcp_url, server_name="dingtalk_docs")
+
+
+_dingtalk_mcp_tools = _load_dingtalk_mcp()
+
+if _dingtalk_mcp_tools:
+    TOOL_CATEGORIES["dingtalk_mcp"] = _dingtalk_mcp_tools
+    CATEGORY_KEYWORDS["dingtalk_mcp"] = [
+        "钉钉文档", "dingtalk doc", "alidoc", "创建文档", "编辑文档",
+        "文档块", "block", "文件夹", "知识库文档", "文档内容",
+    ]
+    logger.info(f"[tools] 钉钉文档 MCP 工具已注册: {[t.name for t in _dingtalk_mcp_tools]}")
+
 # 全量工具列表（供执行层 tools_by_name 使用，不直接传给 LLM）
 ALL_TOOLS = CORE_TOOLS + [
     t for tools in TOOL_CATEGORIES.values() for t in tools
