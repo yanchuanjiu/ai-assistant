@@ -61,13 +61,13 @@ def _build_base_llm():
         model=os.getenv("VOLCENGINE_MODEL", "doubao-pro-32k"),
         api_key=os.getenv("VOLCENGINE_API_KEY", ""),
         base_url=os.getenv("VOLCENGINE_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3"),
-        timeout=30,
+        timeout=120,
     )
     router = _make_llm(
         model=os.getenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-4-5"),
         api_key=os.getenv("OPENROUTER_API_KEY", ""),
         base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-        timeout=60,
+        timeout=120,
     )
     candidates = [c for c in [ark, router] if c is not None]
     if not candidates:
