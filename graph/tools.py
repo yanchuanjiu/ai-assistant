@@ -11,6 +11,7 @@ import urllib.request
 import html
 from langchain_core.tools import tool
 from integrations.feishu.knowledge import FeishuKnowledge
+from integrations.feishu.client import feishu_get, feishu_post, feishu_delete
 from integrations.dingtalk.docs import DingTalkDocs
 from sync.context_sync import ContextSync
 
@@ -136,14 +137,29 @@ def sync_context_to_feishu() -> str:
 # 钉钉文档（会议纪要）
 # --------------------------------------------------------------------------- #
 @tool
-def get_latest_meeting_docs(limit: int = 5) -> str:
-    """从钉钉文档空间获取最新会议纪要列表。"""
+def get_latest_meeting_docs(limit: int = 20, keyword: str = None, space_id: str = None) -> str:
+    """
+    从钉钉知识库空间获取文档列表（不限于会议纪要类型）。
+
+    参数：
+      limit    — 返回最多多少条（默认 20）
+      keyword  — 按标题关键词过滤（可选，不区分大小写）
+      space_id — 知识库空间 ID（默认使用 .env 中的 DINGTALK_DOCS_SPACE_ID=r9xmyYP7YK1w1mEO）
+
+    返回文档列表（名称、URL、更新时间）。
+    """
     try:
-        docs = DingTalkDocs()
-        items = docs.list_recent_files(limit=limit)
+        docs = DingTalkDocs(space_id=space_id)
+        items = docs.list_recent_files(limit=limit, keyword=keyword)
         if not items:
-            return "暂无会议文档。"
-        lines = [f"- [{d['name']}]({d['url']})  {d['updated_at']}" for d in items]
+            kw_hint = f"（关键词：{keyword}）" if keyword else ""
+            return f"知识库空间 {docs.space_id} 中暂未找到文档{kw_hint}。"
+        lines = [f"共 {len(items)} 条文档："]
+        for d in items:
+            name = d['name'] or '（无标题）'
+            url_part = f"  {d['url']}" if d['url'] else ""
+            time_part = f"  {d['updated_at']}" if d['updated_at'] else ""
+            lines.append(f"- [{name}]{url_part}{time_part}  id={d['id']}")
         return "\n".join(lines)
     except Exception as e:
         logger.error(f"[get_latest_meeting_docs] {e}")
@@ -497,6 +513,426 @@ def get_service_status() -> str:
 
 
 # --------------------------------------------------------------------------- #
+# 飞书多维表格（Bitable）— 记录 CRUD
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_bitable_record(
+    action: str,
+    app_token: str,
+    table_id: str,
+    record_id: str = None,
+    fields: dict = None,
+    records: list = None,
+    record_ids: list = None,
+    filter: dict = None,
+    sort: list = None,
+    field_names: list = None,
+    page_size: int = 20,
+    page_token: str = None,
+) -> str:
+    """
+    飞书多维表格记录 CRUD 操作。
+
+    action 可选：
+      create        — 创建单条记录（需 fields）
+      batch_create  — 批量创建记录（需 records，列表每项含 fields，上限 500）
+      list          — 查询记录（可选 filter/sort/field_names）
+      update        — 更新单条记录（需 record_id + fields）
+      batch_update  — 批量更新记录（需 records，列表每项含 record_id + fields）
+      delete        — 删除单条记录（需 record_id）
+      batch_delete  — 批量删除记录（需 record_ids，上限 500）
+
+    字段值类型严格：
+      人员字段 = [{"id": "ou_xxx"}]
+      日期字段 = 毫秒时间戳整数（如 1674206443000）
+      单选字段 = 字符串（如 "选项名"）
+      多选字段 = 字符串列表（如 ["选项1", "选项2"]）
+      复选框   = 布尔值（True/False）
+    """
+    try:
+        base = f"/bitable/v1/apps/{app_token}/tables/{table_id}/records"
+        if action == "create":
+            resp = feishu_post(base, json={"fields": fields or {}})
+            return str(resp.get("data", resp))
+        elif action == "batch_create":
+            resp = feishu_post(f"{base}/batch_create", json={"records": records or []})
+            return str(resp.get("data", resp))
+        elif action == "list":
+            body = {"page_size": page_size}
+            if filter:
+                body["filter"] = filter
+            if sort:
+                body["sort"] = sort
+            if field_names:
+                body["field_names"] = field_names
+            if page_token:
+                body["page_token"] = page_token
+            resp = feishu_post(f"{base}/search", json=body)
+            return str(resp.get("data", resp))
+        elif action == "update":
+            resp = feishu_post(f"{base}/{record_id}", json={"fields": fields or {}})
+            return str(resp.get("data", resp))
+        elif action == "batch_update":
+            resp = feishu_post(f"{base}/batch_update", json={"records": records or []})
+            return str(resp.get("data", resp))
+        elif action == "delete":
+            resp = feishu_delete(f"{base}/{record_id}")
+            return str(resp.get("data", resp))
+        elif action == "batch_delete":
+            resp = feishu_post(f"{base}/batch_delete", json={"records": record_ids or []})
+            return str(resp.get("data", resp))
+        else:
+            return f"未知 action：{action}。可选：create/batch_create/list/update/batch_update/delete/batch_delete"
+    except Exception as e:
+        logger.error(f"[feishu_bitable_record] {e}")
+        return f"操作失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 飞书多维表格（Bitable）— 元数据查询
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_bitable_meta(
+    action: str,
+    app_token: str,
+    table_id: str = None,
+    view_id: str = None,
+    page_size: int = 50,
+    page_token: str = None,
+) -> str:
+    """
+    飞书多维表格元数据查询。
+
+    action 可选：
+      list_tables — 列出 App 下所有数据表（需 app_token）
+      list_fields — 列出数据表的所有字段（需 app_token + table_id）
+      list_views  — 列出数据表的所有视图（需 app_token + table_id）
+
+    返回字段/视图/数据表列表，包含 id、name、type 等信息。
+    写记录前建议先调用 list_fields 确认字段类型。
+    """
+    try:
+        if action == "list_tables":
+            resp = feishu_get(f"/bitable/v1/apps/{app_token}/tables", params={"page_size": page_size, "page_token": page_token})
+            return str(resp.get("data", resp))
+        elif action == "list_fields":
+            params = {"page_size": page_size}
+            if page_token:
+                params["page_token"] = page_token
+            resp = feishu_get(f"/bitable/v1/apps/{app_token}/tables/{table_id}/fields", params=params)
+            return str(resp.get("data", resp))
+        elif action == "list_views":
+            params = {"page_size": page_size}
+            if page_token:
+                params["page_token"] = page_token
+            resp = feishu_get(f"/bitable/v1/apps/{app_token}/tables/{table_id}/views", params=params)
+            return str(resp.get("data", resp))
+        else:
+            return f"未知 action：{action}。可选：list_tables/list_fields/list_views"
+    except Exception as e:
+        logger.error(f"[feishu_bitable_meta] {e}")
+        return f"查询失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 飞书任务管理 — 任务 CRUD
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_task_task(
+    action: str,
+    task_guid: str = None,
+    summary: str = None,
+    description: str = None,
+    due: dict = None,
+    members: list = None,
+    completed_at: str = None,
+    tasklists: list = None,
+    repeat_rule: str = None,
+    current_user_id: str = None,
+    completed: bool = None,
+    page_size: int = 20,
+    page_token: str = None,
+    parent_task_guid: str = None,
+) -> str:
+    """
+    飞书任务管理（task/v2）。
+
+    action 可选：
+      create         — 创建任务（需 summary；建议传 current_user_id 自动加为 follower）
+      get            — 获取任务详情（需 task_guid）
+      list           — 列出我的任务（可选 completed=true/false 过滤）
+      patch          — 更新任务（需 task_guid；可更新 summary/description/due/completed_at）
+      subtask_create — 创建子任务（需 parent_task_guid + summary）
+      subtask_list   — 列出子任务（需 parent_task_guid）
+
+    时间格式：ISO 8601 带时区，如 "2026-02-28T17:00:00+08:00"
+    完成任务：completed_at = "2026-02-26 15:00:00"（北京时间字符串）
+    反完成：completed_at = "0"
+    成员角色：role 可选 "assignee"（负责人）或 "follower"（关注人）
+    """
+    try:
+        base = "/task/v2/tasks"
+
+        if action == "create":
+            body: dict = {"summary": summary or ""}
+            if description:
+                body["description"] = description
+            if due:
+                body["due"] = due
+            if tasklists:
+                body["tasklists"] = tasklists
+            if repeat_rule:
+                body["repeat_rule"] = repeat_rule
+            members_list = list(members or [])
+            if current_user_id:
+                ids = [m.get("id") for m in members_list]
+                if current_user_id not in ids:
+                    members_list.append({"id": current_user_id, "role": "follower"})
+            if members_list:
+                body["members"] = members_list
+            resp = feishu_post(base, json={"task": body})
+            return str(resp.get("data", resp))
+
+        elif action == "get":
+            resp = feishu_get(f"{base}/{task_guid}")
+            return str(resp.get("data", resp))
+
+        elif action == "list":
+            params: dict = {"page_size": page_size}
+            if completed is not None:
+                params["completed"] = str(completed).lower()
+            if page_token:
+                params["page_token"] = page_token
+            resp = feishu_get(base, params=params)
+            return str(resp.get("data", resp))
+
+        elif action == "patch":
+            body = {}
+            update_fields = []
+            if summary is not None:
+                body["summary"] = summary
+                update_fields.append("summary")
+            if description is not None:
+                body["description"] = description
+                update_fields.append("description")
+            if due is not None:
+                body["due"] = due
+                update_fields.append("due")
+            if completed_at is not None:
+                body["completed_at"] = completed_at
+                update_fields.append("completed_at")
+            if members is not None:
+                body["members"] = members
+                update_fields.append("members")
+            from integrations.feishu.client import feishu_post as _post
+            resp = _post(
+                f"{base}/{task_guid}",
+                json={"task": body, "update_fields": update_fields},
+            )
+            return str(resp.get("data", resp))
+
+        elif action == "subtask_create":
+            body = {"summary": summary or ""}
+            if description:
+                body["description"] = description
+            if due:
+                body["due"] = due
+            if members:
+                body["members"] = members
+            resp = feishu_post(f"{base}/{parent_task_guid}/subtasks", json={"task": body})
+            return str(resp.get("data", resp))
+
+        elif action == "subtask_list":
+            resp = feishu_get(f"{base}/{parent_task_guid}/subtasks", params={"page_size": page_size})
+            return str(resp.get("data", resp))
+
+        else:
+            return f"未知 action：{action}。可选：create/get/list/patch/subtask_create/subtask_list"
+    except Exception as e:
+        logger.error(f"[feishu_task_task] {e}")
+        return f"操作失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 飞书任务管理 — 清单
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_task_tasklist(
+    action: str,
+    tasklist_guid: str = None,
+    name: str = None,
+    members: list = None,
+    completed: bool = None,
+    page_size: int = 20,
+    page_token: str = None,
+) -> str:
+    """
+    飞书任务清单管理（task/v2）。
+
+    action 可选：
+      list        — 列出我的所有任务清单
+      create      — 创建清单（需 name；创建者自动成为 owner，勿在 members 中包含创建者）
+      tasks       — 查看清单内的任务（需 tasklist_guid；可选 completed=true/false）
+      add_members — 向清单添加成员（需 tasklist_guid + members）
+
+    成员角色：owner（所有者）/ editor（编辑）/ viewer（只读）/ chat（群组）
+    """
+    try:
+        base = "/task/v2/tasklists"
+
+        if action == "list":
+            params = {"page_size": page_size}
+            if page_token:
+                params["page_token"] = page_token
+            resp = feishu_get(base, params=params)
+            return str(resp.get("data", resp))
+
+        elif action == "create":
+            body: dict = {"name": name or "新清单"}
+            if members:
+                body["members"] = members
+            resp = feishu_post(base, json={"tasklist": body})
+            return str(resp.get("data", resp))
+
+        elif action == "tasks":
+            params: dict = {"page_size": page_size}
+            if completed is not None:
+                params["completed"] = str(completed).lower()
+            if page_token:
+                params["page_token"] = page_token
+            resp = feishu_get(f"{base}/{tasklist_guid}/tasks", params=params)
+            return str(resp.get("data", resp))
+
+        elif action == "add_members":
+            resp = feishu_post(f"{base}/{tasklist_guid}/add_members", json={"members": members or []})
+            return str(resp.get("data", resp))
+
+        else:
+            return f"未知 action：{action}。可选：list/create/tasks/add_members"
+    except Exception as e:
+        logger.error(f"[feishu_task_tasklist] {e}")
+        return f"操作失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 飞书全文搜索（需要 user_access_token）
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_search_doc_wiki(
+    query: str,
+    search_type: str = "all",
+    page_size: int = 10,
+    page_token: str = None,
+) -> str:
+    """
+    跨飞书文档/Wiki 全文搜索（需要 user_access_token）。
+
+    参数：
+      query       — 搜索关键词
+      search_type — 搜索范围：all（默认）/ doc / wiki / sheet / mindnote / slides
+      page_size   — 每页结果数（默认 10，最大 50）
+      page_token  — 分页 token（首次不传）
+
+    需要在 .env 中配置 FEISHU_USER_ACCESS_TOKEN（+ FEISHU_USER_REFRESH_TOKEN 用于续期）。
+    返回匹配的文档列表（标题、URL、类型、更新时间）。
+    """
+    try:
+        from integrations.feishu.client import feishu_post_user
+        body: dict = {"query": query, "page_size": page_size}
+        if search_type and search_type != "all":
+            body["search_type"] = search_type
+        if page_token:
+            body["page_token"] = page_token
+        resp = feishu_post_user("/search/v2/doc_wiki/search", json=body)
+        data = resp.get("data", resp)
+        items = data.get("items", [])
+        if not items:
+            return f"未找到包含「{query}」的飞书文档/Wiki。"
+        lines = [f"搜索「{query}」共 {len(items)} 条结果："]
+        for it in items:
+            title = it.get("title", "无标题")
+            url = it.get("url", "")
+            doc_type = it.get("type", "")
+            lines.append(f"- [{title}]({url})  [{doc_type}]")
+        if data.get("has_more"):
+            lines.append(f"\n（还有更多，page_token={data.get('page_token')}）")
+        return "\n".join(lines)
+    except RuntimeError as e:
+        return f"搜索失败（user token 未配置）：{e}"
+    except Exception as e:
+        logger.error(f"[feishu_search_doc_wiki] {e}")
+        return f"搜索失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 飞书 IM 消息读取（tenant_access_token）
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_im_get_messages(
+    chat_id: str = None,
+    container_id_type: str = "chat",
+    start_time: str = None,
+    end_time: str = None,
+    sort_type: str = "ByCreateTimeAsc",
+    page_size: int = 20,
+    page_token: str = None,
+) -> str:
+    """
+    读取飞书 IM 消息列表（使用 tenant_access_token，可读 bot 所在群）。
+
+    参数：
+      chat_id           — 会话 ID（oc_xxx 格式），必填
+      container_id_type — 容器类型：chat（群聊/单聊，默认）或 thread（话题）
+      start_time        — 起始时间（Unix 秒时间戳字符串，如 "1700000000"）
+      end_time          — 结束时间（Unix 秒时间戳字符串）
+      sort_type         — 排序：ByCreateTimeAsc（升序，默认）或 ByCreateTimeDesc（降序）
+      page_size         — 每页消息数（默认 20，最大 50）
+      page_token        — 分页 token
+
+    返回消息列表（发送者、消息类型、文本内容、时间、message_id）。
+    """
+    try:
+        if not chat_id:
+            return "chat_id 为必填参数（oc_xxx 格式）"
+        params: dict = {
+            "container_id_type": container_id_type,
+            "container_id": chat_id,
+            "sort_type": sort_type,
+            "page_size": page_size,
+        }
+        if start_time:
+            params["start_time"] = start_time
+        if end_time:
+            params["end_time"] = end_time
+        if page_token:
+            params["page_token"] = page_token
+        resp = feishu_get("/im/v1/messages", params=params)
+        data = resp.get("data", resp)
+        items = data.get("items", [])
+        if not items:
+            return "该会话暂无消息记录。"
+        lines = [f"共 {len(items)} 条消息："]
+        for msg in items:
+            sender = msg.get("sender", {})
+            sender_id = sender.get("id", "?")
+            msg_type = msg.get("msg_type", "?")
+            create_time = msg.get("create_time", "")
+            msg_id = msg.get("message_id", "")
+            body = msg.get("body", {})
+            content = body.get("content", "")
+            # 截断长消息
+            if len(content) > 200:
+                content = content[:200] + "..."
+            lines.append(f"[{create_time}] {sender_id} ({msg_type}): {content}  [id={msg_id}]")
+        if data.get("has_more"):
+            lines.append(f"\n（还有更多，page_token={data.get('page_token')}）")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error(f"[feishu_im_get_messages] {e}")
+        return f"获取消息失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
 # 导出所有工具
 # --------------------------------------------------------------------------- #
 ALL_TOOLS = [
@@ -506,6 +942,15 @@ ALL_TOOLS = [
     feishu_overwrite_page,
     feishu_search_wiki,
     sync_context_to_feishu,
+    # 飞书多维表格
+    feishu_bitable_record,
+    feishu_bitable_meta,
+    # 飞书任务
+    feishu_task_task,
+    feishu_task_tasklist,
+    # 飞书搜索 & IM
+    feishu_search_doc_wiki,
+    feishu_im_get_messages,
     # 钉钉文档
     get_latest_meeting_docs,
     read_meeting_doc,

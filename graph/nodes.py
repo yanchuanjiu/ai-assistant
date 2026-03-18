@@ -7,6 +7,7 @@ Claude API 不在此使用，仅供 Claude Code CLI。
 import os
 import re
 import json
+import time
 import logging
 import threading
 from langchain_openai import ChatOpenAI
@@ -116,13 +117,43 @@ def _load_system_prompt() -> str:
 
 SYSTEM_PROMPT = _load_system_prompt()
 
+_LLM_LOG_PATH = "logs/llm.jsonl"
+
+
+def _log_llm_call(thread_id: str, messages: list, response, latency_ms: float):
+    """将每次 LLM 调用记录到 logs/llm.jsonl（JSONL 格式，供后续分析）。"""
+    try:
+        def _msg_repr(m) -> dict:
+            content = m.content if isinstance(m.content, str) else str(m.content)
+            return {"role": getattr(m, "type", "?"), "content": content[:800]}
+
+        meta = getattr(response, "response_metadata", {}) or {}
+        record = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "thread": thread_id,
+            "latency_ms": round(latency_ms),
+            "model": meta.get("model_name") or meta.get("model") or "",
+            "usage": meta.get("token_usage") or meta.get("usage") or {},
+            "input_msgs": [_msg_repr(m) for m in messages],
+            "output": response.content[:1000] if isinstance(response.content, str) else str(response.content)[:1000],
+            "tool_calls": [{"name": c["name"], "args": c.get("args", {})} for c in (getattr(response, "tool_calls", None) or [])],
+        }
+        os.makedirs("logs", exist_ok=True)
+        with open(_LLM_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception as e:
+        logger.warning(f"[LLM log] 写入失败: {e}")
+
 
 # --------------------------------------------------------------------------- #
 # 节点
 # --------------------------------------------------------------------------- #
 def agent_node(state: AgentState) -> dict:
+    thread_id = f"{state.get('platform', '?')}:{state.get('chat_id', '?')}"
     messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
+    t0 = time.monotonic()
     response = llm_with_tools.invoke(messages)
+    latency_ms = (time.monotonic() - t0) * 1000
 
     # 处理火山云文本格式工具调用
     if (
@@ -134,6 +165,8 @@ def agent_node(state: AgentState) -> dict:
         if tool_calls:
             logger.debug(f"解析文本格式工具调用: {[c['name'] for c in tool_calls]}")
             response = AIMessage(content="", tool_calls=tool_calls)
+
+    _log_llm_call(thread_id, messages, response, latency_ms)
 
     return {"messages": [response]}
 

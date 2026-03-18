@@ -1,6 +1,6 @@
 """
-钉钉文档空间操作：
-- 列出最新文件（会议纪要）
+钉钉知识库（知识库/Wiki）空间操作：
+- 列出空间内所有文档节点（支持关键词过滤）
 - 读取文档文本内容
 """
 import logging
@@ -11,38 +11,84 @@ logger = logging.getLogger(__name__)
 
 
 class DingTalkDocs:
-    def __init__(self):
-        self.space_id = _settings.dingtalk_docs_space_id
+    def __init__(self, space_id: str = None):
+        self.space_id = space_id or _settings.dingtalk_docs_space_id
 
-    def list_recent_files(self, limit: int = 10) -> list[dict]:
-        """列出空间内最近更新的文件，按更新时间倒序。"""
+    def list_recent_files(self, limit: int = 20, keyword: str = None) -> list[dict]:
+        """
+        列出知识库空间内的文档节点。
+        优先使用 /v1.0/wiki/spaces/{spaceId}/nodes 接口。
+        keyword: 可选标题关键词过滤（不区分大小写）。
+        """
+        nodes = self._list_wiki_nodes(limit=limit)
+        if nodes is None:
+            # fallback: 尝试旧路径
+            nodes = self._list_drive_files(limit=limit)
+        if nodes is None:
+            return []
+        if keyword:
+            kw = keyword.lower()
+            nodes = [n for n in nodes if kw in n.get("name", "").lower()]
+        return nodes[:limit]
+
+    def _list_wiki_nodes(self, limit: int = 50) -> list[dict] | None:
+        """调用钉钉知识库节点列表 API。"""
+        try:
+            resp = dt_get(
+                f"/v1.0/wiki/spaces/{self.space_id}/nodes",
+                params={"maxResults": limit, "orderBy": "modifiedTime", "order": "desc"},
+            )
+            logger.debug(f"[wiki/nodes] resp keys={list(resp.keys())}")
+            # 可能的字段名：nodes / items / files / data
+            nodes_raw = (
+                resp.get("nodes")
+                or resp.get("items")
+                or resp.get("files")
+                or resp.get("data", {}).get("nodes")
+                or resp.get("data", {}).get("items")
+                or []
+            )
+            return [self._normalize_node(n) for n in nodes_raw]
+        except Exception as e:
+            logger.warning(f"[wiki/nodes] 失败: {e}")
+            return None
+
+    def _list_drive_files(self, limit: int = 50) -> list[dict] | None:
+        """Fallback：尝试旧版 drive/spaces 接口。"""
         try:
             resp = dt_get(
                 f"/v1.0/drive/spaces/{self.space_id}/files",
                 params={"parentId": "0", "maxResults": limit, "orderBy": "modifiedTime", "order": "desc"},
             )
             files = resp.get("files", [])
-            return [
-                {
-                    "id": f.get("fileId") or f.get("id", ""),
-                    "name": f.get("fileName") or f.get("name", ""),
-                    "url": f.get("url", ""),
-                    "updated_at": self._format_ts(f.get("modifiedTime", "")),
-                }
-                for f in files
-            ]
+            return [self._normalize_node(f) for f in files]
         except Exception as e:
-            logger.error(f"列出钉钉文档失败: {e}")
-            return []
+            logger.warning(f"[drive/files] 失败: {e}")
+            return None
+
+    def _normalize_node(self, n: dict) -> dict:
+        """统一节点字段格式。"""
+        return {
+            "id": n.get("nodeId") or n.get("fileId") or n.get("id", ""),
+            "name": n.get("title") or n.get("fileName") or n.get("name", ""),
+            "url": n.get("url", ""),
+            "type": n.get("type", ""),
+            "updated_at": self._format_ts(n.get("modifiedTime") or n.get("updateTime", "")),
+        }
 
     def read_file_content(self, file_id: str) -> str:
         """读取钉钉文档的纯文本内容。"""
         try:
-            resp = dt_get(f"/v1.0/drive/files/{file_id}/content")
+            resp = dt_get(f"/v1.0/wiki/nodes/{file_id}/content")
             return resp.get("content", "") or resp.get("text", "")
         except Exception as e:
-            logger.error(f"读取钉钉文档 {file_id} 失败: {e}")
-            return f"读取失败: {e}"
+            logger.warning(f"[wiki/nodes/{file_id}/content] 失败: {e}，尝试 drive 接口")
+        try:
+            resp = dt_get(f"/v1.0/drive/files/{file_id}/content")
+            return resp.get("content", "") or resp.get("text", "")
+        except Exception as e2:
+            logger.error(f"读取钉钉文档 {file_id} 失败: {e2}")
+            return f"读取失败: {e2}"
 
     @staticmethod
     def _format_ts(ts) -> str:
