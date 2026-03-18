@@ -1,5 +1,7 @@
 # 系统架构说明
 
+> 最后更新：2026-03-18（v0.7.3）
+
 ## 整体架构
 
 ```
@@ -9,150 +11,176 @@
                     └──────┬──────────────────┬──────────┬────────┘
                            │                  │          │
                     ┌──────▼──────────────────▼──────────▼────────┐
-                    │              FastAPI 入口层                   │
-                    │   /feishu/webhook   /dingtalk/webhook         │
-                    │   /health                                     │
+                    │         进程管理层（main.py）                  │
+                    │                                              │
+                    │  supervised thread × 2（指数退避自动重启）     │
+                    │  ├── feishu-ws（lark-oapi ws.Client）        │
+                    │  └── dingtalk-stream（dingtalk-stream SDK）  │
+                    │  APScheduler（定时任务）                       │
+                    │  SIGTERM/SIGINT 优雅关闭                      │
+                    │  崩溃写 logs/crash.log（JSONL）               │
                     └──────────────────────┬──────────────────────┘
                                            │
                     ┌──────────────────────▼──────────────────────┐
                     │           LangGraph ReAct Agent              │
-                    │                                             │
+                    │                                              │
                     │   AgentState                                 │
                     │   ┌──────────────────────────────────────┐  │
                     │   │ messages / platform / user_id /      │  │
                     │   │ chat_id / intent / skill_result      │  │
                     │   └──────────────────────────────────────┘  │
-                    │                                             │
-                    │   节点流：agent → tools → agent → respond    │
+                    │                                              │
+                    │   节点流：agent_node → tools_node → …→ END  │
                     └──────┬──────────────────────┬──────────────┘
                            │                      │
               ┌────────────▼──────┐    ┌──────────▼────────────┐
-              │    LLM 调用层      │    │      工具执行层         │
+              │    LLM 调用层      │    │      工具执行层（27个）  │
               │                   │    │                        │
               │  1. 火山云 Ark     │    │  飞书知识库 读/写       │
-              │     (主力)         │    │  钉钉文档 读取          │
-              │  2. OpenRouter     │    │  Claude Code CLI       │
-              │     (备用)         │    │  Shell 命令(白名单)     │
-              │                   │    │  上下文同步             │
+              │     (主力)         │    │  飞书 Bitable/任务/搜索 │
+              │  2. OpenRouter     │    │  钉钉文档 读取          │
+              │     (备用)         │    │  会议纪要 分析/写入      │
+              │                   │    │  Claude Code 子 Agent  │
+              │                   │    │  Shell/Python 执行      │
+              │                   │    │  Web 搜索/抓取          │
               └───────────────────┘    └────────────────────────┘
                            │
               ┌────────────▼──────────────────────────────────────┐
               │                  持久化层                          │
               │                                                   │
-              │  SQLite (data/memory.db)       飞书知识库          │
-              │  LangGraph Checkpointer     人类可读上下文镜像      │
-              │  短期记忆：当前对话历史       定期同步（每30分钟）   │
-              │  长期记忆：跨会话 thread                           │
+              │  data/memory.db（LangGraph Checkpointer）         │
+              │    ├── 对话历史（按 thread_id 隔离）                │
+              │    └── 运行时配置（agent_config key-value）        │
+              │  data/meeting.db（会议文档处理记录）                │
+              │  飞书知识库（人类可读上下文镜像，每30分钟同步）       │
               └────────────────────────────────────────────────────┘
 ```
 
 ## 核心组件
 
-### 1. LangGraph Agent（`graph/`）
+### 1. 进程管理（`main.py`）
+
+无 HTTP 层，纯 Python 进程管理：
+
+```python
+_supervised(name, target, base_delay=5, max_delay=300)
+# → 循环运行 target()
+# → 正常退出或崩溃后 sleep(delay)，delay = min(delay*2, 300)
+# → 崩溃写 logs/crash.log（JSONL）
+```
+
+- **PID 文件**：`logs/service.pid`，方便外部 `kill $(cat logs/service.pid)`
+- **优雅关闭**：SIGTERM/SIGINT → `sched.stop()` + `Event.set()`
+- **无端口监听**：不绑定任何 TCP 端口，消除攻击面
+
+### 2. LangGraph Agent（`graph/`）
 
 使用 **ReAct**（Reasoning + Acting）模式：
 
 ```
 用户消息
    ↓
-[agent_node]  ── LLM 推理，决定是否调用工具
+[agent_node]  ── 渐进式工具注入（按关键词匹配分类）→ LLM 推理
    ↓
-[should_continue]  ── 路由：有 tool_calls → tools，否则 → respond
+[should_continue]  ── 有 tool_calls → tools_node，否则 → END
    ↓
 [tools_node]  ── 并行执行所有 tool calls，收集结果
    ↓
 [agent_node]  ← 将工具结果作为上下文，继续推理（可多轮）
-   ↓
-[respond_node]  ── 最终回复，推送到飞书/钉钉
 ```
 
 **持久化**：每个 `thread_id`（= `platform:chat_id`）独立保存对话历史到 SQLite，实现跨会话记忆。
 
-### 2. LLM 链（`graph/nodes.py`）
+### 3. 渐进式工具披露（`graph/nodes.py` + `graph/tools.py`）
+
+全量 27 个工具的 schema 传给 LLM 会消耗大量 token。解决方案：
+
+```
+CORE_TOOLS（7个，每次必带）
+  agent_config / web_search / web_fetch / python_execute
+  run_command / get_system_status / get_service_status
+
+TOOL_CATEGORIES（按关键词动态注入）
+  feishu_wiki    → 关键词：飞书/wiki/知识库    → 5 个工具
+  feishu_advanced→ 关键词：多维表格/任务/bitable→ 6 个工具
+  meeting        → 关键词：会议/纪要/钉钉      → 4 个工具
+  claude         → 关键词：迭代/开发/claude    → 5 个工具
+```
+
+无关键词时只传 7 个 → 节省约 87% token。
+
+### 4. LLM 链（`graph/nodes.py`）
 
 ```python
 火山云 Ark (ep-xxx)
     └─ with_fallbacks([OpenRouter])
-         └─ bind_tools(ALL_TOOLS)
+         └─ bind_tools(tools)   # 按消息动态决定 tools 集合
 ```
 
-- 主力：火山云 doubao-pro，低延迟、低成本
-- 备用：OpenRouter，可路由到 Claude / GPT-4o / Gemini 等
-- Claude API：**仅** 通过环境变量传给 `claude` CLI，不在 agent 链中使用
+每次调用后记录到 `logs/llm.jsonl`（model/latency/input_tokens/output_tokens/tool_calls）。
 
-### 3. 工具层（`graph/tools.py`）
-
-| 工具 | 描述 |
-|------|------|
-| `write_meeting_note` | 写会议纪要到飞书知识库 |
-| `read_feishu_knowledge` | 检索飞书知识库 |
-| `write_feishu_knowledge` | 写任意内容到飞书知识库 |
-| `get_latest_meeting_docs` | 列出钉钉文档最新文件 |
-| `read_meeting_doc` | 读取钉钉文档内容 |
-| `trigger_self_iteration` | 启动 Claude Code 自迭代 |
-| `sync_context_to_feishu` | 同步本地记忆到飞书 |
-| `run_shell_command` | 执行白名单 Shell 命令 |
-
-### 4. 自迭代流程（`trigger_self_iteration`）
+### 5. Claude Code 子 Agent（`integrations/claude_code/tmux_session.py`）
 
 ```
-用户 → "帮我加个XX功能"
-  ↓
-Agent 调用 trigger_self_iteration(requirement=...)
-  ↓
-subprocess: claude --dangerously-skip-permissions --print "<需求+上下文>"
-  工作目录: /root/ai-assistant
-  超时: 10分钟
-  环境变量: ANTHROPIC_API_KEY 透传
-  ↓
-Claude Code 自动：读代码 → 修改文件 → 验证
-  ↓
-返回：修改了哪些文件 + 验证结果
-  ↓
-Agent 汇报给用户
+trigger_self_iteration(requirement)
+       ↓
+TmuxClaudeSession.start_streaming()
+  ① 写 prompt → /tmp/ai-claude-*.prompt
+  ② 写 wrapper script /tmp/ai-claude-*.sh
+     （含 unset ANTHROPIC_API_KEY，使用 OAuth session）
+  ③ tmux new-session -d -s ai-claude-{thread_id} {script}
+  ④ 后台线程 tail .jsonl → 解析 stream-json → send_fn → IM 推送
+       ↓
+用户后续消息 → bot 检测活跃 Claude 会话 → relay_input() → tmux send-keys
 ```
 
-### 5. 定时任务（`scheduler.py`）
+⚠️ **关键**：必须 `unset ANTHROPIC_API_KEY`，否则 OAuth session 被 API Key 覆盖导致 401。
+
+### 6. 会议纪要闭环（`integrations/meeting/`）
+
+```
+APScheduler（每30min）
+  → poll_dingtalk_meetings()
+    → DingTalkDocs.list_recent_files(limit=50)
+    → tracker.is_processed(doc_id) → 已处理则跳过
+    → docs.read_file_content(doc_id)
+    → analyzer.analyze(content)    → 火山云 LLM → 结构化 JSON
+    → analyzer.write_to_feishu()   → 追加到会议纪要汇总页
+    → tracker.mark_processed(doc_id)
+```
+
+### 7. 定时任务（`scheduler.py`）
 
 | 任务 | 频率 | 说明 |
 |------|------|------|
-| `poll_email` | 每5分钟 | 拉取163邮箱未读邮件，提取会议信息写飞书 |
-| `sync_context` | 每30分钟 | SQLite 记忆快照写入飞书知识库 |
+| `poll_dingtalk_meetings` | 每30分钟 | 钉钉知识库 → LLM 分析 → 飞书写入 |
+| `poll_email` | 每60分钟 | 163 IMAP → Claude Haiku 提取 → 飞书写入 |
+| `sync_context` | 每30分钟 | SQLite checkpoints 快照 → 覆盖飞书上下文页面 |
 
-## 数据流：会议信息处理
+## 飞书知识库权限绕过
 
-```
-工作邮件转发至 163邮箱
-    ↓ (每5分钟)
-IMAPPoller.fetch_unread()
-    ↓
-extract_meeting_info(email)   ← claude-haiku 解析
-    ↓ is_meeting=true
-FeishuKnowledge.create_or_update_page(
-    title="[会议] xxx",
-    content=Markdown格式纪要
-)
-    ↓
-飞书知识库页面（人类可读）
-```
-
-## 记忆架构
+`/wiki/v2/spaces` 系列 API 不支持 tenant_access_token。绕过方案：
 
 ```
-短期记忆：LangGraph message history
-  - 按 thread_id (platform:chat_id) 隔离
-  - SQLite checkpoints 持久化
-  - 自动附加到每次 LLM 调用
-
-长期记忆：飞书知识库（人类可读）
-  - 每30分钟同步一次
-  - 包含：对话线程列表、会议纪要、项目上下文
-  - 支持手动查阅和编辑
+GET /wiki/v2/spaces/get_node?token=WIKI_TOKEN
+  → 返回 obj_token（tenant token 可用）
+GET/POST /docx/v1/documents/{obj_token}/...
+  → docx API 直接读写（tenant token 可用）
+前提：飞书页面「文档权限 → 可管理应用」添加该应用
 ```
 
 ## 安全设计
 
-- **Shell 白名单**：只允许 `git/ls/cat/pwd/echo/python/pip/df/du/ps/which/find` 前缀
-- **Claude Code 隔离**：工作目录限定在 `/root/ai-assistant`，通过子进程调用
+- **无端口监听**：去除 HTTP 层，不暴露任何 TCP 端口
+- **无 API Key 传递**：Claude Code 子进程 `unset ANTHROPIC_API_KEY`，使用 OAuth session
 - **凭据管理**：所有 Key 通过 `.env` 注入，不硬编码，`.env` 在 `.gitignore` 中
-- **Webhook 验证**：飞书使用 Verification Token 验证请求来源
+- **个人私有服务器**：`run_command` 无白名单限制（root 用户，受控环境）
+
+## 日志文件
+
+| 文件 | 内容 |
+|------|------|
+| `logs/app.log` | 所有应用日志（INFO/ERROR） |
+| `logs/llm.jsonl` | LLM 调用记录（JSONL，每次一行） |
+| `logs/crash.log` | 线程崩溃记录（JSONL，time/thread/error/traceback） |
+| `logs/service.pid` | 主进程 PID |

@@ -1,6 +1,6 @@
 # 部署配置指南
 
-> 最后更新：2026-03-17
+> 最后更新：2026-03-18（v0.7.3）
 
 ## 1. 环境准备
 
@@ -113,19 +113,27 @@ EMAIL_AUTH_CODE=xxxxx   # 授权码，非登录密码
 
 ```bash
 cd /root/ai-assistant
-source .venv/bin/activate
+source .venv/bin/activate   # ⚠️ 必须激活 venv
+
+# 前台运行（调试用）
 python main.py
 
-# 后台运行
-nohup python main.py > logs/app.log 2>&1 &
+# 后台运行（推荐，所有输出合并到 app.log）
+nohup python main.py >> logs/app.log 2>&1 &
 
-# 健康检查
-curl http://localhost:8000/health
-# 期望返回: {"status":"ok"}
+# 重启（改代码后用 PID 文件 kill）
+kill $(cat logs/service.pid 2>/dev/null) 2>/dev/null
+source .venv/bin/activate
+nohup python main.py >> logs/app.log 2>&1 &
 
 # 查看实时日志
 tail -f logs/app.log
+
+# 查看崩溃记录
+tail -f logs/crash.log | python -m json.tool
 ```
+
+> v0.7.3 起已去除 FastAPI/uvicorn，服务不监听任何 TCP 端口。无需健康检查端点。
 
 ## 4. 验证连接
 
@@ -171,5 +179,8 @@ checkpointer = SqliteSaver(conn)
 **Q: 163 邮件 `Unsafe Login`**
 → 到 mail.163.com 重新生成 IMAP 授权码，更新 `.env EMAIL_AUTH_CODE`
 
-**Q: 钉钉文档 404**
-→ 钉钉文档 API 路径仍在确认中，参考 `integrations/dingtalk/docs.py`
+**Q: 钉钉文档 404 / 403**
+→ v0.7.2 起 `read_file_content` 自动探测 API 路径并写入 `DINGTALK_WIKI_API_PATH`，首次调用后自动记忆，无需手动配置
+
+**Q: 飞书 WS 断连后不响应消息**
+→ v0.7.3 起 supervised thread 会在 5s 内自动重启；查看 `logs/crash.log` 确认重启记录

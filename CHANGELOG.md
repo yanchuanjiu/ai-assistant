@@ -1,5 +1,122 @@
 # Changelog
 
+## [0.7.3] - 2026-03-18
+
+### Changed
+- **`main.py`**：完全重写，去除 FastAPI/uvicorn HTTP 层
+  - `_supervised(name, target, base_delay=5, max_delay=300)`：每个 bot 线程独立 supervised，崩溃后指数退避自动重启（5s→10s→…→5min）
+  - 写 `logs/service.pid`（主进程 PID，方便 kill 重启）
+  - `signal.signal(SIGTERM/SIGINT)` 优雅关闭（sched.stop + Event.set）
+  - 崩溃信息写入 `logs/crash.log`（JSONL：time/thread/error/traceback）
+- **`requirements.txt`**：删除 `fastapi>=0.115.0`、`uvicorn[standard]>=0.32.0`、`python-multipart>=0.0.20`
+- **`graph/tools.py`**：`get_service_status` 末尾追加读取 `logs/crash.log` 最近 5 条
+
+### Migration
+```bash
+# 旧（kill by port）
+kill $(lsof -ti:8000) 2>/dev/null
+nohup python main.py >> logs/app.log 2>> logs/server.log &
+
+# 新（kill by PID file）
+kill $(cat logs/service.pid 2>/dev/null) 2>/dev/null
+nohup python main.py >> logs/app.log 2>&1 &
+```
+
+---
+
+## [0.7.2] - 2026-03-18
+
+### Added
+- **`integrations/storage/config_store.py`**：SQLite key-value 配置存储（复用 `data/memory.db`）
+  - `get(key)` / `set(key, value)` / `delete(key)` / `list_all()`
+- **`agent_config` tool**（`graph/tools.py`）：对话中直接读写运行时配置，无需重启
+  - 加入 `CORE_TOOLS`（每次必带）
+
+### Changed
+- **`integrations/meeting/analyzer.py`**：`write_to_feishu` 优先读 config_store 的 `FEISHU_WIKI_MEETING_PAGE`，fallback `.env`
+- **`integrations/dingtalk/docs.py`**：
+  - `__init__` 优先读 config_store 的 `DINGTALK_DOCS_SPACE_ID`
+  - `read_file_content` 自动探测有效 API 路径并写入 `DINGTALK_WIKI_API_PATH`，后续直接使用
+
+---
+
+## [0.7.1] - 2026-03-18
+
+### Added
+- **渐进式工具披露**（Progressive Tool Disclosure）：87% token 节省
+  - `CORE_TOOLS`（7个）：每次必带（web_search/web_fetch/python_execute/run_command/get_system_status/get_service_status/agent_config）
+  - `TOOL_CATEGORIES`：按消息关键词动态注入（feishu_wiki/feishu_advanced/meeting/claude 四类）
+  - `CATEGORY_KEYWORDS`：关键词 → 分类映射，`agent_node` 每次根据用户消息匹配后追加
+
+### Fixed
+- **`integrations/dingtalk/client.py`**：`get_current_user_unionid` API 路径 `/v1.0/contact/users/me` → `/v2.0/users/me`
+
+---
+
+## [0.7.0] - 2026-03-18
+
+### Added
+- **会议纪要闭环**（`integrations/meeting/`）：
+  - `analyzer.py`：调用火山云 LLM 分析会议纪要 → 结构化 JSON → 追加写飞书知识库页面
+  - `tracker.py`：SQLite（`data/meeting.db`）记录已处理 `doc_id`，避免重复分析；非会议文档标记 `not_meeting`
+  - `prompts/meeting_analysis.md`：会议纪要深度分析 prompt（钉钉文档场景）
+- **`analyze_meeting_doc` tool**：按需触发单篇文档分析，支持 `force=true` 重新分析
+- **`list_processed_meetings` tool**：查看已分析文档列表
+- **LLM 调用日志**（`logs/llm.jsonl`）：每次 LLM 调用记录一行 JSONL（model/latency/usage/tool_calls）
+
+### Changed
+- **`scheduler.py`**：新增 `poll_dingtalk_meetings()`（每30分钟轮询）
+- **`graph/nodes.py`**：每次 LLM 调用后写入 `logs/llm.jsonl`
+
+---
+
+## [0.6.1] - 2026-03-18
+
+### Added（Claude Code 自动迭代完成）
+- **6 个新飞书工具**（`graph/tools.py`，加入 `feishu_advanced` 分类）：
+
+| 工具 | 描述 |
+|------|------|
+| `feishu_bitable_record` | 多维表格记录 CRUD（7种操作，含批量） |
+| `feishu_bitable_meta` | 列出数据表/字段/视图 |
+| `feishu_task_task` | 任务创建/查询/更新/子任务 |
+| `feishu_task_tasklist` | 任务清单管理 |
+| `feishu_search_doc_wiki` | 全文搜索文档/Wiki（需 user_access_token） |
+| `feishu_im_get_messages` | 读取群聊或单聊历史消息 |
+
+### Changed
+- **`integrations/feishu/client.py`**：user_access_token OAuth 流程（含 refresh_token 自动续期 + `.env` 写回）；新增 `feishu_get_user` / `feishu_post_user`
+- **`integrations/dingtalk/docs.py`**：先试 `/v1.0/wiki/spaces/{id}/nodes`，fallback drive；支持 keyword 过滤和动态 space_id
+
+---
+
+## [0.6.0] - 2026-03-17
+
+### Added
+- **`integrations/claude_code/tmux_session.py`**：基于 tmux 的 Claude Code 会话管理器
+  - `TmuxClaudeSession.start_streaming(requirement)`：
+    1. 写 prompt 到 `/tmp/ai-claude-*.prompt`
+    2. 写 wrapper script `/tmp/ai-claude-*.sh`（含 `unset ANTHROPIC_API_KEY`）
+    3. `tmux new-session -d -s ai-claude-{thread_id} {script}`
+    4. 后台线程 `tail .jsonl`，解析 stream-json → `send_fn` → IM
+  - `SessionManager`：管理活跃 tmux 会话，支持多 thread 并发
+- **4 个 Claude 会话管理工具**（`graph/tools.py`）：
+  - `list_claude_sessions`：列出活跃 tmux 会话
+  - `get_claude_session_output`：获取会话最近输出
+  - `kill_claude_session`：强制终止会话
+  - `send_claude_input`：向会话发送追加输入
+- **Web 工具**：`web_search`（DuckDuckGo，无需 key）、`web_fetch`（任意 URL 纯文本）
+- **`python_execute` tool**：直接执行 Python 代码片段（30s 超时）
+- **系统工具**：`get_system_status`（CPU/内存/磁盘）、`get_service_status`（进程/端口/日志）
+
+### Changed
+- **`integrations/claude_code/session.py`**：向后兼容重新导出，指向 `tmux_session.py`
+- **`trigger_self_iteration`**：改为启动 tmux 会话，`--dangerously-skip-permissions` → `--permission-mode acceptEdits`；wrapper script 中 `unset ANTHROPIC_API_KEY`（使用 OAuth session）
+- **`run_command`**：无白名单限制（个人私有 root 服务器）
+- **`prompts/system.md`**：更新为全量工具能力描述
+
+---
+
 ## [0.5.0] - 2026-03-17
 
 ### Added
@@ -20,13 +137,6 @@
 - **`scheduler.py`**：邮件轮询间隔从 5 分钟改为 60 分钟
 - **`prompts/system.md`**：更新工具描述，说明异步迭代和无限制 CLI 能力
 
-### Verified Working (2026-03-17)
-- ✅ `trigger_self_iteration` 异步启动，stream-json 流式推送到 IM mock
-- ✅ `run_command` 无限制执行（echo/git/python 等）
-- ✅ 所有 9 个工具正常导入
-- ✅ 邮件轮询间隔 60min
-- ✅ IMAP 错误日志详细化
-
 ---
 
 ## [0.4.0] - 2026-03-17
@@ -41,59 +151,36 @@
 
 ### Fixed
 - **飞书知识库权限问题**：Wiki Space list/create nodes API 不支持 tenant_access_token；改用 `GET /wiki/v2/spaces/get_node` 解析 wiki token → `obj_token`，再通过 docx API 直接读写，完全避开 space-level 权限限制
-- **`FEISHU_WIKI_SPACE_ID`**：修正为正确值 `7618158120166034630`（原值 `7360567394534637571` 错误）
+- **`FEISHU_WIKI_SPACE_ID`**：修正为正确值 `7618158120166034630`
 - **`feishu_delete`**（`integrations/feishu/client.py`）：支持传递 JSON body（batch_delete 接口需要）
-- **`knowledge.py`**：重写，新增 `parse_wiki_token`（从 URL 提取 token）、`_clear_doc`（正确的 start/end_index）、`_append_text`
+- **`knowledge.py`**：重写，新增 `parse_wiki_token`、`_clear_doc`、`_append_text`
 
 ### Changed
-- `graph/tools.py`：移除旧的 `write_meeting_note`、`read_feishu_knowledge`、`write_feishu_knowledge`，替换为更细粒度的新工具；所有工具加入异常捕获
-
-### Verified Working (2026-03-17)
-- ✅ 飞书知识库读取（`feishu_read_page`）
-- ✅ 飞书知识库追加（`feishu_append_to_page`）
-- ✅ 飞书知识库覆盖（`feishu_overwrite_page`）
-- ✅ 飞书知识库搜索（`feishu_search_wiki`）
+- `graph/tools.py`：移除旧的 `write_meeting_note`、`read_feishu_knowledge`、`write_feishu_knowledge`
 
 ---
 
 ## [0.3.0] - 2026-03-17
 
 ### Fixed
-- **飞书消息接收**：将 Webhook 模式改为**长连接 SDK**（`lark-oapi ws.Client`），无需公网 IP 或域名配置
-- **钉钉消息接收**：将 Webhook 模式改为**流模式 SDK**（`dingtalk-stream DingTalkStreamClient`），同样无需公网
-- **LangGraph Checkpointer**：`SqliteSaver.from_conn_string()` 在新版 `langgraph-checkpoint-sqlite>=3.0` 返回 context manager 而非实例，改用 `sqlite3.connect() + SqliteSaver(conn)` 直接初始化
-- **LangGraph 模块路径**：新版需单独安装 `langgraph-checkpoint-sqlite` 包（原 `langgraph.checkpoint.sqlite` 已拆包）
-- **飞书发消息**：使用 `lark_oapi` SDK 的 `CreateMessageRequest` builder，自动处理 `receive_id_type`
+- **飞书消息接收**：Webhook → 长连接 SDK（`lark-oapi ws.Client`），无需公网
+- **钉钉消息接收**：Webhook → 流模式 SDK（`dingtalk-stream`），无需公网
+- **LangGraph Checkpointer**：`SqliteSaver.from_conn_string()` → `sqlite3.connect() + SqliteSaver(conn)`
+- **LangGraph 模块路径**：单独安装 `langgraph-checkpoint-sqlite`（原 `langgraph.checkpoint.sqlite` 已拆包）
+- **飞书发消息**：改用 `lark_oapi` SDK 的 `CreateMessageRequest` builder
 
 ### Changed
-- `graph/agent.py`：移除 `respond_node`，`invoke()` 直接返回文本，由各 bot handler 负责平台回复
-- `graph/nodes.py`：路由终点改为 `END` 而非 `respond`
-- `main.py`：两个平台连接器以 daemon thread 启动，不阻塞 FastAPI
-
-### Verified Working (2026-03-17)
-- ✅ 飞书长连接收发消息（火山云 LLM 响应）
-- ✅ 钉钉流模式连接建立
-- ✅ 火山云 Ark `ep-20260317143459-qtgqn` 正常调用
-- ✅ OpenRouter fallback 链路配置完成
-
-### Known Issues
-- ⚠️ 钉钉文档 API 返回 404（`/v1.0/doc/spaces/{id}/files` 路径待确认）
-- ⚠️ 飞书 Wiki Space ID 未配置（`.env FEISHU_WIKI_SPACE_ID` 为空，运行 `python -m tools.list_feishu_spaces` 获取）
-- ⚠️ 163 IMAP 登录失败（`Unsafe Login`，需在 163 网页版开启 IMAP 并重新生成授权码）
+- `graph/agent.py`：移除 `respond_node`，`invoke()` 直接返回文本，bot handler 负责发送
+- `graph/nodes.py`：路由终点改为 `END`
+- `main.py`：两个平台连接器以 daemon thread 启动
 
 ---
 
 ## [0.2.0] - 2026-03-17
 
 ### Added
-- `docs/architecture.md`：系统架构详解、数据流图
-- `docs/setup.md`：逐步部署指南，覆盖所有平台配置
-- `docs/development.md`：如何新增工具/集成/使用自迭代
-- `docs/integrations.md`：各平台 API 细节（飞书/钉钉/163/火山云/OpenRouter）
+- `docs/architecture.md`、`docs/setup.md`、`docs/development.md`、`docs/integrations.md`
 - `README.md`：项目概览、快速启动、结构说明
-
-### Changed
-- `CLAUDE.md`：补充完整项目上下文供自迭代使用
 
 ---
 
@@ -101,13 +188,9 @@
 
 ### Added
 - 项目骨架初始化
-- LangGraph ReAct Agent + SQLite 记忆（短/长期）
+- LangGraph ReAct Agent + SQLite 记忆
 - 火山云 Ark 主力 LLM + OpenRouter fallback 链
-- 飞书集成：Bot、知识库读写
-- 钉钉集成：Bot、文档空间读取
-- 163 IMAP 邮件轮询 + Claude Haiku 会议信息提取
-- APScheduler 定时任务：邮件轮询（5分钟）、上下文同步（30分钟）
-- SQLite ↔ 飞书知识库双向同步
+- 飞书 / 钉钉 / 163 IMAP 接入
+- APScheduler 定时任务（邮件5min、上下文同步30min）
 - Claude Code CLI 自迭代工具（`--dangerously-skip-permissions`）
 - Shell 命令白名单执行工具
-- `.env` 凭据管理，`.gitignore` 保护
