@@ -45,6 +45,9 @@ def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
     外部调用入口：传入用户消息，返回 AI 回复文本。
     消息发送由调用方（bot handler）负责。
     """
+    import time
+    from integrations.logging.interaction_logger import log_interaction
+
     config = {"configurable": {"thread_id": f"{platform}:{chat_id}"}}
     state = {
         "messages": [HumanMessage(content=message)],
@@ -55,6 +58,30 @@ def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
         "skill_result": None,
         "error": None,
     }
+
+    t0 = time.monotonic()
     result = graph.invoke(state, config=config)
+    latency_ms = (time.monotonic() - t0) * 1000
+
     last = result["messages"][-1]
-    return last.content if isinstance(last.content, str) else str(last.content)
+    response_text = last.content if isinstance(last.content, str) else str(last.content)
+
+    # 收集本次调用的工具列表（去重保序）
+    tools_used = []
+    for msg in result["messages"]:
+        for tc in getattr(msg, "tool_calls", None) or []:
+            name = tc.get("name", "")
+            if name and name not in tools_used:
+                tools_used.append(name)
+
+    log_interaction(
+        platform=platform,
+        user_id=user_id,
+        chat_id=chat_id,
+        user_message=message,
+        agent_response=response_text,
+        tools_used=tools_used,
+        latency_ms=latency_ms,
+    )
+
+    return response_text

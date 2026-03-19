@@ -3,8 +3,12 @@ APScheduler 定时任务：
 - 每30分钟：轮询钉钉知识库，发现新会议纪要自动分析并写入飞书
 - 每60分钟：轮询 163 邮件，发现会议邮件写入飞书
 - 每30分钟：SQLite ↔ 飞书知识库同步
+- 每30分钟：Heartbeat 心跳（LangGraph 适配版）——Agent 主动检查并决定是否需要做什么
 """
+import json
 import logging
+import os
+import time
 from apscheduler.schedulers.background import BackgroundScheduler
 
 logger = logging.getLogger(__name__)
@@ -123,12 +127,99 @@ def sync_context():
 
 
 # --------------------------------------------------------------------------- #
+# Heartbeat 心跳（LangGraph 适配版）
+# --------------------------------------------------------------------------- #
+_HEARTBEAT_STATE_FILE = "workspace/heartbeat_state.json"
+
+
+def _load_heartbeat_state() -> dict:
+    try:
+        with open(_HEARTBEAT_STATE_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_heartbeat_state(state: dict):
+    os.makedirs("workspace", exist_ok=True)
+    with open(_HEARTBEAT_STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+
+
+def heartbeat():
+    """
+    心跳任务（LangGraph 适配版）。
+
+    每30分钟触发一次，让 Agent 主动读取 HEARTBEAT.md 并决定是否需要做什么。
+    与普通 cron 任务的关键区别：Agent 自己判断优先级和行动，而不是执行固定脚本。
+
+    如果 Agent 回复 HEARTBEAT_OK，静默完成；有实质内容则发送给 Owner。
+    每次使用独立 thread_id，避免上下文无限增长（workspace 文件是跨会话记忆）。
+    """
+    owner_chat_id = os.getenv("OWNER_FEISHU_CHAT_ID", "")
+    if not owner_chat_id:
+        logger.debug("[Heartbeat] 未配置 OWNER_FEISHU_CHAT_ID，跳过心跳")
+        return
+
+    # 检查深夜静默时段（23:00—07:00）
+    hour = int(time.strftime("%H"))
+    if hour >= 23 or hour < 7:
+        logger.debug(f"[Heartbeat] 深夜静默时段（{hour}:xx），跳过")
+        return
+
+    # 读取 HEARTBEAT.md 内容作为任务清单
+    try:
+        with open("workspace/HEARTBEAT.md", encoding="utf-8") as f:
+            heartbeat_md = f.read().strip()
+    except FileNotFoundError:
+        heartbeat_md = "暂无心跳任务清单"
+
+    hb_state = _load_heartbeat_state()
+    state_json = json.dumps(hb_state, ensure_ascii=False)
+
+    prompt = (
+        "【心跳检查】这是一条自动触发的心跳消息。\n\n"
+        "请根据下方任务清单，判断当前是否有需要主动执行的任务。\n"
+        "- 若无需处理，直接回复 `HEARTBEAT_OK`，不要发任何消息\n"
+        "- 若有任务需要执行，请执行并在完成后给出简短说明\n"
+        "- 执行完任务后，将本次检查时间戳写入 "
+        f"`workspace/heartbeat_state.json`（当前状态：{state_json}）\n\n"
+        f"## 心跳任务清单\n\n{heartbeat_md}"
+    )
+
+    try:
+        from graph.agent import invoke
+        # 每次心跳用独立 thread_id（时间戳），避免历史上下文堆积
+        unique_chat_id = f"heartbeat_{int(time.time())}"
+        result = invoke(
+            message=prompt,
+            platform="heartbeat",
+            user_id="scheduler",
+            chat_id=unique_chat_id,
+        )
+
+        result_stripped = (result or "").strip()
+        if result_stripped and result_stripped != "HEARTBEAT_OK":
+            from integrations.feishu.bot import bot as feishu_bot
+            feishu_bot.send_text(chat_id=owner_chat_id, text=f"🔔 心跳提醒\n\n{result_stripped}")
+            logger.info(f"[Heartbeat] 主动发送消息给 owner: {result_stripped[:80]}")
+        else:
+            logger.debug("[Heartbeat] 无需主动响应")
+
+    except Exception as e:
+        logger.error(f"[Heartbeat] 执行失败: {e}")
+
+
+# --------------------------------------------------------------------------- #
 # 启动 / 停止
 # --------------------------------------------------------------------------- #
 def start():
     scheduler.add_job(poll_dingtalk_meetings, "interval", minutes=30, id="dingtalk_meetings")
     scheduler.add_job(poll_email, "interval", minutes=60, id="email_poll")
     scheduler.add_job(sync_context, "interval", minutes=30, id="ctx_sync")
+    scheduler.add_job(heartbeat, "interval", minutes=30, id="heartbeat",
+                      # 启动后 5 分钟再执行第一次，避免刚启动就触发
+                      start_date=None)
     scheduler.start()
     logger.info("Scheduler 已启动")
 

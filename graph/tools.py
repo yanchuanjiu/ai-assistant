@@ -318,6 +318,112 @@ def _trigger_sync(requirement: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# 自我改进：触发 Claude Code 分析日志并优化 Agent
+# --------------------------------------------------------------------------- #
+@tool
+def trigger_self_improvement(reason: str = "") -> str:
+    """
+    触发 Claude Code 对 Agent 进行自我分析和改进（异步，流式推送到 IM）。
+
+    Claude Code 将执行：
+    1. 分析近期交互日志（logs/interactions.jsonl）：纠正率、工具使用模式、高延迟对话
+    2. 分析 LLM 调用日志（logs/llm.jsonl）：工具选择准确性、token 消耗
+    3. 检查崩溃日志（logs/crash.log）
+    4. 读取当前 workspace 文件（SOUL/USER/MEMORY/HEARTBEAT）和 prompts/system.md
+    5. 生成针对性改进：更新 workspace/MEMORY.md、workspace/HEARTBEAT.md，
+       必要时调整 prompts/system.md 工具选择规则
+    6. 生成改进报告发送给用户
+    7. 重启 agent 服务使改进生效
+
+    reason: 触发原因（可选），帮助 Claude Code 聚焦改进方向。
+    """
+    from integrations.claude_code.session import session_manager
+    from graph.nodes import get_tool_ctx
+
+    thread_id, send_fn = get_tool_ctx()
+    if not thread_id or not send_fn:
+        return "⚠️ 无法获取会话上下文，请在 IM 对话中触发自我改进。"
+
+    reason_section = f"\n\n**触发原因**: {reason}" if reason else ""
+
+    requirement = f"""你是这个 AI Agent 的自我改进系统。请对 /root/ai-assistant 项目进行深度分析和优化。{reason_section}
+
+## 分析任务
+
+### 1. 交互日志分析
+读取并分析 `logs/interactions.jsonl`（最近 200 条）：
+- 统计 `has_correction=true` 的比例（用户纠正率）
+- 列出最常被调用的工具 Top 5
+- 找出高延迟对话（latency_ms > 8000）
+- 找出 agent_response 包含"失败"、"错误"、"出错"的记录
+
+### 2. LLM 调用日志分析
+读取 `logs/llm.jsonl`（最近 200 条）：
+- 统计各工具分类的激活频率
+- 找出 tools_count=7（只有 CORE_TOOLS）但用户消息应该触发更多工具的情况
+- 统计 token 消耗趋势
+
+### 3. 崩溃日志检查
+读取 `logs/crash.log`（如存在）：
+- 列出最近 5 条崩溃记录
+- 识别重复崩溃模式
+
+### 4. 读取当前配置
+- `prompts/system.md`
+- `workspace/MEMORY.md`
+- `workspace/HEARTBEAT.md`
+- `workspace/USER.md`
+
+## 改进任务（每项改进必须有数据支撑）
+
+### 必做：更新 workspace/MEMORY.md
+基于交互日志，提炼：
+- 用户最常请求的任务类型
+- 用户的沟通风格偏好
+- Agent 已知的坏习惯（高频纠正的场景）
+
+### 必做：更新 workspace/HEARTBEAT.md
+根据实际运行情况调整心跳任务的优先级和频率。
+
+### 按需：更新 prompts/system.md
+仅在以下情况才改：
+- 发现工具选择关键词（CATEGORY_KEYWORDS）有明显缺失
+- 有重复出现的工具调用错误需要在 system prompt 层面纠正
+改动要最小化，只改需要改的部分。
+
+## 输出改进报告
+
+格式（发给用户）：
+```
+## 🔍 自我改进报告
+
+**分析周期**: 最近 N 条交互
+**用户纠正率**: X%
+
+**发现的问题**:
+- ...
+
+**已做的改进**:
+- ...
+
+**建议关注**:
+- ...
+```
+
+## 最后：重启 agent 服务
+
+```bash
+cd /root/ai-assistant && kill $(cat logs/service.pid 2>/dev/null) 2>/dev/null; sleep 1; source .venv/bin/activate && nohup python main.py >> logs/app.log 2>&1 &
+```
+
+重启后将改进报告通过 IM 发给用户。"""
+
+    logger.info(f"[自我改进] 启动 thread={thread_id}，原因: {reason or '手动触发'}")
+    session_manager.start(thread_id, requirement, send_fn)
+    return "🔍 自我改进已启动，Claude Code 正在分析日志并生成优化方案，完成后将推送报告..."
+
+
+# --------------------------------------------------------------------------- #
 # 本机 Shell（无限制，个人私有服务器）
 # --------------------------------------------------------------------------- #
 @tool
@@ -1191,9 +1297,10 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_search_doc_wiki,
         feishu_im_get_messages,
     ],
-    # Claude Code 自迭代
+    # Claude Code 自迭代 + 自我改进
     "claude": [
         trigger_self_iteration,
+        trigger_self_improvement,
         list_claude_sessions,
         get_claude_session_output,
         kill_claude_session,
@@ -1214,6 +1321,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "claude": [
         "迭代", "开发", "修复", "实现", "编写代码", "重构",
         "claude", "session", "会话", "调试", "自迭代",
+        "自我改进", "优化自己", "分析日志", "self-improve", "改进自己",
     ],
 }
 

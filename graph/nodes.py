@@ -113,16 +113,34 @@ def _extract_text_tool_calls(content: str) -> list[dict] | None:
         return None
 
 
-def _load_system_prompt() -> str:
+def _build_system_prompt() -> str:
+    """动态构建系统提示词，每次 agent_node 调用时加载最新 workspace 文件。"""
     from datetime import date
+
+    parts = []
+
+    # 基础 system prompt
     try:
         with open("prompts/system.md", encoding="utf-8") as f:
-            return f.read().replace("{current_date}", date.today().isoformat())
+            parts.append(f.read().replace("{current_date}", date.today().isoformat()))
     except FileNotFoundError:
-        return "你是一个智能个人助理，帮助用户管理会议、项目和开发任务。"
+        parts.append("你是一个智能个人助理，帮助用户管理会议、项目和开发任务。")
 
+    # 注入 workspace 文件（SOUL / USER / MEMORY），每次都读最新版本
+    for fp, label in [
+        ("workspace/SOUL.md", "SOUL"),
+        ("workspace/USER.md", "USER"),
+        ("workspace/MEMORY.md", "MEMORY"),
+    ]:
+        try:
+            with open(fp, encoding="utf-8") as f:
+                content = f.read().strip()
+            if content:
+                parts.append(f"\n---\n## Workspace: {label}\n{content}")
+        except FileNotFoundError:
+            pass
 
-SYSTEM_PROMPT = _load_system_prompt()
+    return "\n".join(parts)
 
 _LLM_LOG_PATH = "logs/llm.jsonl"
 
@@ -206,7 +224,7 @@ def _log_llm_call(thread_id: str, messages: list, response, latency_ms: float, t
 # --------------------------------------------------------------------------- #
 def agent_node(state: AgentState) -> dict:
     thread_id = f"{state.get('platform', '?')}:{state.get('chat_id', '?')}"
-    messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
+    messages = [SystemMessage(content=_build_system_prompt())] + state["messages"]
 
     # 动态选择工具（渐进式披露）
     tools = _select_tools(messages)
