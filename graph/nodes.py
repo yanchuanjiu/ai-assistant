@@ -135,6 +135,7 @@ def _build_system_prompt() -> str:
         ("workspace/SOUL.md", "SOUL"),
         ("workspace/USER.md", "USER"),
         ("workspace/MEMORY.md", "MEMORY"),
+        ("workspace/SKILLS_PROJECT_MGMT.md", "SKILL_PROJECT_MGMT"),
     ]:
         try:
             with open(fp, encoding="utf-8") as f:
