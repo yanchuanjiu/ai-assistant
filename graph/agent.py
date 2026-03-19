@@ -40,6 +40,19 @@ def build_graph():
 graph = build_graph()
 
 
+def clear_history(thread_id: str) -> bool:
+    """清除指定 thread_id 的对话历史（删除 SQLite checkpoint）。"""
+    try:
+        _conn.execute("DELETE FROM checkpoints WHERE thread_id = ?", (thread_id,))
+        _conn.execute("DELETE FROM writes WHERE thread_id = ?", (thread_id,))
+        _conn.commit()
+        return True
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"[clear_history] {e}")
+        return False
+
+
 def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
     """
     外部调用入口：传入用户消息，返回 AI 回复文本。

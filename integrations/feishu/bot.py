@@ -38,38 +38,124 @@ _lark_client = lark.Client.builder() \
 
 
 # --------------------------------------------------------------------------- #
-# 消息处理
+# 纯函数：消息解析（无副作用，可单测）
 # --------------------------------------------------------------------------- #
-def _on_message(data: P2ImMessageReceiveV1) -> None:
-    from graph.agent import invoke  # 延迟导入避免循环
-    from integrations.claude_code.session import reply_fn_registry, session_manager
+def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
+    """
+    解析飞书消息事件，返回标准化 dict 或 None（非文本/空消息返回 None）。
 
+    返回字段：text, user_id, chat_id, message_id, thread_id
+    thread_id 规则：
+      - 帖子内回复（root_id 非空）→ feishu:thread:{root_id}（独立会话）
+      - 普通群聊/单聊 → feishu:{chat_id}
+    """
     msg = data.event.message
     sender = data.event.sender
 
     if msg.message_type != "text":
-        return
+        return None
 
     try:
         content = json.loads(msg.content)
         text = content.get("text", "").strip()
     except Exception:
-        return
+        return None
 
     if not text:
+        return None
+
+    chat_id = msg.chat_id or ""
+    root_id = getattr(msg, "root_id", None) or ""
+    thread_id = f"feishu:thread:{root_id}" if root_id else f"feishu:{chat_id}"
+
+    return {
+        "text": text,
+        "user_id": sender.sender_id.open_id or "",
+        "chat_id": chat_id,
+        "message_id": msg.message_id or "",
+        "thread_id": thread_id,
+    }
+
+
+def _handle_slash_command(text: str, thread_id: str, chat_id: str) -> str | None:
+    """
+    处理斜杠命令。返回响应文本，如果不是已知命令则返回 None。
+
+    支持的命令：
+      /status — 查看服务状态
+      /clear  — 清空当前会话历史
+      /stop   — 停止当前 Claude Code 会话
+    """
+    parts = text.strip().split()
+    cmd = parts[0].lower() if parts else ""
+
+    if cmd == "/status":
+        from graph.tools import get_service_status
+        return get_service_status.invoke({})
+
+    elif cmd == "/clear":
+        from graph.agent import clear_history
+        ok = clear_history(thread_id)
+        return "✅ 对话历史已清空" if ok else "❌ 清空失败，请查看日志"
+
+    elif cmd == "/stop":
+        from integrations.claude_code.session import session_manager
+        if session_manager.get(thread_id):
+            session_manager.kill(thread_id)
+            return "✅ Claude 会话已停止"
+        return "当前没有运行中的 Claude 会话"
+
+    return None
+
+
+def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
+    """在线程中运行 agent，发送回复。"""
+    from graph.agent import invoke
+
+    processing_reaction_id = bot.add_reaction(parsed["message_id"], "Typing")
+    try:
+        reply = invoke(
+            message=parsed["text"],
+            platform="feishu",
+            user_id=parsed["user_id"],
+            chat_id=parsed["chat_id"],
+        )
+        bot.send_text(chat_id=parsed["chat_id"], text=reply)
+        bot.remove_reaction(parsed["message_id"], processing_reaction_id)
+        bot.add_reaction(parsed["message_id"], "OK")
+    except Exception as e:
+        logger.error(f"[飞书] Agent 处理失败: {e}")
+        bot.remove_reaction(parsed["message_id"], processing_reaction_id)
+        bot.send_text(chat_id=parsed["chat_id"], text=f"处理出错：{e}")
+
+
+# --------------------------------------------------------------------------- #
+# 消息处理（协调层）
+# --------------------------------------------------------------------------- #
+def _on_message(data: P2ImMessageReceiveV1) -> None:
+    from integrations.claude_code.session import reply_fn_registry, session_manager
+
+    parsed = _parse_feishu_message(data)
+    if not parsed:
         return
 
-    user_id = sender.sender_id.open_id or ""
-    chat_id = msg.chat_id or ""
-    message_id = msg.message_id or ""
-    thread_id = f"feishu:{chat_id}"
+    text = parsed["text"]
+    thread_id = parsed["thread_id"]
+    chat_id = parsed["chat_id"]
 
-    logger.info(f"[飞书长连接] user={user_id} chat={chat_id} msg={text[:80]}")
+    logger.info(f"[飞书长连接] user={parsed['user_id']} chat={chat_id} thread={thread_id} msg={text[:80]}")
 
     bot = FeishuBot()
 
-    # 注册 reply_fn（每次消息更新，确保 chat_id 绑定正确）
+    # 注册 reply_fn（绑定到 thread_id，供工具回调使用）
     reply_fn_registry[thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
+
+    # ── 斜杠命令（优先处理）────────────────────────────────────────────
+    if text.startswith("/"):
+        resp = _handle_slash_command(text, thread_id, chat_id)
+        if resp is not None:
+            bot.send_text(chat_id=chat_id, text=resp)
+            return
 
     # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────────
     if session_manager.get(thread_id):
@@ -78,24 +164,7 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
         return
 
     # ── 正常 Agent 流程 ───────────────────────────────────────────────
-    def run():
-        processing_reaction_id = bot.add_reaction(message_id, "THUMBSUP")
-        try:
-            reply = invoke(
-                message=text,
-                platform="feishu",
-                user_id=user_id,
-                chat_id=chat_id,
-            )
-            bot.send_text(chat_id=chat_id, text=reply)
-            bot.remove_reaction(message_id, processing_reaction_id)
-            bot.add_reaction(message_id, "OK")
-        except Exception as e:
-            logger.error(f"[飞书] Agent 处理失败: {e}")
-            bot.remove_reaction(message_id, processing_reaction_id)
-            bot.send_text(chat_id=chat_id, text=f"处理出错：{e}")
-
-    threading.Thread(target=run, daemon=True).start()
+    threading.Thread(target=_run_agent, args=(parsed, bot), daemon=True).start()
 
 
 # --------------------------------------------------------------------------- #

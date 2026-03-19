@@ -89,8 +89,12 @@ _llm_base = _build_base_llm()
 tools_by_name = {t.name: t for t in ALL_TOOLS}
 
 # 火山云 Ark 有时以文本形式返回工具调用，格式为：
-# <|FunctionCallBeginBegin|>[{"name":...,"parameters":...,"id":...}]
-_FUNC_CALL_RE = re.compile(r"<\|FunctionCallBeginBegin\|>(.*?)(?:<\|FunctionCallEndEnd\|>|$)", re.DOTALL)
+# <|FunctionCallBegin|>[...] 或 <|FunctionCallBeginBegin|>[...]（双 Begin 变体）
+# 兼容单/双 Begin 和 End 的所有变体
+_FUNC_CALL_RE = re.compile(
+    r"<\|FunctionCallBegin(?:Begin)?\|>(.*?)(?:<\|FunctionCallEnd(?:End)?\|>|$)",
+    re.DOTALL,
+)
 
 
 def _extract_text_tool_calls(content: str) -> list[dict] | None:
@@ -237,13 +241,17 @@ def agent_node(state: AgentState) -> dict:
     # 处理火山云文本格式工具调用
     if (
         isinstance(response.content, str)
-        and "<|FunctionCallBeginBegin|>" in response.content
+        and "<|FunctionCall" in response.content
         and not getattr(response, "tool_calls", None)
     ):
         tool_calls = _extract_text_tool_calls(response.content)
         if tool_calls:
             logger.debug(f"解析文本格式工具调用: {[c['name'] for c in tool_calls]}")
             response = AIMessage(content="", tool_calls=tool_calls)
+        else:
+            # 解析失败：隐藏原始 JSON，避免泄漏给用户
+            logger.warning(f"[FunctionCall] 解析失败，原始内容: {response.content[:300]}")
+            response = AIMessage(content="（工具调用格式异常，请重试）")
 
     _log_llm_call(thread_id, messages, response, latency_ms, tools)
 

@@ -26,22 +26,77 @@ _cfg = DingTalkBotSettings()
 
 
 # --------------------------------------------------------------------------- #
+# 纯函数：消息解析（无副作用，可单测）
+# --------------------------------------------------------------------------- #
+def _parse_dingtalk_message(incoming: dingtalk_stream.ChatbotMessage) -> dict | None:
+    """
+    解析钉钉消息，返回标准化 dict 或 None（空消息返回 None）。
+
+    返回字段：text, user_id, chat_id, thread_id
+    """
+    text = incoming.text.content.strip() if incoming.text else ""
+    if not text:
+        return None
+
+    user_id = incoming.sender_staff_id or ""
+    chat_id = incoming.conversation_id or user_id
+    thread_id = f"dingtalk:{chat_id}"
+
+    return {
+        "text": text,
+        "user_id": user_id,
+        "chat_id": chat_id,
+        "thread_id": thread_id,
+    }
+
+
+def _handle_slash_command(text: str, thread_id: str) -> str | None:
+    """
+    处理斜杠命令。返回响应文本，如果不是已知命令则返回 None。
+
+    支持的命令：
+      /status — 查看服务状态
+      /clear  — 清空当前会话历史
+      /stop   — 停止当前 Claude Code 会话
+    """
+    parts = text.strip().split()
+    cmd = parts[0].lower() if parts else ""
+
+    if cmd == "/status":
+        from graph.tools import get_service_status
+        return get_service_status.invoke({})
+
+    elif cmd == "/clear":
+        from graph.agent import clear_history
+        ok = clear_history(thread_id)
+        return "✅ 对话历史已清空" if ok else "❌ 清空失败，请查看日志"
+
+    elif cmd == "/stop":
+        from integrations.claude_code.session import session_manager
+        if session_manager.get(thread_id):
+            session_manager.kill(thread_id)
+            return "✅ Claude 会话已停止"
+        return "当前没有运行中的 Claude 会话"
+
+    return None
+
+
+# --------------------------------------------------------------------------- #
 # 消息处理 Handler
 # --------------------------------------------------------------------------- #
 class _BotHandler(_ChatbotHandlerBase):
     def process(self, callback: dingtalk_stream.CallbackMessage):
-        from graph.agent import invoke  # 延迟导入避免循环
         from integrations.claude_code.session import reply_fn_registry, session_manager
 
         incoming = dingtalk_stream.ChatbotMessage.from_dict(callback.data)
-        text = incoming.text.content.strip() if incoming.text else ""
+        parsed = _parse_dingtalk_message(incoming)
 
-        if not text:
+        if not parsed:
             return AckMessage.STATUS_OK, "OK"
 
-        user_id = incoming.sender_staff_id or ""
-        chat_id = incoming.conversation_id or user_id
-        thread_id = f"dingtalk:{chat_id}"
+        text = parsed["text"]
+        thread_id = parsed["thread_id"]
+        user_id = parsed["user_id"]
 
         logger.info(f"[钉钉流模式] user={user_id} msg={text[:80]}")
 
@@ -49,6 +104,13 @@ class _BotHandler(_ChatbotHandlerBase):
 
         # 注册 reply_fn
         reply_fn_registry[thread_id] = lambda t, _uid=user_id: dt_bot.send_text(user_id=_uid, text=t)
+
+        # ── 斜杠命令（优先处理）────────────────────────────────────────
+        if text.startswith("/"):
+            resp = _handle_slash_command(text, thread_id)
+            if resp is not None:
+                self.reply_text(resp, incoming)
+                return AckMessage.STATUS_OK, "OK"
 
         # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────
         if session_manager.get(thread_id):
@@ -62,11 +124,12 @@ class _BotHandler(_ChatbotHandlerBase):
 
         def run():
             try:
+                from graph.agent import invoke
                 reply = invoke(
                     message=text,
                     platform="dingtalk",
                     user_id=user_id,
-                    chat_id=chat_id,
+                    chat_id=parsed["chat_id"],
                 )
                 dt_bot.send_text(user_id=user_id, text=reply)
             except Exception as e:
