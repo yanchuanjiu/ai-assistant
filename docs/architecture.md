@@ -1,6 +1,6 @@
 # 系统架构说明
 
-> 最后更新：2026-03-18（v0.7.6）
+> 最后更新：2026-03-19（v0.8.5）
 
 ## 整体架构
 
@@ -101,10 +101,10 @@ CORE_TOOLS（7个，每次必带）
   run_command / get_system_status / get_service_status
 
 TOOL_CATEGORIES（按关键词动态注入）
-  feishu_wiki    → 关键词：飞书/wiki/知识库              → 6 个工具（含 feishu_wiki_page）
-  feishu_advanced→ 关键词：多维表格/任务/bitable         → 6 个工具
-  claude         → 关键词：迭代/开发/claude              → 5 个工具
-  dingtalk_mcp   → 关键词：钉钉/dingtalk/会议/纪要 → 33 个 MCP 工具 + 4 个 pipeline 工具
+  feishu_wiki    → 关键词：飞书/wiki/知识库/项目/章程/周报/里程碑等 → 6 个工具（含 feishu_wiki_page）
+  feishu_advanced→ 关键词：多维表格/任务/bitable                    → 6 个工具
+  claude         → 关键词：迭代/开发/claude                         → 5 个工具
+  dingtalk_mcp   → 关键词：钉钉/dingtalk/会议/纪要          → 33 个 MCP 工具 + 4 个 pipeline 工具
 ```
 
 无关键词时只传 7 个 → 节省约 87% token。
@@ -158,6 +158,36 @@ APScheduler（每30min）
 | `poll_dingtalk_meetings` | 每30分钟 | 钉钉知识库 → LLM 分析 → 飞书写入 |
 | `poll_email` | 每60分钟 | 163 IMAP → 主 Agent 判断会议邮件 → 飞书写入 |
 | `sync_context` | 每30分钟 | SQLite checkpoints 快照 → 覆盖飞书上下文页面 |
+| `heartbeat` | 每30分钟 | Agent 主动读取 HEARTBEAT.md 决策，深夜静默（23:00–07:00），有内容推送 Owner |
+
+### 8. Workspace 文件体系（`workspace/`）
+
+每次 LLM 调用时，`_build_system_prompt()` 动态读取以下文件注入 system prompt：
+
+| 文件 | Label | 内容 |
+|------|-------|------|
+| `workspace/SOUL.md` | `SOUL` | Agent 行为原则与价值观 |
+| `workspace/USER.md` | `USER` | 用户画像（持续积累） |
+| `workspace/MEMORY.md` | `MEMORY` | 长期记忆（心跳提炼） |
+| `workspace/SKILLS_PROJECT_MGMT.md` | `SKILL_PROJECT_MGMT` | IT 项目集管理 Skill（v0.8.5 新增） |
+
+Claude Code 修改这些文件后**无需重启**，下一次 LLM 调用即生效。
+
+### 9. 多任务并行处理
+
+Agent 收到包含多个独立任务的消息时，在单次 LLM 调用中并行发起多个工具调用：
+
+```
+用户：同时帮我 ① 查A ② 把B写飞书 ③ 搜C
+  ↓
+agent_node 识别 3 个独立任务
+  ↓
+tools_node 并行执行（feishu_search_wiki + feishu_wiki_page + web_search）
+  ↓
+收集结果 → agent_node 分主题汇报
+```
+
+长任务（需要多个开发会话）：多个 `trigger_self_iteration` 分别启动独立 Claude Code 会话。
 
 ## 飞书知识库权限绕过
 

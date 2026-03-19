@@ -1,4 +1,4 @@
-# AI 个人助理（v0.8.2）
+# AI 个人助理（v0.8.5）
 
 > 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书 / 钉钉机器人对话，自动处理会议纪要、读写飞书知识库、搜索网络，并通过自然语言驱动 Claude Code 完成代码开发自迭代与自我学习改进。
 
@@ -30,7 +30,8 @@
 │  触发：所有用户消息默认进入此 Agent                       │
 │  LLM ：火山云 Ark → OpenRouter（自动 fallback）           │
 │  记忆：SQLite（data/memory.db），按 thread_id 持久化      │
-│  自我：workspace/{SOUL/USER/MEMORY/HEARTBEAT}.md         │
+│  自我：workspace/{SOUL/USER/MEMORY/HEARTBEAT/            │
+│        SKILLS_PROJECT_MGMT}.md                           │
 │                                                         │
 │  处理：会议管理 / 知识库读写 / 网络搜索 /                  │
 │        系统运维 / 代码执行 / 开发需求路由                  │
@@ -82,7 +83,7 @@
 | `get_system_status` | CPU / 内存 / 磁盘状态 |
 | `get_service_status` | 主进程、Claude tmux 会话概览、最近崩溃记录 |
 
-### 飞书知识库（6 个，关键词：飞书/wiki/知识库/会议/纪要）
+### 飞书知识库（6 个，关键词：飞书/wiki/知识库/会议/纪要/项目/章程/周报等）
 
 | 工具 | 用途 | 典型场景 |
 |------|------|---------|
@@ -157,12 +158,14 @@
 | Skill | 触发条件 | 典型工具组合 |
 |-------|---------|------------|
 | **会议管理** | "帮我整理会议纪要" / 接到钉钉文档 | `get_document_content`(MCP) → `analyze_meeting_doc` → `feishu_append_to_page` |
+| **项目集管理** | "新建项目" / "写章程" / "更新周报" / "项目里程碑" | `feishu_wiki_page`(find_or_create) → 按 SKILLS_PROJECT_MGMT 模板 → `feishu_append_to_page` |
 | **知识库管理** | "记录一下…" / "查一下…" | `feishu_search_wiki` → `feishu_append_to_page` |
 | **开发迭代** | "帮我加个功能" / "修复这个 bug" | `trigger_self_iteration` → `list_claude_sessions` |
 | **自我学习** | "分析日志" / "优化自己" | `trigger_self_improvement` → `list_claude_sessions` |
 | **网络信息** | "搜一下…" / "查最新…" | `web_search` → `web_fetch` |
 | **系统运维** | "服务怎么了" / "查一下日志" | `get_service_status` → `run_command` |
 | **数据处理** | "帮我算…" / "统计一下…" | `python_execute` |
+| **多任务并行** | "同时帮我：① … ② … ③ …" | 并行工具调用 → 分主题汇报结果 |
 
 ---
 
@@ -227,7 +230,7 @@
 
 ---
 
-## 当前运行状态（v0.8.2）
+## 当前运行状态（v0.8.5）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client）
@@ -254,7 +257,9 @@
 ✅ 渐进式工具披露  — 7 核心工具 + 按需动态注入（~87% token 节省）
 ✅ 回归测试套件    — tests/regression/（飞书/钉钉MCP/端到端，共33用例）
 ✅ Admin Web 界面  — http://localhost:8080（配置管理，无需重启）
-✅ Workspace 自我  — workspace/{SOUL/USER/MEMORY/HEARTBEAT}.md，动态注入 system prompt
+✅ Workspace 自我  — workspace/{SOUL/USER/MEMORY/HEARTBEAT/SKILLS_PROJECT_MGMT}.md，动态注入 system prompt
+✅ 项目集管理Skill — workspace/SKILLS_PROJECT_MGMT.md，写入项目文档时执行治理检查 + 模板匹配
+✅ 多任务并行处理  — 复杂消息自动拆分子任务并行处理，分主题汇报结果
 ✅ 自我改进工具    — trigger_self_improvement，Claude Code 分析日志 → 优化 → 推送报告
 ✅ 心跳主动决策    — 每30分钟 Agent 自主判断是否行动；OWNER_FEISHU_CHAT_ID 通过 agent_config 配置
 ✅ IM 配置引导    — 用户提到相关场景时，Agent 主动引导并在对话中完成配置
@@ -280,7 +285,8 @@ ai-assistant/
 │   ├── SOUL.md                  # Agent 行为原则与价值观
 │   ├── USER.md                  # 用户画像（持续积累）
 │   ├── MEMORY.md                # 长期记忆（心跳提炼）
-│   └── HEARTBEAT.md             # 主动任务清单（心跳任务配置）
+│   ├── HEARTBEAT.md             # 主动任务清单（心跳任务配置）
+│   └── SKILLS_PROJECT_MGMT.md  # IT 项目集管理 Skill（模板 + 治理规则）
 │
 ├── graph/                       # 主 Agent（LangGraph）
 │   ├── agent.py                 # 图定义 + SQLite checkpointer + invoke() 入口（含交互日志）

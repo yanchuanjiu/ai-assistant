@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.8.5] - 2026-03-19
+
+### Added
+- **`workspace/SKILLS_PROJECT_MGMT.md`**：IT 项目集管理 Skill
+  - 知识库页面结构规范（项目文件夹 → 章程/技术方案/周报/RAID/会议纪要五种子页面）
+  - 五种文档的完整 Markdown 模板（含字段说明）
+  - 写入前治理检查规则（文档归属 / 类型匹配 / 模板选择）
+  - 新建项目时自动引导创建章程页面
+
+### Changed
+- **`graph/nodes.py`**：`_build_system_prompt()` 新增注入 `SKILLS_PROJECT_MGMT.md`（label: `SKILL_PROJECT_MGMT`），动态加载，无需重启
+- **`prompts/system.md`**：
+  - 新增"写入前治理检查（项目类文档）"节：写入章程/技术方案/周报/RAID 等文档前执行归属确认 + 模板匹配
+  - 新增"多任务识别与并行处理"节：识别独立子任务 → 并行工具调用 → 分主题汇报；长任务支持多 Claude Code 会话并行启动
+- **`graph/tools.py`**：`CATEGORY_KEYWORDS["feishu_wiki"]` 新增 14 个项目管理触发词（项目/章程/周报/里程碑/需求文档/技术方案/风险/raid/复盘/项目集/portfolio/上线/验收/立项）
+
+---
+
+## [0.8.4] - 2026-03-19
+
+### Changed
+- **`prompts/system.md`** + **`workspace/SOUL.md`**：整体重写，明确"飞书知识库主动维护者"定位
+  - Agent 首要职责：主动保持飞书知识库内容完整和及时，而非被动问答
+  - 工具诚实性原则：工具列表里有什么能力就有什么，不能声称未集成
+  - 简洁行动原则：先做再说，不解释计划，完成后一句话告知
+
+---
+
+## [0.8.3] - 2026-03-19
+
+### Fixed
+- **`graph/nodes.py`**：修复火山云文本格式工具调用泄漏（`_extract_text_tool_calls` 解析后残留文本混入最终回复）
+
+### Changed
+- **`graph/agent.py`**：消息层解耦——`invoke()` 只返回文本，bot handler 负责发送，消除跨层依赖
+- 新增斜杠命令支持（`/status`、`/sessions` 等快捷指令路由）
+
+---
+
 ## [0.7.6] - 2026-03-18
 
 ### Added
