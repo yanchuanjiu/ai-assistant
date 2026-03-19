@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-18（v0.7.9）
+> 最后更新：2026-03-19（v0.8.1）
 
 ---
 
@@ -14,7 +14,7 @@
 
 ---
 
-## 当前运行状态（v0.7.9）
+## 当前运行状态（v0.8.1）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client），收发消息正常
@@ -22,7 +22,7 @@
 ✅ 火山云 LLM     — ep-20260317143459-qtgqn，调用正常
 ✅ SQLite 记忆    — data/memory.db（LangGraph checkpointer）
                     data/meeting.db（会议文档处理记录）
-✅ 定时任务        — 钉钉会议30分钟/邮件60分钟/上下文同步30分钟
+✅ 定时任务        — 钉钉会议30分钟/邮件60分钟/上下文同步30分钟/心跳30分钟
 ✅ 飞书知识库      — 读写正常（docx API via get_node）
                     context page: FalZwGDOkiqpbQkeAjGc8jaznMd
 ✅ 会议纪要闭环    — 钉钉知识库轮询 → LLM 分析 → 飞书写入（自动 + 按需）
@@ -44,12 +44,42 @@
 ✅ 会议页面自发现  — FEISHU_WIKI_MEETING_PAGE 不再需要手动配置，自动在 context page 下创建
 ✅ 回归测试套件   — tests/regression/（飞书知识库/钉钉MCP/端到端流水线，共33用例）
 
+✅ Workspace 自我体系 — workspace/{SOUL/USER/MEMORY/HEARTBEAT}.md，动态注入 system prompt
+✅ 交互日志增强   — logs/interactions.jsonl（含工具使用、延迟、用户纠正信号）
+✅ 自我改进工具   — trigger_self_improvement，Claude Code 分析日志 → 优化 → 推送报告
+✅ Heartbeat 心跳 — 每30分钟 Agent 主动决策，OWNER_FEISHU_CHAT_ID 通过 agent_config 设置
+✅ IM 配置引导   — system.md 内置无需重启的配置项引导规则，用户说"帮我配"即可完成
+
 ⚠️  163 IMAP     — 需在 163 网页版重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```
 
 ---
 
 ## 版本变更历史
+
+### v0.8.1（2026-03-19）— 配置引导完善：IM 对话直接完成配置，无需重启
+
+**修改文件**：
+- `scheduler.py` — `heartbeat()` 读取 `OWNER_FEISHU_CHAT_ID` 时优先查 config_store，fallback .env；无需重启即可激活心跳推送
+- `prompts/system.md` — 新增「运行时配置引导」节：明确所有无需重启的配置 key 及其触发场景；Agent 在用户提到心跳/通知/会议/钉钉空间等关键词时主动引导并代为完成配置
+
+**设计动机**：用户提到相关功能时，Agent 应主动带出配置方法并通过 `agent_config` 在 IM 中一次性完成，不要让用户手动改文件或重启服务。
+
+### v0.8.0（2026-03-19）— 自我学习三件套：Workspace + 自我改进 + Heartbeat
+
+**新增文件**：
+- `workspace/SOUL.md` — Agent 行为原则与价值观
+- `workspace/USER.md` — 用户画像（持续积累）
+- `workspace/MEMORY.md` — 长期记忆（心跳提炼，初始为空模板）
+- `workspace/HEARTBEAT.md` — 主动任务清单（可自行调整优先级）
+- `integrations/logging/__init__.py`
+- `integrations/logging/interaction_logger.py` — 交互日志记录（logs/interactions.jsonl）
+
+**修改文件**：
+- `graph/nodes.py` — `_build_system_prompt()` 替换原静态 `SYSTEM_PROMPT`，每次 LLM 调用动态读取 workspace 文件，Claude Code 改完即生效
+- `graph/agent.py` — `invoke()` 调用后自动记录交互日志（工具列表、延迟、纠正信号），跳过内部 heartbeat/scheduler 调用
+- `graph/tools.py` — 新增 `trigger_self_improvement` 工具（claude 分类）；Claude Code 接收全量日志分析后更新 workspace 文件并重启服务；新增触发关键词「自我改进」等
+- `scheduler.py` — 新增 `heartbeat()` 定时任务（30分钟），深夜自动静默，每次独立 thread_id 避免上下文堆积；Agent 回 HEARTBEAT_OK 则静默，有实质内容推送给 owner
 
 ### v0.7.7（2026-03-18）— 会议纪要流水线并入钉钉分类 + 清理待办项
 

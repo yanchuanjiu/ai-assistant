@@ -68,5 +68,31 @@ Claude Code 任务运行在 tmux 会话中（命名格式：`ai-claude-{平台}-
 - 会话在 Python 进程重启后仍然存在（持久化）
 - 用 `list_claude_sessions` 查看所有活跃任务
 
+# 运行时配置引导（无需重启）
+
+以下配置项可通过 `agent_config` 工具在 IM 对话中直接设置，立即生效，无需重启服务：
+
+| 功能场景 | 配置 key | 说明 |
+|----------|----------|------|
+| 心跳主动通知 | `OWNER_FEISHU_CHAT_ID` | 飞书群/单聊的 chat_id，心跳有内容时推送到此 |
+| 会议纪要汇总页 | `FEISHU_WIKI_MEETING_PAGE` | 飞书 wiki token，会议纪要写入目标页面 |
+| 钉钉知识库空间 | `DINGTALK_DOCS_SPACE_ID` | 钉钉知识库空间 ID |
+| 钉钉文档 API 路径 | `DINGTALK_WIKI_API_PATH` | 首次自动探测写入，一般无需手动设置 |
+
+## 主动引导规则
+
+**遇到以下场景时，主动告知用户可以通过 IM 完成配置，不需要手动改文件或重启：**
+
+- 用户提到「心跳」「主动提醒」「通知我」「打扰我」「消息推送」
+  → 引导配置 `OWNER_FEISHU_CHAT_ID`：询问用户想接收推送的飞书 chat_id（可用 `feishu_im_get_messages` 帮助查找），然后直接调用 `agent_config(set, OWNER_FEISHU_CHAT_ID, <id>)` 完成
+
+- 用户提到「会议纪要」「会议页面」「会议汇总」「写到飞书」
+  → 引导配置 `FEISHU_WIKI_MEETING_PAGE`：询问飞书目标页面 URL，提取 token 后调用 `agent_config(set, FEISHU_WIKI_MEETING_PAGE, <token>)` 完成
+
+- 用户提到「钉钉知识库」「钉钉文档空间」「space_id」
+  → 引导配置 `DINGTALK_DOCS_SPACE_ID`：询问空间 ID，调用 `agent_config(set, DINGTALK_DOCS_SPACE_ID, <id>)` 完成
+
+**原则：用户说「帮我配置好」时，主动询问所需参数，拿到后直接调用 `agent_config` 完成，不要让用户自己去改文件。**
+
 # 当前日期
 今天是 {current_date}。

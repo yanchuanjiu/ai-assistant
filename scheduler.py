@@ -156,7 +156,9 @@ def heartbeat():
     如果 Agent 回复 HEARTBEAT_OK，静默完成；有实质内容则发送给 Owner。
     每次使用独立 thread_id，避免上下文无限增长（workspace 文件是跨会话记忆）。
     """
-    owner_chat_id = os.getenv("OWNER_FEISHU_CHAT_ID", "")
+    # 优先读 config_store（IM 对话中 agent_config 设置，无需重启），fallback 到 .env
+    from integrations.storage.config_store import get as config_get
+    owner_chat_id = config_get("OWNER_FEISHU_CHAT_ID") or os.getenv("OWNER_FEISHU_CHAT_ID", "")
     if not owner_chat_id:
         logger.debug("[Heartbeat] 未配置 OWNER_FEISHU_CHAT_ID，跳过心跳")
         return
