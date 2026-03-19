@@ -1313,6 +1313,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "feishu_wiki": [
         "飞书", "feishu", "知识库", "wiki", "页面", "同步上下文",
         "读取文档", "追加", "覆盖",
+        "会议", "纪要", "meeting", "会议纪要", "整理会议", "写入飞书", "汇总",
     ],
     "feishu_advanced": [
         "多维表格", "bitable", "表格", "任务", "task", "日程",
