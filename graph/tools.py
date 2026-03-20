@@ -900,8 +900,9 @@ def feishu_project_setup(
     参数：
       project_name     — 项目中文名称，如"知识库AI项目"
       project_code     — 项目英文代号，如"AIKG"（用于文件夹命名和缓存键）
-      parent_wiki_token — 父页面 wiki token（默认使用 FEISHU_WIKI_PORTFOLIO_PAGE
-                          或 FEISHU_WIKI_CONTEXT_PAGE）
+      parent_wiki_token — 父页面 wiki token（默认在 wiki 根目录创建，与首页齐平）
+                          ⚠️ 绝对不能传入 FEISHU_WIKI_CONTEXT_PAGE，那是 AI 助理专用页！
+                          如果配置了 FEISHU_WIKI_PORTFOLIO_PAGE 则以它为父页面。
       docs_to_create   — "all" 创建全套7个文档，或逗号分隔的文档名，
                          如 "00_项目章程,02_技术方案"
 
