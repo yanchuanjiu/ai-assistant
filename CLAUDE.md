@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-19（v0.8.5）
+> 最后更新：2026-03-20（v0.8.6）
 
 ---
 
@@ -56,6 +56,17 @@
 ---
 
 ## 版本变更历史
+
+### v0.8.6（2026-03-20）— IM 长回复压缩 + 详情写飞书
+
+**修改文件**：
+- `prompts/system.md` — 新增"IM 回复规范"节：IM ≤800字符，超出时写"📝 AI 回复详情"页并发摘要+链接，明确触发场景和摘要格式
+- `integrations/feishu/bot.py` — `send_text` 新增兜底逻辑：超 800 字符时调用 `_save_to_feishu_wiki()` 存飞书，IM 发前 300 字摘要 + wiki 链接；飞书写入失败时降级为原有分段发送；新增 `_save_to_feishu_wiki()` 方法（`find_or_create_child_page` + `append_to_page`）
+
+**能力变化**：
+- LLM 层（主动）：system prompt 指导 LLM 在回复超长时主动写飞书再发摘要
+- Bot 层（兜底）：LLM 未遵守时 bot 自动截断并存飞书，IM 始终保持简洁
+- 飞书"📝 AI 回复详情"页自动创建并按时间戳追加，token 缓存在 config_store
 
 ### v0.8.5（2026-03-19）— 项目管理 Skill 集成 + 多任务并行处理
 

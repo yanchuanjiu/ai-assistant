@@ -246,17 +246,31 @@ class FeishuBot:
         return True
 
     def send_text(self, chat_id: str, text: str) -> bool:
-        """发送文本消息，超长时自动分段。返回是否全部成功。"""
+        """发送文本消息，超长时自动存飞书并发摘要+链接。返回是否全部成功。"""
         if not chat_id:
             logger.warning("[飞书] chat_id 为空，跳过发送")
             return False
 
-        # 飞书 text 消息单条上限约 4000 字符，超出时按段落分割
-        _CHUNK_LIMIT = 3800
-        if len(text) <= _CHUNK_LIMIT:
+        # IM 回复字符上限：超出时存飞书+发摘要
+        _IM_LIMIT = 800
+        if len(text) <= _IM_LIMIT:
             return self._send_single(chat_id, text)
 
-        # 按段落分割，尽量不截断句子
+        # ── 兜底：存飞书知识库，IM 发摘要+链接 ──────────────────────────
+        try:
+            wiki_token = self._save_to_feishu_wiki(text)
+            if wiki_token:
+                summary = text[:300].rstrip() + "…" if len(text) > 300 else text
+                link_text = (
+                    f"{summary}\n\n"
+                    f"📄 详细内容：https://feishu.cn/wiki/{wiki_token}"
+                )
+                return self._send_single(chat_id, link_text)
+        except Exception as e:
+            logger.warning(f"[飞书] 存知识库失败，降级分段发送: {e}")
+
+        # ── 最终降级：按段落分割 ──────────────────────────────────────
+        _CHUNK_LIMIT = 3800
         chunks: list[str] = []
         current = ""
         for para in text.split("\n"):
@@ -276,3 +290,28 @@ class FeishuBot:
             if not self._send_single(chat_id, prefix + chunk):
                 success = False
         return success
+
+    def _save_to_feishu_wiki(self, text: str) -> str:
+        """
+        将长文本追加到飞书知识库"📝 AI 回复详情"页，返回 wiki node_token。
+        失败时抛出异常，由调用方决定降级策略。
+        """
+        import os
+        from datetime import datetime
+        from integrations.feishu.knowledge import FeishuKnowledge
+
+        context_page = os.getenv("FEISHU_WIKI_CONTEXT_PAGE", "")
+        if not context_page:
+            raise ValueError("FEISHU_WIKI_CONTEXT_PAGE 未配置")
+
+        wiki = FeishuKnowledge()
+        page_token = wiki.find_or_create_child_page(
+            title="📝 AI 回复详情",
+            parent_wiki_token=context_page,
+            cache_key="AI_REPLY_DETAIL_PAGE",
+        )
+
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        content = f"## {timestamp} 回复\n\n{text}\n\n---\n"
+        wiki.append_to_page(page_token, content)
+        return page_token
