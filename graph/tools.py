@@ -35,6 +35,9 @@ def feishu_read_page(wiki_url_or_token: str) -> str:
         也支持裸 token：Qo4nwLphWiWZyfkGAHHcoHwQnEf
 
     返回页面的纯文本内容。
+
+    ⚠️ token 必须来自用户提供的 URL 或 feishu_wiki_page(list_children) 的返回结果，不能使用记忆中的旧 token。
+    返回"读取失败"时，先用 feishu_wiki_page(list_children) 重新发现页面。
     """
     try:
         kb = FeishuKnowledge()
@@ -848,6 +851,7 @@ def feishu_wiki_page(
     action 可选：
       list_children   — 列出 parent_wiki_token 下的子页面
                         （需 parent_wiki_token）
+                        ✅ 读写前不确定 token 时，先调此接口发现有效 token
       find_or_create  — 查找或创建命名子页面，返回 wiki node_token
                         （需 title + parent_wiki_token；cache_key 可选，用于加速后续查找）
 
@@ -1016,7 +1020,12 @@ def feishu_bitable_record(
       单选字段 = 字符串（如 "选项名"）
       多选字段 = 字符串列表（如 ["选项1", "选项2"]）
       复选框   = 布尔值（True/False）
+
+    ⚠️ app_token 必须从多维表格 URL 提取：https://xxx.feishu.cn/base/{app_token}
+    不知道 app_token 时，先询问用户提供多维表格链接，不能使用 placeholder。
     """
+    if not app_token or "placeholder" in app_token.lower():
+        return "app_token 无效。请从多维表格 URL 提取：https://xxx.feishu.cn/base/{app_token}"
     try:
         base = f"/bitable/v1/apps/{app_token}/tables/{table_id}/records"
         if action == "create":
@@ -1078,7 +1087,12 @@ def feishu_bitable_meta(
 
     返回字段/视图/数据表列表，包含 id、name、type 等信息。
     写记录前建议先调用 list_fields 确认字段类型。
+
+    ⚠️ app_token 必须从多维表格 URL 提取：https://xxx.feishu.cn/base/{app_token}
+    不知道 app_token 时，先询问用户提供多维表格链接，不能使用 placeholder。
     """
+    if not app_token or "placeholder" in app_token.lower():
+        return "app_token 无效。请从多维表格 URL 提取：https://xxx.feishu.cn/base/{app_token}"
     try:
         if action == "list_tables":
             resp = feishu_get(f"/bitable/v1/apps/{app_token}/tables", params={"page_size": page_size, "page_token": page_token})

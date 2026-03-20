@@ -52,7 +52,13 @@ def wiki_token_to_obj_token(wiki_token: str) -> tuple[str, str]:
         params={"token": wiki_token, "obj_type": "wiki"},
     )
     node = resp.get("data", {}).get("node", {})
-    return node.get("obj_token", ""), node.get("obj_type", "docx")
+    obj_token = node.get("obj_token", "")
+    if not obj_token:
+        logger.warning(
+            f"[wiki_token_to_obj_token] token={wiki_token!r} 未返回 obj_token，"
+            f"页面可能已删除/移动。完整响应: {resp}"
+        )
+    return obj_token, node.get("obj_type", "docx")
 
 
 # 标准项目文档列表（敏捷业务项目，顺序即创建顺序）

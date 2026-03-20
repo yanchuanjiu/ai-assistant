@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-21（v0.8.22）
+> 最后更新：2026-03-21（v0.8.23）
 
 ---
 
@@ -56,6 +56,20 @@
 ---
 
 ## 版本变更历史
+
+### v0.8.23（2026-03-21）— 飞书工具链 token 规则 + 400 错误修复
+
+**触发**：多次出现飞书 400 错误：旧 wiki token、placeholder app_token、空 obj_token 静默失败。
+
+**修改文件**：
+- `prompts/system.md` — 新增"飞书 wiki token 使用规则"节：禁止使用记忆/猜测 token，明确获取有效 token 的唯一正确方式，含 400 错误恢复流程
+- `graph/tools.py` — `feishu_read_page` docstring 追加 token 使用警告；`feishu_wiki_page` list_children 说明追加"读写前先调此接口"提示；`feishu_bitable_meta` 和 `feishu_bitable_record` docstring 追加 app_token 提取说明，函数体开头各加 placeholder 校验（直接返回错误提示）
+- `integrations/feishu/knowledge.py` — `wiki_token_to_obj_token` obj_token 为空时改为 WARNING 日志并输出完整响应（原为静默失败）
+
+**预期效果**：
+- LLM 不再使用记忆中的失效 token，优先调 list_children 发现有效 token
+- 传入 placeholder app_token 时工具直接返回错误提示而非 400 API 调用
+- 400 错误时 app.log 出现完整响应体，方便排查
 
 ### v0.8.22（2026-03-21）— 单轮上下文 + 问候快速路径 + 按需历史 + SKILLS 渐进式披露
 

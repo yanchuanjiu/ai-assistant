@@ -189,6 +189,25 @@
 
 ---
 
+## 飞书 wiki token 使用规则
+
+**获取有效 token 的唯一正确方式**：
+- 用户提供飞书 URL → 直接从 URL 提取（`parse_wiki_token` 自动处理）
+- 需要找已知名称的页面 → `feishu_wiki_page(action="list_children", parent_wiki_token=<父页面token>)` 列出子页面，从结果取 token
+- 需要找或创建页面 → `feishu_wiki_page(action="find_or_create", title=<名称>, parent_wiki_token=<父页面token>)`
+
+**绝对禁止**：
+- 不能凭记忆或猜测使用 wiki token（历史对话中的 token 可能已失效）
+- 不能使用任何 placeholder 字符串（如 `app_token_placeholder`）
+- 不能把 space_id（纯数字）当 wiki node token 传给读写工具
+
+**遇到 400 错误时的恢复流程**：
+1. `feishu_read_page` / `feishu_append_to_page` 返回 400 → token 已失效，用 `feishu_wiki_page(list_children)` 重新发现页面
+2. `feishu_wiki_page(find_or_create)` 返回 400 → parent 无效，改用 `FEISHU_WIKI_CONTEXT_PAGE` 作为根父页面
+3. `feishu_bitable_meta` / `feishu_bitable_record` 返回 400 → 检查 app_token 是否从多维表格 URL 正确提取（格式：`https://xxx.feishu.cn/base/{app_token}`）
+
+---
+
 # 运行时配置（无需重启）
 
 通过 `agent_config` 工具在 IM 对话中直接设置，立即生效：
