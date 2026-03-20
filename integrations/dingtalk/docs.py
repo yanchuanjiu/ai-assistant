@@ -92,6 +92,7 @@ class DingTalkDocs:
             "name": n.get("title") or n.get("fileName") or n.get("name", ""),
             "url": n.get("url", ""),
             "type": n.get("type") or n.get("nodeType", ""),
+            "created_at": self._format_ts(n.get("createTime") or n.get("createdTime") or n.get("createAt", "")),
             "updated_at": self._format_ts(n.get("modifiedTime") or n.get("updateTime", "")),
         }
 

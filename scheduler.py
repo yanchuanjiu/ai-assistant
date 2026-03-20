@@ -262,17 +262,48 @@ def heartbeat():
 
 
 # --------------------------------------------------------------------------- #
+# 每日会议纪要迁移（富文本格式，保留原始时间）
+# --------------------------------------------------------------------------- #
+def daily_meeting_migration():
+    """每日执行一次：拉取钉钉新会议纪要，以飞书富文本块格式写入对应项目 04_会议纪要 页面。"""
+    from integrations.meeting.daily_migration import run_daily_migration
+    logger.info("[Scheduler] 触发每日会议迁移...")
+    try:
+        summary = run_daily_migration()
+        logger.info(f"[Scheduler] 每日迁移结果: {summary}")
+    except Exception as e:
+        logger.error(f"[Scheduler] 每日迁移失败: {e}")
+
+
+# --------------------------------------------------------------------------- #
 # 启动 / 停止
 # --------------------------------------------------------------------------- #
 def start():
+    from integrations.storage.config_store import get as cfg_get
+
     scheduler.add_job(poll_dingtalk_meetings, "interval", minutes=30, id="dingtalk_meetings")
     scheduler.add_job(poll_email, "interval", minutes=60, id="email_poll")
     scheduler.add_job(sync_context, "interval", minutes=30, id="ctx_sync")
     scheduler.add_job(heartbeat, "interval", minutes=30, id="heartbeat",
                       # 启动后 5 分钟再执行第一次，避免刚启动就触发
                       start_date=None)
+
+    # 每日会议迁移（可配置执行小时，默认 08:00）
+    try:
+        run_hour = int(cfg_get("DAILY_MIGRATION_RUN_HOUR") or "8")
+    except Exception:
+        run_hour = 8
+    scheduler.add_job(
+        daily_meeting_migration,
+        "cron",
+        hour=run_hour,
+        minute=0,
+        id="daily_meeting_migration",
+        replace_existing=True,
+    )
+
     scheduler.start()
-    logger.info("Scheduler 已启动")
+    logger.info(f"Scheduler 已启动（每日迁移 {run_hour:02d}:00 触发）")
 
 
 def stop():

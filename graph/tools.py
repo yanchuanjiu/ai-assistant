@@ -296,6 +296,45 @@ def list_processed_meetings(limit: int = 10) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# 每日会议迁移：手动触发或查询状态
+# --------------------------------------------------------------------------- #
+@tool
+def trigger_daily_migration() -> str:
+    """
+    立即触发一次每日会议纪要迁移（富文本格式，保留原始钉钉文档时间）。
+
+    等价于每天 08:00 自动执行的定时任务，可用于手动补跑或测试。
+    处理最近 DAILY_MIGRATION_LOOKBACK_DAYS 天（默认7天）内未被本插件迁移过的文档。
+
+    返回迁移摘要（处理/跳过/错误数量）。
+    """
+    try:
+        from integrations.meeting.daily_migration import run_daily_migration
+        return run_daily_migration()
+    except Exception as e:
+        logger.error(f"[trigger_daily_migration] {e}")
+        return f"每日迁移失败：{e}"
+
+
+@tool
+def list_daily_migrations(limit: int = 10) -> str:
+    """列出每日迁移插件已处理的会议文档（富文本格式，最近 N 条）。"""
+    try:
+        from integrations.meeting.daily_migration import list_migrated
+        items = list_migrated(limit)
+        if not items:
+            return "每日迁移插件尚未处理任何文档。"
+        lines = [f"每日迁移记录（最近 {len(items)} 条）："]
+        for r in items:
+            orig = f"  原始时间={r['original_time']}" if r.get("original_time") else ""
+            lines.append(f"- [{r['doc_name']}]{orig}  → {r['migrated_at']}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error(f"[list_daily_migrations] {e}")
+        return f"查询失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
 # 自迭代：异步启动 Claude Code，流式输出实时推送到 IM
 # --------------------------------------------------------------------------- #
 @tool
@@ -1496,6 +1535,8 @@ _pipeline_tools = [
     read_meeting_doc,
     analyze_meeting_doc,
     list_processed_meetings,
+    trigger_daily_migration,
+    list_daily_migrations,
 ]
 
 TOOL_CATEGORIES["dingtalk_mcp"] = _dingtalk_mcp_tools + _pipeline_tools

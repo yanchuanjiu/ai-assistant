@@ -173,11 +173,17 @@ def write_to_feishu(info: dict, doc_url: str = "") -> str:
 # 项目感知格式化（用于写入项目子页面）
 # --------------------------------------------------------------------------- #
 
-def format_for_project_page(info: dict, doc_url: str = "") -> str:
-    """将会议 info 格式化为写入项目 04_会议纪要 子页面的内容（比全局汇总页更详细）。"""
+def format_for_project_page(info: dict, doc_url: str = "", doc_time: str = "") -> str:
+    """将会议 info 格式化为写入项目 04_会议纪要 子页面的内容（比全局汇总页更详细）。
+
+    doc_time: 钉钉文档的原始时间戳（如 "2026-03-20 14:30"），用于替代"分析时间"字段，
+              保留会议记录的原始时间而非迁移时间。
+    """
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    time_label = doc_time if doc_time else now
     title = info.get("title") or "未命名会议"
-    date = info.get("date") or "日期不明"
+    # 优先使用 original_doc_time（由 daily_migration 插件注入）
+    date = info.get("date") or (doc_time[:10] if doc_time else "日期不明")
     participants = "、".join(info.get("participants") or []) or "未记录"
     summary = info.get("summary") or ""
     decisions = info.get("decisions") or []
@@ -192,7 +198,7 @@ def format_for_project_page(info: dict, doc_url: str = "") -> str:
         "",
         "---",
         f"## 📋 {title}",
-        f"**会议日期**: {date}　　**分析时间**: {now}",
+        f"**会议日期**: {date}　　**原始时间**: {time_label}",
         f"**参与人**: {participants}",
     ]
     if project_code or project_name:

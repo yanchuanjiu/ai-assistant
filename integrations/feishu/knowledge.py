@@ -351,7 +351,14 @@ class FeishuKnowledge:
                 return node_token
             logger.warning(f"[FeishuKnowledge] 方案A 响应未含 node_token: {resp}")
         except Exception as e:
-            logger.warning(f"[FeishuKnowledge] 方案A 失败，降级到方案B: {e}")
+            # 尝试提取 400 响应体以便调试
+            detail = str(e)
+            if hasattr(e, "response") and e.response is not None:
+                try:
+                    detail = f"{e} | 响应体: {e.response.json()}"
+                except Exception:
+                    pass
+            logger.warning(f"[FeishuKnowledge] 方案A 失败，降级到方案B: {detail}")
 
         # 方案 B（降级）：创建 docx 后 move_docs_to_wiki
         # ① 创建 docx
@@ -366,9 +373,23 @@ class FeishuKnowledge:
             f"/wiki/v2/spaces/{self.space_id}/nodes/move_docs_to_wiki",
             json=move_payload,
         )
-        task_id = move_resp["data"]["task_id"]
+        move_data = move_resp.get("data", {})
+        logger.info(f"[FeishuKnowledge] 方案B move_docs_to_wiki 响应: {move_data}")
 
-        # ③ 轮询任务（最多等 10 秒）
+        # 飞书 API 有两种返回：同步完成返回 wiki_token，异步返回 task_id
+        # ③-a 同步完成：直接返回 wiki_token
+        wiki_token = move_data.get("wiki_token", "")
+        if wiki_token:
+            logger.info(f"[FeishuKnowledge] 方案B 同步完成: {title!r} → {wiki_token}")
+            return wiki_token
+
+        # ③-b 异步模式：轮询 task_id
+        task_id = move_data.get("task_id", "")
+        if not task_id:
+            raise RuntimeError(
+                f"move_docs_to_wiki 响应缺少 task_id 和 wiki_token，完整响应: {move_resp}"
+            )
+
         for _ in range(10):
             time.sleep(1)
             task_resp = feishu_get(f"/wiki/v2/tasks/{task_id}", params={"task_type": "move"})
@@ -509,6 +530,30 @@ class FeishuKnowledge:
                 result[doc_name] = ""
 
         return result
+
+    # ------------------------------------------------------------------ #
+    # 追加富文本块到页面末尾
+    # ------------------------------------------------------------------ #
+    def append_blocks_to_page(self, wiki_url_or_token: str, blocks: list, chunk_size: int = 40):
+        """
+        向页面末尾追加飞书 docx 块列表（富文本格式）。
+
+        blocks 是由 integrations.feishu.rich_text.md_to_feishu_blocks() 生成的块列表。
+        每批最多 chunk_size 个块，批次间休眠 0.3s 防限速。
+        """
+        import time
+        wiki_token = parse_wiki_token(wiki_url_or_token)
+        obj_token, _ = wiki_token_to_obj_token(wiki_token)
+        if not obj_token:
+            raise ValueError(f"无法解析 wiki token: {wiki_token}")
+        for i in range(0, len(blocks), chunk_size):
+            batch = blocks[i : i + chunk_size]
+            feishu_post(
+                f"/docx/v1/documents/{obj_token}/blocks/{obj_token}/children",
+                json={"children": batch, "index": -1},
+            )
+            if i + chunk_size < len(blocks):
+                time.sleep(0.3)
 
     # ------------------------------------------------------------------ #
     # 内部工具
