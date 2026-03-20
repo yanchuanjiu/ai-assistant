@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-20（v0.8.9）
+> 最后更新：2026-03-20（v0.8.10）
 
 ---
 
@@ -70,6 +70,22 @@
 - 所有交互延迟均 >70 秒，平均约 2-3 分钟，平均 token 消耗 ~110K
 - 5 条错误响应均与 `parent_wiki_token` 传入 space_id 有关（v0.8.8 已修复）
 - admin-http 线程在每次服务重启时因端口已占用持续写入 crash.log
+
+### v0.8.10（2026-03-20）— 上下文截断 + Token 优化 + 自我改进增强
+
+**修改文件**：
+- `graph/nodes.py` — 新增 `_trim_to_user_turns()`（MAX_USER_TURNS=5，只传最近5轮用户消息给 LLM）；`_select_tools()` 新增短消息快速返回（<25字符无关键词→直接返回 CORE_TOOLS）、连续性扫描从全量历史改为最近 10 条；`agent_node()` 使用截断后的消息
+- `graph/tools.py` — `trigger_self_improvement` prompt 新增步骤5（重复问题检测：相同话题≥2次→标为"改进后仍复现"）、步骤6（上下文健康：input token>30K 的 thread 标记）；报告格式新增"🔄 重复出现的问题"和"📏 上下文健康"节
+- `prompts/system.md` — 新增"对话重置"节：说明5轮截断机制、引导用户用 `/clear`、Agent 主动提示时机
+- `workspace/HEARTBEAT.md` — 优先级2"记忆维护"拆分为短期（当日）+ 长期（每周压缩）+ 上下文健康检查三项
+- `workspace/MEMORY.md` — 更新改进历史
+
+**能力变化**：
+- LLM 每次调用只接收最近 5 轮用户消息，长对话不再膨胀 token
+- 短消息（"好的"、"谢谢"等）不再触发工具加载，直接返回 CORE_TOOLS
+- 连续性工具保持窗口从全量→最近10条，防止工具集无限积累
+- 自我改进报告可识别"改进后仍复现"的问题（超越 has_correction 关键词限制）
+- 心跳每日更新短期记忆，每周压缩长期记忆，检查上下文过重的 thread
 
 ### v0.8.8（2026-03-20）— 修复飞书 wiki 子页面创建 400 Bad Request
 

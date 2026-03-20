@@ -406,6 +406,21 @@ def trigger_self_improvement(reason: str = "") -> str:
 - `workspace/HEARTBEAT.md`
 - `workspace/USER.md`
 
+### 5. 重复问题检测（关键）
+扫描 interactions.jsonl 所有 user_message，识别**未被解决的重复问题**：
+- 提取包含以下关键词的消息：慢、卡、失败、没有、不对、错误、看不到、重试、超时、又、还是
+- 按语义主题分组（如"响应慢"、"写飞书失败"、"工具不可用"等）
+- 对每个主题，检查 workspace/MEMORY.md 和 workspace/HEARTBEAT.md 中是否已有对应改进记录：
+  - 已记录但该主题仍出现 → 标记为"**改进后仍复现，视为未解决**"
+  - 未记录 → 标记为"**首次发现**"
+- 在报告中输出"🔄 重复出现的问题"节
+
+### 6. 上下文健康监控
+从 `logs/llm.jsonl` 分析各 thread 的 token 消耗：
+- 统计各 thread_id 的调用次数和平均 input token 数
+- 标记单次超过 30K input tokens 的 thread（上下文过重）
+- 在报告中输出"📏 上下文健康"节：Top 5 最重 thread + 建议用户执行 /clear
+
 ## 改进任务（每项改进必须有数据支撑）
 
 ### 必做：更新 workspace/MEMORY.md
@@ -430,10 +445,19 @@ def trigger_self_improvement(reason: str = "") -> str:
 ## 🔍 自我改进报告
 
 **分析周期**: 最近 N 条交互
-**用户纠正率**: X%
+**用户纠正率**: X%（含重复提及的隐式纠正）
 
 **发现的问题**:
 - ...
+
+**🔄 重复出现的问题**:
+| 主题 | 出现次数 | 首次 | 末次 | 状态 |
+|------|---------|------|------|------|
+| 响应慢 | N次 | MM-DD | MM-DD | ⚠️ 改进后仍复现 |
+
+**📏 上下文健康**:
+- 高负载 thread（input token >30K）: ...
+- 建议对以下对话执行 /clear: ...
 
 **已做的改进**:
 - ...

@@ -12,7 +12,7 @@ import time
 import logging
 import threading
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, ToolMessage, AIMessage
+from langchain_core.messages import SystemMessage, ToolMessage, AIMessage, HumanMessage
 from graph.state import AgentState
 from graph.tools import ALL_TOOLS, CORE_TOOLS, TOOL_CATEGORIES, CATEGORY_KEYWORDS
 
@@ -149,6 +149,26 @@ def _build_system_prompt() -> str:
 
 _LLM_LOG_PATH = "logs/llm.jsonl"
 
+# 上下文截断：最多保留最近 N 轮用户消息（每轮含 AI 回复 + 工具消息）
+MAX_USER_TURNS = 5
+
+
+def _trim_to_user_turns(messages: list) -> list:
+    """
+    保留最近 MAX_USER_TURNS 轮用户消息及其后续 AI 回复/工具消息。
+    超出部分从 LLM 输入中截掉（SQLite 中仍保留完整历史，用户可 /clear 重置）。
+    """
+    human_indices = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
+    if len(human_indices) <= MAX_USER_TURNS:
+        return messages
+    cutoff = human_indices[-MAX_USER_TURNS]
+    trimmed = messages[cutoff:]
+    logger.info(
+        f"[ContextTrim] 历史从 {len(messages)} 条截断至 {len(trimmed)} 条"
+        f"（保留最近 {MAX_USER_TURNS} 轮用户消息）"
+    )
+    return trimmed
+
 
 # --------------------------------------------------------------------------- #
 # 渐进式工具选择
@@ -158,13 +178,26 @@ def _select_tools(messages: list) -> list:
     根据对话内容动态选择工具集，实现渐进式披露。
 
     规则：
-    1. 始终包含 CORE_TOOLS（6个，~911 tokens）
-    2. 扫描最近 5 条消息的文本关键词，加载匹配分类
-    3. 扫描历史消息中已实际调用的工具，保持同类工具连续可用
+    1. 始终包含 CORE_TOOLS（7个）
+    2. 短消息（<25字符）且无关键词 → 直接返回 CORE_TOOLS，跳过后续扫描
+    3. 扫描最近 5 条消息的文本关键词，加载匹配分类
+    4. 扫描最近 10 条消息中已实际调用的工具，保持同类工具连续可用（窗口限制避免长对话积累）
 
     目标：从全量 ~6795 tokens 降至 ~1000-3000 tokens/call。
     """
     selected_categories: set[str] = set()
+
+    # 0. 短消息快速返回：无关键词的简短回复不注入额外工具
+    latest_content = ""
+    if messages:
+        last = messages[-1]
+        latest_content = last.content if isinstance(last.content, str) else ""
+    if len(latest_content) < 25:
+        if not any(
+            any(kw in latest_content.lower() for kw in kws)
+            for kws in CATEGORY_KEYWORDS.values()
+        ):
+            return list(CORE_TOOLS)
 
     # 1. 关键词触发：检查最近 5 条消息
     recent_text = ""
@@ -176,8 +209,8 @@ def _select_tools(messages: list) -> list:
         if any(kw in recent_text for kw in keywords):
             selected_categories.add(cat)
 
-    # 2. 连续性保持：历史中已调用过的工具，保持其分类可用
-    for m in messages:
+    # 2. 连续性保持：只扫描最近 10 条消息（避免长对话中工具集无限积累）
+    for m in messages[-10:]:
         for tc in getattr(m, "tool_calls", None) or []:
             cat = _TOOL_TO_CATEGORY.get(tc.get("name", ""))
             if cat:
@@ -229,7 +262,9 @@ def _log_llm_call(thread_id: str, messages: list, response, latency_ms: float, t
 # --------------------------------------------------------------------------- #
 def agent_node(state: AgentState) -> dict:
     thread_id = f"{state.get('platform', '?')}:{state.get('chat_id', '?')}"
-    messages = [SystemMessage(content=_build_system_prompt())] + state["messages"]
+    # 截断历史：只取最近 MAX_USER_TURNS 轮用户消息，控制 token 消耗
+    trimmed = _trim_to_user_turns(state["messages"])
+    messages = [SystemMessage(content=_build_system_prompt())] + trimmed
 
     # 动态选择工具（渐进式披露）
     tools = _select_tools(messages)
