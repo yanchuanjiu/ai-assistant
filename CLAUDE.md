@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-20（v0.8.14）
+> 最后更新：2026-03-20（v0.8.15）
 
 ---
 
@@ -70,6 +70,23 @@
 - 所有交互延迟均 >70 秒，平均约 2-3 分钟，平均 token 消耗 ~110K
 - 5 条错误响应均与 `parent_wiki_token` 传入 space_id 有关（v0.8.8 已修复）
 - admin-http 线程在每次服务重启时因端口已占用持续写入 crash.log
+
+### v0.8.15（2026-03-20）— 修复飞书 wiki 根目录列表/创建 400 Bad Request
+
+**修改文件**：
+- `integrations/feishu/knowledge.py` — 两处修复：
+  1. `list_wiki_children`：收到 space 级标识时不再调用 `GET nodes`（无 `parent_node_token` 返回 400），改为直接返回空列表，让 `find_or_create_child_page` 走创建分支
+  2. `create_wiki_child_page` 方案A：`obj_type` 从 `"wiki"` 改为 `"docx"`（`"wiki"` 不是 Feishu API 的有效枚举值，导致 POST 也返回 400）
+
+**根因**：`feishu_project_setup` 无配置 `FEISHU_WIKI_PORTFOLIO_PAGE` 时降级使用 `space_id`，触发两个 API 调用各自返回 400：
+- GET `/wiki/v2/spaces/{space_id}/nodes?page_size=50`（缺 `parent_node_token`）→ 400
+- POST `/wiki/v2/spaces/{space_id}/nodes` with `obj_type: "wiki"` → 400（无效类型）
+
+**能力变化**：
+- 用户无需配置 `FEISHU_WIKI_PORTFOLIO_PAGE`，直接说"新建项目目录"→ Agent 可在 wiki 根目录成功创建
+- `find_or_create_child_page` 在根目录场景下：缓存命中复用 → 缓存未命中则直接创建（跳过列表步骤）
+
+---
 
 ### v0.8.14（2026-03-20）— 飞书文档管理优化：根目录创建 + 会议子页面 + 敏捷模板
 
