@@ -1,5 +1,143 @@
 # Changelog
 
+## [0.8.24] - 2026-03-21
+
+### Changed
+- **文档重组**：`CLAUDE.md` 精简为纯"机器指令"文件（删除工具表、目录结构、技术栈表、版本历史），减少每次提交需要同步的文件数
+- **`CHANGELOG.md`** 成为唯一版本历史，补入 v0.8.6~v0.8.23 所有记录
+- **自迭代规则更新**：每次提交只强制维护 `CLAUDE.md`（状态/坑点）+ `CHANGELOG.md`（变更记录），`README.md` 和 `docs/` 仅大变化时更新
+
+---
+
+## [0.8.23] - 2026-03-21
+
+### Fixed
+- **飞书 wiki token 使用规则**（`prompts/system.md`）：新增专节，禁止 LLM 使用记忆/猜测 token，明确获取有效 token 的唯一正确方式，含 400 错误恢复流程
+- **`feishu_bitable_meta` / `feishu_bitable_record`**（`graph/tools.py`）：函数体开头加 placeholder 校验，传入无效 app_token 直接返回错误提示而非发起 400 调用
+- **`wiki_token_to_obj_token`**（`integrations/feishu/knowledge.py`）：空 obj_token 从静默失败改为 WARNING 日志并输出完整 API 响应
+
+### Changed
+- **`feishu_read_page` / `feishu_wiki_page` / `feishu_bitable_meta` / `feishu_bitable_record`** docstring 追加 token 使用警告和获取方式说明
+
+---
+
+## [0.8.22] - 2026-03-21
+
+### Changed
+- **`graph/nodes.py`**：`MAX_USER_TURNS=2`（原5）；历史 ToolMessage 截断至前 100 字符（原300）
+- **`graph/tools.py`**：新增 `get_recent_chat_context` 工具（飞书 IM 读取最近 N 条消息），加入 CORE_TOOLS
+- **`prompts/system.md`**：新增"问候与按需历史"节——纯问候直接回复；含引用词时先调 `get_recent_chat_context`
+- **`integrations/feishu/bot.py` / `integrations/dingtalk/bot.py`**：问候快速路径，精确匹配纯问候词直接回复，不走 LLM
+- **`workspace/SKILLS_PROJECT_MGMT.md`**：重写为摘要版（~1KB）
+- **`workspace/SKILLS_PROJECT_MGMT_TEMPLATES.md`**（新建）：完整文档模板，按需读取
+
+---
+
+## [0.8.21] - 2026-03-20
+
+### Changed
+- **`graph/nodes.py`**：`_build_system_prompt()` 按需加载——`SKILLS_PROJECT_MGMT.md` 仅含项目管理关键词时注入；`MEMORY.md` 简单消息（<30字）时跳过
+- **`integrations/logging/interaction_logger.py`**：新增 `slow_response` 字段（latency_ms > 15000）
+- **`workspace/HEARTBEAT.md`**：新增响应速度监控任务（>15s 比例超 30% 时汇报）
+- **`graph/tools.py`**：`trigger_self_improvement` 新增响应延迟专项分析节
+
+---
+
+## [0.8.20] - 2026-03-20
+
+### Fixed
+- **上下文污染**（`graph/nodes.py`）：`_trim_to_user_turns()` 对非当前轮 ToolMessage 截断至 300 字符，防止旧任务工具结果污染新任务上下文
+
+### Changed
+- **`prompts/system.md`**：新增"跨任务上下文隔离"节，LLM 以当前消息为准忽略历史工具结果噪声
+- **`workspace/MEMORY.md` / `workspace/HEARTBEAT.md`**：更新 token 监控基准
+
+---
+
+## [0.8.19] - 2026-03-20
+
+### Changed
+- **`integrations/meeting/analyzer.py`**：`write_to_feishu` / `write_to_project_page` 升级为调用 `append_blocks_to_page + md_to_feishu_blocks`，纯文本保留为降级兜底
+- **`integrations/feishu/knowledge.py`**：新增 `append_blocks_to_page()`
+
+### Added
+- **`integrations/feishu/rich_text.py`**（新建）：Markdown → 飞书 docx 块转换器（标题/加粗/斜体/列表/代码块/分割线）
+- **`tests/regression/test_meeting_format.py`**（新建）：29 个格式化单元测试
+
+---
+
+## [0.8.13] - 2026-03-20
+
+### Added
+- **`integrations/meeting/daily_migration.py`**（新建）：`DailyMigrationPlugin`，每天 08:00 自动检查钉钉新会议纪要并以富文本迁移到飞书，保留原始文档时间
+- **`trigger_daily_migration` / `list_daily_migrations`** 工具（`graph/tools.py`）
+
+### Changed
+- **`scheduler.py`**：新增 `daily_meeting_migration()` + cron job（每天 08:00）
+- **`integrations/dingtalk/docs.py`**：`_normalize_node()` 新增 `created_at` 字段
+
+---
+
+## [0.8.11] - 2026-03-20
+
+### Added
+- **`integrations/logging/error_tracker.py`**（新建）：错误关键词检测、出现次数追踪、GitHub Issue 创建
+- **自动修复机制**（`graph/agent.py`）：回复含错误关键词时后台触发 Claude Code 修复；同一错误第3次停止自动修复并创建 GitHub Issue
+
+---
+
+## [0.8.10] - 2026-03-20
+
+### Changed
+- **`graph/nodes.py`**：`_trim_to_user_turns()`（MAX_USER_TURNS=5）；短消息快速返回 CORE_TOOLS（<25字符）
+- **`graph/tools.py`**：`trigger_self_improvement` 新增重复问题检测（相同话题≥2次）和上下文健康检查节
+- **`prompts/system.md`**：新增"对话重置"节（5轮截断机制说明）
+
+---
+
+## [0.8.9] - 2026-03-20
+
+### Fixed
+- **`admin/server.py`**：`HTTPServer.allow_reuse_address = True` + `SO_REUSEADDR`，解决重启时端口 8080 持续占用
+
+### Changed
+- **`workspace/MEMORY.md` / `workspace/USER.md` / `workspace/HEARTBEAT.md`**：基于31条交互日志完整填充
+
+---
+
+## [0.8.8] - 2026-03-20
+
+### Fixed
+- **飞书 wiki 根目录 400 Bad Request**（`integrations/feishu/knowledge.py`）：
+  - `list_wiki_children`：收到 space 级标识时跳过 `GET nodes`，直接返回空列表走创建分支
+  - `create_wiki_child_page`：`obj_type` 从 `"wiki"` 改为 `"docx"`
+- **`graph/tools.py`**：`feishu_wiki_page` / `feishu_project_setup` 调用前用 `parse_wiki_token()` 清理 parent_wiki_token
+
+---
+
+## [0.8.7] - 2026-03-20
+
+### Added
+- **`integrations/meeting/project_router.py`**（新建）：`ProjectRouter` 类，识别项目并路由到飞书子页面
+- **`feishu_project_setup` 工具**（`graph/tools.py`）：一键创建敏捷项目文件夹（6文档）
+- **会议纪要自动路由**：`analyze_meeting_doc` 接入项目路由，写入 `04_会议纪要` 子页；RAID 元素写入 `06_RAID 日志`
+
+### Changed
+- **`prompts/meeting_analysis.md`**：新增提取字段（project_name/code/raid_elements/milestone_impact）
+- **`integrations/feishu/knowledge.py`**：新增 `_PROJECT_DOCS` / `_PROJECT_TEMPLATES` 常量 + `bootstrap_project()`
+
+---
+
+## [0.8.6] - 2026-03-20
+
+### Added
+- **IM 长回复自动压缩**（`integrations/feishu/bot.py`）：超 800 字符时调用 `_save_to_feishu_wiki()` 存飞书，IM 发前 300 字摘要 + wiki 链接；API 失败时降级分段发送
+
+### Changed
+- **`prompts/system.md`**：新增"IM 回复规范"节（IM ≤800字符，超出写飞书页面发摘要+链接）
+
+---
+
 ## [0.8.5] - 2026-03-19
 
 ### Added

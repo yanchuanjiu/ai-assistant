@@ -1,4 +1,4 @@
-# AI 个人助理（v0.8.14）
+# AI 个人助理（v0.8.24）
 
 > 运行在私有 Linux 服务器上的个人 AI 助理。通过飞书 / 钉钉机器人对话，自动处理会议纪要、读写飞书知识库、搜索网络，并通过自然语言驱动 Claude Code 完成代码开发自迭代与自我学习改进。
 
@@ -230,7 +230,7 @@
 
 ---
 
-## 当前运行状态（v0.8.14）
+## 当前运行状态（v0.8.24）
 
 ```
 ✅ 飞书机器人      — 长连接（lark-oapi ws.Client）
@@ -396,7 +396,7 @@ python tests/regression/run_all.py e2e       # 端到端流水线（11用例）
 
 | 文档 | 内容 |
 |------|------|
-| [CLAUDE.md](CLAUDE.md) | Claude Code 自迭代上下文，变更历史，所有设计决策 |
+| [CLAUDE.md](CLAUDE.md) | Claude Code 自迭代上下文，架构坑点，自迭代规则 |
 | [docs/setup.md](docs/setup.md) | 详细部署和配置指南 |
 | [docs/architecture.md](docs/architecture.md) | 架构设计 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本迭代记录 |
