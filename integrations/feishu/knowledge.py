@@ -295,14 +295,13 @@ class FeishuKnowledge:
         将改为列出 wiki 空间根节点（不带 parent_node_token 参数）。
         """
         if self._is_space_level_token(parent_wiki_token):
-            logger.warning(
+            # 飞书 GET /wiki/v2/spaces/{space_id}/nodes 不支持不传 parent_node_token（返回400）
+            # 根目录无法列举，直接返回空列表，让调用方走创建分支
+            logger.info(
                 f"[FeishuKnowledge] list_wiki_children: 收到 space 级标识 {parent_wiki_token!r}，"
-                f"改为列出空间根节点（parent_node_token 留空）"
+                f"跳过列表（API不支持根目录查询），返回空列表"
             )
-            resp = feishu_get(
-                f"/wiki/v2/spaces/{self.space_id}/nodes",
-                params={"page_size": 50},
-            )
+            return []
         else:
             resp = feishu_get(
                 f"/wiki/v2/spaces/{self.space_id}/nodes",
@@ -326,9 +325,10 @@ class FeishuKnowledge:
             )
 
         # 方案 A：直接创建 wiki 节点（无需 docx 中转）
+        # 注意：obj_type 必须是 "docx" 等文档类型，"wiki" 不是有效枚举值
         try:
             payload: dict = {
-                "obj_type": "wiki",
+                "obj_type": "docx",
                 "node_type": "origin",
                 "title": title,
             }
