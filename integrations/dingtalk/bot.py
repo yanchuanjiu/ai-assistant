@@ -112,6 +112,12 @@ class _BotHandler(_ChatbotHandlerBase):
                 self.reply_text(resp, incoming)
                 return AckMessage.STATUS_OK, "OK"
 
+        # ── 问候快速路径（0ms，不走 LLM）────────────────────────────
+        _GREETINGS = {"你好", "hi", "hello", "嗨", "哈喽", "在吗", "在不在", "hey", "yo", "早", "早上好"}
+        if text.strip().lower() in _GREETINGS:
+            self.reply_text("你好！有什么可以帮你的？", incoming)
+            return AckMessage.STATUS_OK, "OK"
+
         # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────
         if session_manager.get(thread_id):
             session_manager.relay_input(thread_id, text)

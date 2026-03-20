@@ -164,6 +164,12 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
             bot.send_text(chat_id=chat_id, text=resp)
             return
 
+    # ── 问候快速路径（0ms，不走 LLM）────────────────────────────────
+    _GREETINGS = {"你好", "hi", "hello", "嗨", "哈喽", "在吗", "在不在", "hey", "yo", "早", "早上好"}
+    if text.strip().lower() in _GREETINGS:
+        bot.send_text(chat_id=chat_id, text="你好！有什么可以帮你的？")
+        return
+
     # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────────
     if session_manager.get(thread_id):
         session_manager.relay_input(thread_id, text)

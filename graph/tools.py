@@ -1455,6 +1455,49 @@ def agent_config(action: str, key: str = "", value: str = "") -> str:
 
 
 # --------------------------------------------------------------------------- #
+# 对话历史获取（CORE 工具，按需历史）
+# --------------------------------------------------------------------------- #
+@tool
+def get_recent_chat_context(limit: int = 3) -> str:
+    """
+    获取当前对话的最近 N 条历史消息（默认 3 条）。
+    当用户消息含有引用词（上次/刚才/之前/那个/你说的）时主动调用，
+    无需用户指定 chat_id，自动从当前会话上下文中获取。
+    limit: 要获取的消息条数，建议 3。
+    """
+    from graph.nodes import get_tool_ctx
+    thread_id, _ = get_tool_ctx()
+    if not thread_id:
+        return "无法获取当前会话 ID。"
+
+    parts = thread_id.split(":", 1)
+    if len(parts) != 2:
+        return f"无法解析会话 ID: {thread_id}"
+    platform, chat_id = parts[0], parts[1]
+
+    try:
+        if platform == "feishu":
+            resp = feishu_get(f"/im/v1/messages?container_id_type=chat&container_id={chat_id}&page_size={limit}&sort_type=ByCreateTimeDesc")
+            items = (resp.get("data") or {}).get("items") or []
+            lines = []
+            for item in items[:limit]:
+                body = item.get("body") or {}
+                content = body.get("content", "")
+                try:
+                    content = json.loads(content).get("text", content)
+                except Exception:
+                    pass
+                sender = (item.get("sender") or {}).get("id", "?")
+                lines.append(f"[{sender}]: {content[:200]}")
+            return "\n".join(reversed(lines)) if lines else "暂无历史消息。"
+        else:
+            return "钉钉平台暂不支持获取历史消息。"
+    except Exception as e:
+        logger.error(f"[get_recent_chat_context] {e}")
+        return f"获取历史消息失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
 # 工具分类（渐进式披露）
 # --------------------------------------------------------------------------- #
 
@@ -1467,6 +1510,7 @@ CORE_TOOLS = [
     get_system_status,
     get_service_status,
     agent_config,
+    get_recent_chat_context,
 ]
 
 # 按需加载的分类工具

@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-20（v0.8.21）
+> 最后更新：2026-03-21（v0.8.22）
 
 ---
 
@@ -56,6 +56,25 @@
 ---
 
 ## 版本变更历史
+
+### v0.8.22（2026-03-21）— 单轮上下文 + 问候快速路径 + 按需历史 + SKILLS 渐进式披露
+
+**触发**：用户反馈"你好"触发 4 次 LLM 调用耗时 2 分钟；LLM 误续接上一任务产生幻觉。
+
+**修改文件**：
+- `graph/nodes.py` — `MAX_USER_TURNS = 2`（原5）；历史 ToolMessage 截断从 300 字符改为保留前 100 字符（更激进省略，只保留人可读摘要）
+- `graph/tools.py` — 新增 `get_recent_chat_context` 工具（飞书 IM API 读取最近 N 条消息），加入 CORE_TOOLS
+- `prompts/system.md` — 新增"问候与按需历史"节：纯问候直接回复不调工具；含引用词时先调 `get_recent_chat_context`
+- `integrations/feishu/bot.py` — 问候快速路径：精确匹配纯问候词直接回复，不走 LLM
+- `integrations/dingtalk/bot.py` — 同上
+- `workspace/SKILLS_PROJECT_MGMT.md` — 渐进式披露：重写为摘要版（~1KB），含结构规范/类型映射/治理检查/特殊关注点
+- `workspace/SKILLS_PROJECT_MGMT_TEMPLATES.md` — **新建**：完整文档模板（原 8KB 内容），按需读取
+
+**预期效果**：
+- "你好/hi/嗨" 等纯问候：<1s 直接回复，`logs/llm.jsonl` 无新记录
+- 普通单轮请求：只有当前消息 + 上一轮摘要，无历史工具数据污染
+- 多轮引用（"刚才你说的..."）：LLM 主动调 `get_recent_chat_context` 获取真实历史
+- 项目场景 token：SKILLS 从 ~3.2K 降至 ~0.4K tokens
 
 ### v0.8.21（2026-03-20）— 响应速度优化：system prompt 按需加载 + >15s 响应监控
 
