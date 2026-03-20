@@ -552,12 +552,20 @@ tmux attach -t ai-claude-{session_name}
 3. **新增工具**：在 `graph/tools.py` 加 `@tool` 函数，加入 `TOOL_CATEGORIES` 对应分类（同时更新 `CATEGORY_KEYWORDS`），更新本文件工具表
 4. **新增平台集成**：在 `integrations/` 新建子目录，在 `main.py` 注册启动线程
 5. **Claude Code 子进程**：必须 `unset ANTHROPIC_API_KEY`（wrapper script 中），使用 `--permission-mode acceptEdits`
-6. **完成后必做**：
-   - ① 修改了哪些文件
-   - ② 做了什么、为什么
-   - ③ 如何验证
-   - ④ **更新 CLAUDE.md 和 README.md**：状态表 + 变更历史 + 工具表（两个文件都要同步）
-   - ⑤ **提交并推送**：`git add -A && git commit -m "..." && git push`
+6. **完成后必做（缺一不可）**：
+   - ① 确认修改了哪些文件（用 `git diff --stat` 核查）
+   - ② 做了什么、为什么（写入 commit message）
+   - ③ 如何验证（运行测试或冒烟脚本）
+   - ④ **更新文档**（涉及哪类变更就更新哪类文档）：
+     - `CLAUDE.md` — **每次必更新**：状态表、版本变更历史（含修改文件列表）、工具表
+     - `README.md` — **每次必更新**：功能列表、工具概览、启动步骤
+     - `docs/architecture.md` — 新增/删除模块、改变数据流时更新架构图/说明
+     - `docs/user_manual.md` — 新增/修改用户可见功能时更新操作指引（不存在则新建）
+     - 文档更新不允许省略，即使改动很小
+   - ⑤ **提交并推送**：`git add -A && git commit -m "feat/fix: 描述 (vX.Y.Z)" && git push`
+     - commit message 格式：`类型: 一句话描述 (版本号)`
+     - 类型：`feat`（新功能）/ `fix`（修复）/ `docs`（仅文档）/ `refactor`（重构）
+     - **push 是强制步骤**，不允许只 commit 不 push
 7. **重启方式**：`kill $(cat logs/service.pid 2>/dev/null) 2>/dev/null; source .venv/bin/activate && nohup python main.py >> logs/app.log 2>&1 &`
 
 ### 问题分类方法论
