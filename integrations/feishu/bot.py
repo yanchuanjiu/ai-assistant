@@ -120,9 +120,16 @@ def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
             user_id=parsed["user_id"],
             chat_id=parsed["chat_id"],
         )
-        bot.send_text(chat_id=parsed["chat_id"], text=reply)
+        sent = bot.send_text(chat_id=parsed["chat_id"], text=reply)
         bot.remove_reaction(parsed["message_id"], processing_reaction_id)
-        bot.add_reaction(parsed["message_id"], "OK")
+        if sent:
+            bot.add_reaction(parsed["message_id"], "OK")
+        else:
+            # 消息发送失败，通知用户，不加 OK reaction
+            bot.send_text(
+                chat_id=parsed["chat_id"],
+                text="⚠️ 回复生成成功但发送失败，请重试或查看服务日志。",
+            )
     except Exception as e:
         logger.error(f"[飞书] Agent 处理失败: {e}")
         bot.remove_reaction(parsed["message_id"], processing_reaction_id)
@@ -216,11 +223,8 @@ class FeishuBot:
         except Exception as e:
             logger.warning(f"[飞书] 删除 reaction 失败: {e}")
 
-    def send_text(self, chat_id: str, text: str):
-        if not chat_id:
-            logger.warning("[飞书] chat_id 为空，跳过发送")
-            return
-
+    def _send_single(self, chat_id: str, text: str) -> bool:
+        """发送单条消息，返回是否成功。"""
         request = (
             CreateMessageRequest.builder()
             .receive_id_type("chat_id")
@@ -238,3 +242,37 @@ class FeishuBot:
             logger.error(
                 f"[飞书] 发消息失败: code={resp.code} msg={resp.msg}"
             )
+            return False
+        return True
+
+    def send_text(self, chat_id: str, text: str) -> bool:
+        """发送文本消息，超长时自动分段。返回是否全部成功。"""
+        if not chat_id:
+            logger.warning("[飞书] chat_id 为空，跳过发送")
+            return False
+
+        # 飞书 text 消息单条上限约 4000 字符，超出时按段落分割
+        _CHUNK_LIMIT = 3800
+        if len(text) <= _CHUNK_LIMIT:
+            return self._send_single(chat_id, text)
+
+        # 按段落分割，尽量不截断句子
+        chunks: list[str] = []
+        current = ""
+        for para in text.split("\n"):
+            line = para + "\n"
+            if len(current) + len(line) > _CHUNK_LIMIT:
+                if current:
+                    chunks.append(current.rstrip())
+                current = line
+            else:
+                current += line
+        if current.strip():
+            chunks.append(current.rstrip())
+
+        success = True
+        for i, chunk in enumerate(chunks):
+            prefix = f"（{i+1}/{len(chunks)}）\n" if len(chunks) > 1 else ""
+            if not self._send_single(chat_id, prefix + chunk):
+                success = False
+        return success
