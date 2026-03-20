@@ -126,3 +126,105 @@ class TestFeishuWikiPageTool:
         from graph.tools import feishu_wiki_page
         result = feishu_wiki_page.invoke({"action": "invalid"})
         assert "未知" in result
+
+
+# ── T6: 错误场景回归（v0.8.18 修复）─────────────────────────────────────────
+class TestErrorScenarios:
+    """
+    回归测试：覆盖实际发生过的错误场景
+    SC-001: list_wiki_children 收到已删除/移动页面 token（400 Bad Request）应返回 []
+    SC-002: _save_to_feishu_wiki 缓存 token 失效（页面被删）后自动恢复
+    """
+
+    def test_list_children_deleted_page_returns_empty(self, kb):
+        """SC-001: 有效格式 token 但页面已删除/不在本空间，应返回 [] 而非抛异常"""
+        from unittest.mock import patch
+
+        # 模拟 feishu_get 对该 token 返回 400
+        import httpx
+
+        fake_400 = httpx.HTTPStatusError(
+            "Client error '400 Bad Request'",
+            request=httpx.Request("GET", "https://example.com"),
+            response=httpx.Response(400),
+        )
+        with patch("integrations.feishu.knowledge.feishu_get", side_effect=fake_400):
+            result = kb.list_wiki_children("G1DKw2zgV2gLxvDycBLbyKkYJB5r9YAn")
+        assert result == [], "400 错误应返回空列表，不应抛异常"
+
+    def test_list_children_other_error_propagates(self, kb):
+        """SC-001 变体：非 400 错误应正常抛出"""
+        from unittest.mock import patch
+        import httpx
+
+        fake_500 = httpx.HTTPStatusError(
+            "Server error '500'",
+            request=httpx.Request("GET", "https://example.com"),
+            response=httpx.Response(500),
+        )
+        with patch("integrations.feishu.knowledge.feishu_get", side_effect=fake_500):
+            with pytest.raises(Exception):
+                kb.list_wiki_children("SomeValidToken123")
+
+    def test_list_children_tool_invalid_token_no_crash(self):
+        """SC-001 工具层：list_children 传入已删除 token，工具不崩溃，返回字符串"""
+        from unittest.mock import patch
+        import httpx
+        from graph.tools import feishu_wiki_page
+
+        fake_400 = httpx.HTTPStatusError(
+            "Client error '400 Bad Request'",
+            request=httpx.Request("GET", "https://example.com"),
+            response=httpx.Response(400),
+        )
+        with patch("integrations.feishu.knowledge.feishu_get", side_effect=fake_400):
+            result = feishu_wiki_page.invoke({
+                "action": "list_children",
+                "parent_wiki_token": "G1DKw2zgV2gLxvDycBLbyKkYJB5r9YAn",
+            })
+        # 应返回"暂无子页面"或报错字符串，而不是抛异常
+        assert isinstance(result, str)
+
+    def test_save_to_wiki_stale_cache_recovery(self):
+        """SC-002: _save_to_feishu_wiki 第一次 append 失败（缓存 token 已失效），
+        清缓存后第二次应成功，且缓存被清除。"""
+        from unittest.mock import patch, MagicMock
+
+        call_count = {"n": 0}
+        good_token = "NewFreshToken123"
+
+        def mock_find_or_create(title, parent_wiki_token, cache_key=""):
+            return good_token
+
+        def mock_append(wiki_token, content):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise Exception("Client error '400 Bad Request'")
+            # 第二次成功
+
+        deleted_keys = []
+
+        def mock_cfg_delete(key):
+            deleted_keys.append(key)
+
+        with patch("integrations.feishu.knowledge.FeishuKnowledge") as MockKB, \
+             patch("integrations.feishu.bot.cfg_delete", mock_cfg_delete, create=True):
+            mock_kb = MagicMock()
+            mock_kb.find_or_create_child_page.side_effect = mock_find_or_create
+            mock_kb.append_to_page.side_effect = mock_append
+            MockKB.return_value = mock_kb
+
+            import os
+            import importlib
+            import integrations.feishu.bot as bot_module
+
+            # 直接测试 _save_to_feishu_wiki 逻辑（用 patch 替换 config_store.delete）
+            with patch.dict(os.environ, {"FEISHU_WIKI_CONTEXT_PAGE": "FalZwGDOkiqpbQkeAjGc8jaznMd"}):
+                with patch("integrations.storage.config_store.delete") as mock_store_del:
+                    # 创建一个 FeishuBot 实例（不启动真正的连接）
+                    bot = bot_module.FeishuBot.__new__(bot_module.FeishuBot)
+                    result = bot._save_to_feishu_wiki("测试内容")
+
+            assert result == good_token, "恢复后应返回新 token"
+            assert call_count["n"] == 2, "append_to_page 应被调用两次（第一次失败，第二次成功）"
+            mock_store_del.assert_called_once_with("AI_REPLY_DETAIL_PAGE")

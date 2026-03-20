@@ -1,0 +1,192 @@
+name: AI 优化场景回归测试
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'tests/ai_scenarios/**'
+      - 'integrations/**'
+      - 'graph/**'
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # 每日 08:00 UTC+8（00:00 UTC）自动执行
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: '测试套件（color/live/platform/all）'
+        required: false
+        default: 'all'
+      smoke_only:
+        description: '仅运行 smoke 用例'
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.11'
+  REPORT_RETENTION_DAYS: 30
+
+jobs:
+  # ── Job 1: 快速冒烟（每次 push 触发，< 2 分钟）────────────────────────────
+  smoke-test:
+    name: Smoke Test（快速验证）
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-xdist
+          # 可选：pip install opencv-python-headless allure-pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Copy .env.example to .env (CI)
+        run: |
+          if [ -f .env.example ]; then cp .env.example .env; fi
+          # Secrets 注入（在 repo Settings > Secrets 配置）
+          echo "SENSETIME_API_KEY=${{ secrets.SENSETIME_API_KEY }}" >> .env
+          echo "CI=true" >> .env
+
+      - name: Run smoke tests
+        run: |
+          python -m pytest tests/ai_scenarios/ -v --tb=short -m smoke \
+            --junitxml=reports/smoke_${{ github.run_id }}.xml
+        continue-on-error: false
+
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report-${{ github.run_id }}
+          path: reports/smoke_*.xml
+          retention-days: ${{ env.REPORT_RETENTION_DAYS }}
+
+  # ── Job 2: 全量回归（每日定时 + PR 合并）────────────────────────────────────
+  full-regression:
+    name: Full Regression（${{ matrix.suite }}）
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: smoke-test
+
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - color      # 色值还原偏差场景
+          - live       # 直播数字人场景
+          - platform   # 跨平台兼容性场景
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install test dependencies
+        run: |
+          pip install pytest pytest-xdist allure-pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Setup environment
+        run: |
+          if [ -f .env.example ]; then cp .env.example .env; fi
+          echo "SENSETIME_API_KEY=${{ secrets.SENSETIME_API_KEY }}" >> .env
+          echo "CI=true" >> .env
+
+      - name: Run ${{ matrix.suite }} scenario tests
+        run: |
+          python tests/ai_scenarios/run_ai_scenarios.py ${{ matrix.suite }} \
+            ${{ github.event.inputs.smoke_only == 'true' && '--smoke' || '' }}
+        env:
+          SENSETIME_API_KEY: ${{ secrets.SENSETIME_API_KEY }}
+
+      - name: Upload JUnit XML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.suite }}-${{ github.run_id }}
+          path: reports/ai_scenarios/report_*.xml
+          retention-days: ${{ env.REPORT_RETENTION_DAYS }}
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-${{ matrix.suite }}-${{ github.run_id }}
+          path: reports/ai_scenarios/allure_results/
+          retention-days: ${{ env.REPORT_RETENTION_DAYS }}
+
+  # ── Job 3: Allure 报告发布（全量回归完成后）──────────────────────────────────
+  publish-allure:
+    name: Publish Allure Report
+    runs-on: ubuntu-latest
+    needs: full-regression
+    if: always()
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all Allure results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-*-${{ github.run_id }}
+          merge-multiple: true
+          path: allure_results/
+
+      - name: Generate Allure Report
+        uses: simple-elf/allure-report-action@v1.9
+        with:
+          allure_results: allure_results
+          allure_report: allure_report
+          gh_pages: gh-pages
+          allure_history: allure-history
+          keep_reports: 30
+
+      - name: Publish to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure_report
+
+  # ── Job 4: 测试结果通知（失败时 IM 告警）─────────────────────────────────────
+  notify-on-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [ smoke-test, full-regression ]
+    if: failure()
+
+    steps:
+      - name: Send Feishu alert
+        run: |
+          curl -X POST "${{ secrets.FEISHU_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "msg_type": "interactive",
+              "card": {
+                "header": {
+                  "title": {"tag": "plain_text", "content": "⚠️ AI场景回归测试失败"},
+                  "template": "red"
+                },
+                "elements": [{
+                  "tag": "div",
+                  "text": {
+                    "tag": "lark_md",
+                    "content": "**分支**：${{ github.ref_name }}\n**提交**：${{ github.sha }}\n**查看详情**：${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                }]
+              }
+            }' || true

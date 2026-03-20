@@ -295,23 +295,37 @@ class FeishuBot:
         """
         将长文本追加到飞书知识库"📝 AI 回复详情"页，返回 wiki node_token。
         失败时抛出异常，由调用方决定降级策略。
+        自动处理缓存失效：若写入失败（页面被删除/移动），清缓存后重新创建。
         """
         import os
         from datetime import datetime
         from integrations.feishu.knowledge import FeishuKnowledge
+        from integrations.storage.config_store import delete as cfg_delete
 
         context_page = os.getenv("FEISHU_WIKI_CONTEXT_PAGE", "")
         if not context_page:
             raise ValueError("FEISHU_WIKI_CONTEXT_PAGE 未配置")
 
         wiki = FeishuKnowledge()
-        page_token = wiki.find_or_create_child_page(
-            title="📝 AI 回复详情",
-            parent_wiki_token=context_page,
-            cache_key="AI_REPLY_DETAIL_PAGE",
-        )
 
+        def _get_page_token():
+            return wiki.find_or_create_child_page(
+                title="📝 AI 回复详情",
+                parent_wiki_token=context_page,
+                cache_key="AI_REPLY_DETAIL_PAGE",
+            )
+
+        page_token = _get_page_token()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
         content = f"## {timestamp} 回复\n\n{text}\n\n---\n"
-        wiki.append_to_page(page_token, content)
+
+        try:
+            wiki.append_to_page(page_token, content)
+        except Exception:
+            # 缓存 token 可能已失效（页面被删除/移动），清缓存后重试一次
+            logger.warning(f"[飞书Bot] 写入详情页失败，清缓存后重试: {page_token!r}")
+            cfg_delete("AI_REPLY_DETAIL_PAGE")
+            page_token = _get_page_token()
+            wiki.append_to_page(page_token, content)
+
         return page_token

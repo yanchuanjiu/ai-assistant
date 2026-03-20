@@ -1,0 +1,195 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "updated": "2026-03-20",
+    "description": "AI 优化场景测试用例库 — 色值还原 / 直播数字人 / 跨平台兼容性",
+    "usage": "通过 conftest.load_test_cases(scenario) 加载对应场景用例"
+  },
+
+  "color_value": [
+    {
+      "id": "TC-COL-01",
+      "title": "自然黑色值还原",
+      "priority": "P0",
+      "input": {"true_rgb": [25, 20, 18], "image": "test_data/natural_black.jpg"},
+      "expected": {"max_delta_e": 5.0, "hair_tone": "natural_black"},
+      "tags": ["smoke", "color_basic"]
+    },
+    {
+      "id": "TC-COL-02",
+      "title": "栗色色值还原",
+      "priority": "P0",
+      "input": {"true_rgb": [100, 55, 40], "image": "test_data/chestnut.jpg"},
+      "expected": {"max_delta_e": 5.0, "hair_tone": "chestnut"},
+      "tags": ["smoke", "color_basic"]
+    },
+    {
+      "id": "TC-COL-03",
+      "title": "浅金色值还原（高亮度区域敏感）",
+      "priority": "P1",
+      "input": {"true_rgb": [210, 170, 110], "image": "test_data/light_gold.jpg"},
+      "expected": {"max_delta_e": 5.0, "hair_tone": "light_gold"},
+      "tags": ["color_boundary"]
+    },
+    {
+      "id": "TC-COL-04",
+      "title": "纯黑边界值",
+      "priority": "P1",
+      "input": {"true_rgb": [0, 0, 0], "image": "test_data/pure_black.jpg"},
+      "expected": {"max_delta_e": 5.0, "no_rgb_overflow": true},
+      "tags": ["boundary", "color_boundary"]
+    },
+    {
+      "id": "TC-COL-05",
+      "title": "渐变色降级提示",
+      "priority": "P2",
+      "input": {"true_rgb": null, "image": "test_data/gradient_hair.jpg"},
+      "expected": {
+        "is_gradient": true,
+        "confidence_lt": 0.8,
+        "has_degradation_message": true
+      },
+      "tags": ["degradation", "color_edge"]
+    },
+    {
+      "id": "TC-COL-06",
+      "title": "API 超时重试（网络异常）",
+      "priority": "P1",
+      "input": {"simulate_timeout": true, "retry_limit": 2},
+      "expected": {"success_after_retry": true, "total_calls_le": 2},
+      "tags": ["reliability", "api"]
+    },
+    {
+      "id": "TC-COL-07",
+      "title": "批量 100 张色板整体准确率",
+      "priority": "P0",
+      "input": {"batch_size": 100, "dataset": "macbeth_color_checker"},
+      "expected": {"accuracy_gte": 0.90},
+      "tags": ["batch", "accuracy"]
+    }
+  ],
+
+  "live_stream": [
+    {
+      "id": "TC-LIVE-01",
+      "title": "1080p 标准推流参数合规",
+      "priority": "P0",
+      "input": {
+        "resolution": [1920, 1080],
+        "bitrate_kbps": 4000,
+        "framerate": 30,
+        "video_codec": "H.264",
+        "audio_codec": "AAC"
+      },
+      "expected": {"compliance_errors": []},
+      "tags": ["smoke", "stream_spec"]
+    },
+    {
+      "id": "TC-LIVE-02",
+      "title": "超出码率上限自动降档",
+      "priority": "P0",
+      "input": {"bitrate_kbps": 8000},
+      "expected": {
+        "has_error": true,
+        "auto_downgrade_kbps_le": 6000,
+        "keyword": "码率"
+      },
+      "tags": ["rate_limit", "stream_spec"]
+    },
+    {
+      "id": "TC-LIVE-03",
+      "title": "断流重连恢复（≤3次）",
+      "priority": "P0",
+      "input": {"simulate_disconnect": true},
+      "expected": {
+        "reconnect_success": true,
+        "reconnect_attempts_le": 3
+      },
+      "tags": ["reliability", "reconnect"]
+    },
+    {
+      "id": "TC-LIVE-04",
+      "title": "嘴形同步 P95 ≤ 80ms",
+      "priority": "P0",
+      "input": {"frames": 100, "audio_track": "test_data/tts_output.wav"},
+      "expected": {"lipsync_p95_ms_le": 80},
+      "tags": ["lipsync", "quality"]
+    },
+    {
+      "id": "TC-LIVE-05",
+      "title": "首帧渲染时延 ≤ 2000ms",
+      "priority": "P1",
+      "input": {"scenario": "cold_start"},
+      "expected": {"first_frame_ms_le": 2000},
+      "tags": ["performance", "latency"]
+    },
+    {
+      "id": "TC-LIVE-06",
+      "title": "4K 分辨率不合规检测",
+      "priority": "P1",
+      "input": {"resolution": [3840, 2160]},
+      "expected": {
+        "has_error": true,
+        "keyword": "分辨率"
+      },
+      "tags": ["stream_spec", "validation"]
+    },
+    {
+      "id": "TC-LIVE-07",
+      "title": "多路流并发稳定性",
+      "priority": "P2",
+      "input": {"stream_count": 3, "duration_s": 300},
+      "expected": {"all_streams_availability_gte": 0.999},
+      "tags": ["concurrency", "stability"]
+    }
+  ],
+
+  "cross_platform": [
+    {
+      "id": "TC-PLAT-01",
+      "title": "Python 版本 ≥ 3.10",
+      "priority": "P0",
+      "input": {"min_python": "3.10"},
+      "expected": {"meets_requirement": true},
+      "tags": ["smoke", "environment"]
+    },
+    {
+      "id": "TC-PLAT-02",
+      "title": "跨平台 RGB 输出一致性",
+      "priority": "P0",
+      "input": {"platforms": ["windows", "macos", "docker"]},
+      "expected": {"max_rgb_diff_pct": 0.8, "tone_identical": true},
+      "tags": ["consistency", "cross_platform"]
+    },
+    {
+      "id": "TC-PLAT-03",
+      "title": "Docker 容器启动 ≤ 30s",
+      "priority": "P1",
+      "input": {"image": "ai-assistant:latest"},
+      "expected": {"startup_s_le": 30, "health_check": "ok"},
+      "tags": ["docker", "performance"]
+    },
+    {
+      "id": "TC-PLAT-04",
+      "title": "模型精度指标 API 可读取",
+      "priority": "P0",
+      "input": {"model": "haircolor-restore-v2", "version": "latest"},
+      "expected": {
+        "fields": ["precision", "recall", "f1_score", "avg_inference_ms"],
+        "precision_gte": 0.90
+      },
+      "tags": ["model_monitor", "api"]
+    },
+    {
+      "id": "TC-PLAT-05",
+      "title": "模型版本漂移检测（精度回归）",
+      "priority": "P0",
+      "input": {"model": "haircolor-restore-v2", "version": "2.2.0-beta"},
+      "expected": {
+        "regression_detected": true,
+        "precision_gte": 0.90
+      },
+      "tags": ["model_monitor", "regression"]
+    }
+  ]
+}

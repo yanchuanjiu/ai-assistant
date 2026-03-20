@@ -303,10 +303,19 @@ class FeishuKnowledge:
             )
             return []
         else:
-            resp = feishu_get(
-                f"/wiki/v2/spaces/{self.space_id}/nodes",
-                params={"parent_node_token": parent_wiki_token, "page_size": 50},
-            )
+            try:
+                resp = feishu_get(
+                    f"/wiki/v2/spaces/{self.space_id}/nodes",
+                    params={"parent_node_token": parent_wiki_token, "page_size": 50},
+                )
+            except Exception as e:
+                if "400" in str(e):
+                    logger.warning(
+                        f"[FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: "
+                        f"{parent_wiki_token!r}，返回空列表"
+                    )
+                    return []
+                raise
         return resp.get("data", {}).get("items", [])
 
     def create_wiki_child_page(self, title: str, parent_wiki_token: str) -> str:
