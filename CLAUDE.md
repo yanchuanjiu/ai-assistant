@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-20（v0.8.7）
+> 最后更新：2026-03-20（v0.8.8）
 
 ---
 
@@ -56,6 +56,18 @@
 ---
 
 ## 版本变更历史
+
+### v0.8.8（2026-03-20）— 修复飞书 wiki 子页面创建 400 Bad Request
+
+**修改文件**：
+- `integrations/feishu/knowledge.py` — 新增 `_is_space_level_token()` 方法；`list_wiki_children()` 检测到 space 级标识时自动降级为列出根节点；`create_wiki_child_page()` 增加方案A（直接调用 `POST /wiki/v2/spaces/{space_id}/nodes`），方案B（move_docs_to_wiki）保留为降级兜底；对 space 级 token 直接抛 ValueError 提示
+- `graph/tools.py` — `feishu_wiki_page` 和 `feishu_project_setup` 在调用 KB 方法前先用 `parse_wiki_token()` 清理 `parent_wiki_token`（去除 URL 前缀、inline comment、空白）
+
+**根因**：LLM 有时将 space_id（纯数字如 `7618158120166034630`）或 `space_XXX` 格式传作 `parent_wiki_token`，导致 Feishu API 返回 400；同时原有创建路径只有 `move_docs_to_wiki` 一种，新增直接节点创建 API 作为首选。
+
+**能力变化**：
+- 传入 space 级标识时自动处理而非崩溃
+- 新建子页面首选直接 wiki 节点创建 API，失败时自动降级到原有 docx→move 方案
 
 ### v0.8.7（2026-03-20）— 钉钉会议纪要 → 飞书项目文档自动更新
 

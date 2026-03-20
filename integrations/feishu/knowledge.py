@@ -279,23 +279,78 @@ class FeishuKnowledge:
     # ------------------------------------------------------------------ #
     # 子页面：列出 / 查找 / 创建
     # ------------------------------------------------------------------ #
+    def _is_space_level_token(self, token: str) -> bool:
+        """判断 token 是否是 space 级别的标识（space_id 数字串 或 space_XXX 格式），
+        这类 token 不能作为 parent_node_token 传给 wiki nodes API。"""
+        if not token:
+            return False
+        # 纯数字 = space_id（如 7618158120166034630）
+        if token.isdigit():
+            return True
+        # space_ 前缀（如 space_7618158120166034630）
+        if token.startswith("space_"):
+            return True
+        return False
+
     def list_wiki_children(self, parent_wiki_token: str) -> list[dict]:
-        """列出指定 wiki 节点的直属子页面。返回节点列表（含 title / node_token / has_child）。"""
-        resp = feishu_get(
-            f"/wiki/v2/spaces/{self.space_id}/nodes",
-            params={"parent_node_token": parent_wiki_token, "page_size": 50},
-        )
+        """列出指定 wiki 节点的直属子页面。返回节点列表（含 title / node_token / has_child）。
+
+        parent_wiki_token 必须是 wiki node token（如 FalZwGDOkiqpbQkeAjGc8jaznMd），
+        不能是 space_id 数字或 space_XXX 格式。如果传入 space 级标识，
+        将改为列出 wiki 空间根节点（不带 parent_node_token 参数）。
+        """
+        if self._is_space_level_token(parent_wiki_token):
+            logger.warning(
+                f"[FeishuKnowledge] list_wiki_children: 收到 space 级标识 {parent_wiki_token!r}，"
+                f"改为列出空间根节点（parent_node_token 留空）"
+            )
+            resp = feishu_get(
+                f"/wiki/v2/spaces/{self.space_id}/nodes",
+                params={"page_size": 50},
+            )
+        else:
+            resp = feishu_get(
+                f"/wiki/v2/spaces/{self.space_id}/nodes",
+                params={"parent_node_token": parent_wiki_token, "page_size": 50},
+            )
         return resp.get("data", {}).get("items", [])
 
     def create_wiki_child_page(self, title: str, parent_wiki_token: str) -> str:
         """
         在指定 wiki 节点下创建子页面，返回新页面的 wiki node_token。
 
-        流程（全程 tenant_access_token，无需 user OAuth）：
-          ① POST /docx/v1/documents  → 创建空 docx，得到 document_id
-          ② POST move_docs_to_wiki   → 将 docx 移入 wiki 子节点
-          ③ 轮询任务直到完成         → 返回 node_token
+        方案 A（首选）：POST /wiki/v2/spaces/{space_id}/nodes 直接创建 wiki 节点
+        方案 B（备选）：POST /docx/v1/documents → move_docs_to_wiki → 轮询任务
+
+        全程 tenant_access_token，无需 user OAuth。
         """
+        if self._is_space_level_token(parent_wiki_token):
+            raise ValueError(
+                f"create_wiki_child_page: parent_wiki_token {parent_wiki_token!r} 是 space 级标识，"
+                f"请传入有效的 wiki node token（如 FalZwGDOkiqpbQkeAjGc8jaznMd）"
+            )
+
+        # 方案 A：直接创建 wiki 节点（无需 docx 中转）
+        try:
+            resp = feishu_post(
+                f"/wiki/v2/spaces/{self.space_id}/nodes",
+                json={
+                    "obj_type": "wiki",
+                    "parent_node_token": parent_wiki_token,
+                    "node_type": "origin",
+                    "title": title,
+                },
+            )
+            node = resp.get("data", {}).get("node", {})
+            node_token = node.get("node_token", "")
+            if node_token:
+                logger.info(f"[FeishuKnowledge] 方案A 创建子页面成功: {title!r} → {node_token}")
+                return node_token
+            logger.warning(f"[FeishuKnowledge] 方案A 响应未含 node_token: {resp}")
+        except Exception as e:
+            logger.warning(f"[FeishuKnowledge] 方案A 失败，降级到方案B: {e}")
+
+        # 方案 B（降级）：创建 docx 后 move_docs_to_wiki
         # ① 创建 docx
         doc_resp = feishu_post("/docx/v1/documents", json={"title": title})
         doc_id = doc_resp["data"]["document"]["document_id"]
@@ -318,7 +373,7 @@ class FeishuKnowledge:
             results = task_resp.get("data", {}).get("task", {}).get("move_result", [])
             if results and results[0].get("status") == 0:
                 node_token = results[0]["node"]["node_token"]
-                logger.info(f"[FeishuKnowledge] 创建子页面成功: {title!r} → {node_token}")
+                logger.info(f"[FeishuKnowledge] 方案B 创建子页面成功: {title!r} → {node_token}")
                 return node_token
         raise RuntimeError(f"创建子页面超时（task_id={task_id}）")
 

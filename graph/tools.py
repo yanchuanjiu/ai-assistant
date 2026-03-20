@@ -790,8 +790,12 @@ def feishu_wiki_page(
                        cache_key="WIKI_PAGE_MEETING_NOTES")
     """
     try:
-        from integrations.feishu.knowledge import FeishuKnowledge
+        from integrations.feishu.knowledge import FeishuKnowledge, parse_wiki_token
         kb = FeishuKnowledge()
+
+        # 清理 token（去除 URL 前缀、inline comment 残留、空白）
+        if parent_wiki_token:
+            parent_wiki_token = parse_wiki_token(parent_wiki_token.split("#")[0].strip())
 
         if action == "list_children":
             if not parent_wiki_token:
@@ -860,6 +864,10 @@ def feishu_project_setup(
             )
         if not parent_wiki_token:
             return "❌ 未配置项目集根页面，请先通过 agent_config 设置 FEISHU_WIKI_PORTFOLIO_PAGE"
+
+        # 清理 token（去除 URL 前缀、inline comment 残留、空白）
+        from integrations.feishu.knowledge import parse_wiki_token
+        parent_wiki_token = parse_wiki_token(parent_wiki_token.split("#")[0].strip())
 
         docs = (
             None
