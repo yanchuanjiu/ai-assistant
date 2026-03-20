@@ -3,12 +3,13 @@
 """
 import logging
 import os
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# 子页面标准名称（与 SKILLS_PROJECT_MGMT.md 保持一致）
+# 子页面标准名称（敏捷业务项目结构）
 PAGE_MEETING_NOTES = "04_会议纪要"
-PAGE_WEEKLY_REPORT = "05_状态周报"
+PAGE_WEEKLY_REPORT = "05_迭代计划"
 PAGE_RAID_LOG      = "06_RAID 日志"
 
 
@@ -29,17 +30,17 @@ class ProjectRouter:
         self._cfg_set = cfg_set
 
     def _portfolio_root(self) -> str:
-        """返回项目集根页面 token（优先 FEISHU_WIKI_PORTFOLIO_PAGE，降级 FEISHU_WIKI_CONTEXT_PAGE）。"""
+        """返回项目集根页面 token（优先 FEISHU_WIKI_PORTFOLIO_PAGE，未配置则用 wiki space_id 根目录）。
+        注意：不回落到 FEISHU_WIKI_CONTEXT_PAGE（那是 AI 助理专用页，不是项目集目录）。
+        """
         root = (
             self._cfg_get("FEISHU_WIKI_PORTFOLIO_PAGE")
             or os.getenv("FEISHU_WIKI_PORTFOLIO_PAGE", "")
-            or self._cfg_get("FEISHU_WIKI_CONTEXT_PAGE")
-            or os.getenv("FEISHU_WIKI_CONTEXT_PAGE", "")
         )
         if not root:
-            raise RuntimeError(
-                "未配置项目集根页面，请通过 agent_config 设置 FEISHU_WIKI_PORTFOLIO_PAGE"
-            )
+            # 使用 wiki 空间根目录（space_id），create_wiki_child_page 能识别并处理
+            root = self._kb.space_id
+            logger.info("[ProjectRouter] 未配置 FEISHU_WIKI_PORTFOLIO_PAGE，使用 wiki 根目录")
         return root
 
     def identify_project(self, info: dict) -> tuple[str, str]:
@@ -108,21 +109,38 @@ class ProjectRouter:
         """
         根据 info 内容确定需要写入哪些子页面，返回路由结果 dict。
 
+        会议纪要写入逻辑：
+          1. 在项目文件夹下找/建「04_会议纪要」文件夹（固定，含缓存）
+          2. 在该文件夹下为本次会议创建独立子页面，命名：「YYYY-MM-DD 会议标题」
+          3. 返回该子页面 token 作为 meeting_notes_token
+
         返回值：
         {
-          "meeting_notes_token": str,           # 04_会议纪要（总是存在）
-          "raid_token": str | None,             # 06_RAID 日志（有 raid_elements 时）
-          "weekly_report_token": str | None,    # 05_状态周报（有 weekly_report_hint 时）
+          "meeting_notes_token": str,   # 本次会议的独立子页面（YYYY-MM-DD 会议主题）
+          "raid_token": str | None,     # 06_RAID 日志（有 raid_elements 时）
+          "weekly_report_token": str | None,  # 05_迭代计划（有 weekly_report_hint 时）
         }
         """
         code = (info.get("project_code") or "UNKNOWN").upper()
 
-        # 04_会议纪要（总是创建/查找）
-        meeting_token = self._get_project_subpage(
+        # 04_会议纪要 文件夹（持久固定，带缓存）
+        meeting_folder_token = self._get_project_subpage(
             project_folder_token,
             PAGE_MEETING_NOTES,
-            f"FEISHU_PROJECT_{code}_MEETING_NOTES",
+            f"FEISHU_PROJECT_{code}_MEETING_NOTES_FOLDER",
         )
+
+        # 本次会议独立子页面：「YYYY-MM-DD 会议标题」
+        meeting_title = (info.get("title") or "会议记录").strip()
+        meeting_date = (info.get("date") or datetime.now().strftime("%Y-%m-%d"))[:10]
+        subpage_title = f"{meeting_date} {meeting_title}"
+        # 每次会议创建新页面（不缓存，find_or_create 保证同名幂等）
+        meeting_token = self._kb.find_or_create_child_page(
+            title=subpage_title,
+            parent_wiki_token=meeting_folder_token,
+            cache_key="",
+        )
+        logger.info(f"[ProjectRouter] 会议子页面: {subpage_title!r} → {meeting_token}")
 
         # 06_RAID 日志（有任何 raid_elements 非空时）
         raid_token = None
@@ -135,7 +153,7 @@ class ProjectRouter:
                 f"FEISHU_PROJECT_{code}_RAID",
             )
 
-        # 05_状态周报（有 weekly_report_hint 时）
+        # 05_迭代计划（有 weekly_report_hint 时写入迭代计划页）
         weekly_token = None
         if info.get("weekly_report_hint"):
             weekly_token = self._get_project_subpage(

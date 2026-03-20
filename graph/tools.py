@@ -905,10 +905,13 @@ def feishu_project_setup(
       docs_to_create   — "all" 创建全套7个文档，或逗号分隔的文档名，
                          如 "00_项目章程,02_技术方案"
 
-    创建内容（默认 all）：
+    创建内容（默认 all，敏捷业务项目结构）：
       项目文件夹（命名：{code} {name} 🔵）
-      00_项目章程 / 01_需求与范围 / 02_技术方案 / 03_项目计划
-      04_会议纪要 / 05_状态周报 / 06_RAID 日志
+      00_项目章程 / 01_需求清单（用户故事）/ 04_会议纪要（文件夹）
+      05_迭代计划（Sprint）/ 06_RAID 日志（含需求验收）/ 07_需求交付记录
+
+    父页面优先级：parent_wiki_token 参数 > FEISHU_WIKI_PORTFOLIO_PAGE > wiki 根目录
+    （不使用 FEISHU_WIKI_CONTEXT_PAGE，那是 AI 助理专用页）
 
     幂等：重复调用安全，已存在文档不覆盖内容。
     创建结果自动缓存到 config_store（FEISHU_PROJECT_{CODE}），后续无需重复查找。
@@ -917,19 +920,18 @@ def feishu_project_setup(
         from integrations.feishu.knowledge import FeishuKnowledge, _PROJECT_DOCS
         from integrations.storage.config_store import get as cfg_get
 
-        # 确定父页面
+        # 确定父页面：优先 FEISHU_WIKI_PORTFOLIO_PAGE，未配置则直接在 wiki 根目录创建
+        # 注意：不再回落到 FEISHU_WIKI_CONTEXT_PAGE（那是 AI 助理专用页，不是项目集目录）
         if not parent_wiki_token:
             parent_wiki_token = (
                 cfg_get("FEISHU_WIKI_PORTFOLIO_PAGE")
                 or os.getenv("FEISHU_WIKI_PORTFOLIO_PAGE", "")
-                or cfg_get("FEISHU_WIKI_CONTEXT_PAGE")
-                or os.getenv("FEISHU_WIKI_CONTEXT_PAGE", "")
             )
         if not parent_wiki_token:
-            # 降级到 wiki 空间根目录创建（使用 space_id 作为标识，create_wiki_child_page 会处理）
+            # 直接在 wiki 空间根目录创建（与首页齐平）
             from integrations.feishu.knowledge import FeishuKnowledge as _KB
             parent_wiki_token = _KB().space_id
-            logger.info(f"[feishu_project_setup] 未配置 FEISHU_WIKI_PORTFOLIO_PAGE，将在 wiki 根目录创建")
+            logger.info("[feishu_project_setup] 未配置 FEISHU_WIKI_PORTFOLIO_PAGE，在 wiki 根目录创建")
 
         # 清理 token（去除 URL 前缀、inline comment 残留、空白）
         from integrations.feishu.knowledge import parse_wiki_token
