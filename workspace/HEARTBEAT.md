@@ -10,6 +10,14 @@
 - 如果服务进程不在（`logs/service.pid` 对应进程已死），提醒用户
 - **已知稳定崩溃**：`admin-http` 线程因端口 8080 已占用会持续崩溃，这是已知问题，不需要每次都提醒（同一天内只提醒一次）
 
+## 优先级 1.5：代码生效检查（每次心跳）
+
+- 比较 `logs/service.pid` 对应进程的启动时间与最新 git commit 时间
+  - 命令：`ps -p $(cat logs/service.pid) -o lstart=` vs `git log -1 --format="%ai"`
+  - 若服务启动时间**早于**最新 commit，立即重启服务并通知用户
+  - 重启命令：`kill $(cat logs/service.pid 2>/dev/null) 2>/dev/null; source /root/ai-assistant/.venv/bin/activate && nohup python /root/ai-assistant/main.py >> /root/ai-assistant/logs/app.log 2>&1 &`
+- 这是高优先级检查：commit 后不重启等于修复无效，会导致用户重复遭遇已修复的 bug
+
 ## 优先级 2：记忆维护（每天一次）
 
 **短期记忆（当日提炼）**：
