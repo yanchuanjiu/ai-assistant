@@ -80,7 +80,15 @@ def analyze(content: str, doc_name: str = "") -> dict | None:
 
 
 def format_for_feishu(info: dict, doc_url: str = "") -> str:
-    """将结构化 meeting info 格式化为飞书 wiki 追加内容。"""
+    """将结构化 meeting info 格式化为飞书 wiki 追加内容（富 Markdown 格式）。
+
+    视觉层次设计：
+    - 分隔线 + H2 标题区分每条会议记录
+    - 表格展示基本信息（日期、参与人）
+    - 引用块（>）高亮摘要
+    - H3 子标题 + emoji 区分决策/待办/跟进
+    - 待办事项负责人加粗、截止日期用代码块突出
+    """
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     title = info.get("title") or "未命名会议"
     date = info.get("date") or "日期不明"
@@ -91,28 +99,36 @@ def format_for_feishu(info: dict, doc_url: str = "") -> str:
     next_steps = info.get("next_steps") or ""
 
     lines = [
-        f"",
-        f"---",
+        "",
+        "---",
         f"## 📋 {title}",
-        f"**会议日期**: {date}　　**分析时间**: {now}",
-        f"**参与人**: {participants}",
+        "",
+        "| 字段 | 内容 |",
+        "|------|------|",
+        f"| 📅 **会议日期** | {date} |",
+        f"| ⏱ **分析时间** | {now} |",
+        f"| 👥 **参与人** | {participants} |",
     ]
     if doc_url:
-        lines.append(f"**原始文档**: {doc_url}")
+        lines.append(f"| 🔗 **原始文档** | {doc_url} |")
+
     if summary:
-        lines += ["", f"**摘要**: {summary}"]
+        lines += ["", f"> {summary}"]
+
     if decisions:
-        lines += ["", "**决策/结论**:"]
+        lines += ["", "### ✅ 决策与结论"]
         for d in decisions:
             lines.append(f"- {d}")
+
     if action_items:
-        lines += ["", "**待办事项**:"]
+        lines += ["", "### 📌 待办事项"]
         for item in action_items:
-            owner = f"（{item['owner']}）" if item.get("owner") else ""
-            ddl = f"  截止：{item['deadline']}" if item.get("deadline") else ""
+            owner = f" **（{item['owner']}）**" if item.get("owner") else ""
+            ddl = f"  ⏰ 截止：`{item['deadline']}`" if item.get("deadline") else ""
             lines.append(f"- [ ] {item['task']}{owner}{ddl}")
+
     if next_steps:
-        lines += ["", f"**后续跟进**: {next_steps}"]
+        lines += ["", "### 🔄 后续跟进", "", next_steps]
 
     return "\n".join(lines)
 
@@ -154,6 +170,7 @@ def write_to_feishu(info: dict, doc_url: str = "") -> str:
     目标页面自动发现（无需手动配置 FEISHU_WIKI_MEETING_PAGE）：
       - 优先读 config_store / .env 中的已有配置
       - 否则在 FEISHU_WIKI_CONTEXT_PAGE 下查找或创建「📋 会议纪要汇总」子页面
+    使用富文本块（md_to_feishu_blocks）写入，确保标题/表格/引用块正确渲染。
     """
     try:
         meeting_page = _get_or_create_meeting_page()
@@ -162,9 +179,15 @@ def write_to_feishu(info: dict, doc_url: str = "") -> str:
         return f"无法获取飞书目标页面: {e}"
 
     from integrations.feishu.knowledge import FeishuKnowledge
+    from integrations.feishu.rich_text import md_to_feishu_blocks
     content = format_for_feishu(info, doc_url)
     kb = FeishuKnowledge()
-    kb.append_to_page(meeting_page, content)
+    try:
+        blocks = md_to_feishu_blocks(content)
+        kb.append_blocks_to_page(meeting_page, blocks)
+    except Exception as e:
+        logger.warning(f"[MeetingAnalyzer] 富文本写入失败，降级纯文本: {e}")
+        kb.append_to_page(meeting_page, content)
     logger.info(f"[MeetingAnalyzer] 会议纪要已写入: {meeting_page}")
     return meeting_page
 
@@ -194,57 +217,70 @@ def format_for_project_page(info: dict, doc_url: str = "", doc_time: str = "") -
     milestone = (info.get("milestone_impact") or {})
     weekly_hint = info.get("weekly_report_hint") or ""
 
-    lines = [
+    # 基本信息表格
+    lines: list[str] = [
         "",
         "---",
         f"## 📋 {title}",
-        f"**会议日期**: {date}　　**原始时间**: {time_label}",
-        f"**参与人**: {participants}",
+        "",
+        "| 字段 | 内容 |",
+        "|------|------|",
+        f"| 📅 **会议日期** | {date} |",
+        f"| ⏱ **原始时间** | {time_label} |",
+        f"| 👥 **参与人** | {participants} |",
     ]
     if project_code or project_name:
         proj_label = f"{project_code} {project_name}".strip()
-        lines.append(f"**项目**: {proj_label}")
+        lines.append(f"| 📁 **项目** | {proj_label} |")
     if doc_url:
-        lines.append(f"**原始文档**: {doc_url}")
+        lines.append(f"| 🔗 **原始文档** | {doc_url} |")
+
+    # 摘要引用块
     if summary:
-        lines += ["", f"**摘要**: {summary}"]
+        lines += ["", f"> {summary}"]
+
+    # 里程碑 & 周状态
     if milestone.get("milestone"):
         status_map = {"on_track": "🟢 正常", "at_risk": "🟡 有风险", "delayed": "🔴 延迟"}
         status_label = status_map.get(milestone.get("status", ""), milestone.get("status", ""))
-        lines += ["", f"**里程碑影响**: {milestone['milestone']} — {status_label}"]
+        lines += ["", f"### 🏁 里程碑影响", "", f"**{milestone['milestone']}** — {status_label}"]
     if weekly_hint:
-        lines += ["", f"**本周状态**: {weekly_hint}"]
+        lines += ["", f"### 📊 本周状态", "", weekly_hint]
+
+    # 决策
     if decisions:
-        lines += ["", "**决策/结论**:"]
+        lines += ["", "### ✅ 决策与结论"]
         for d in decisions:
             lines.append(f"- {d}")
+
+    # 待办事项
     if action_items:
-        lines += ["", "**待办事项**:"]
+        lines += ["", "### 📌 待办事项"]
         for item in action_items:
-            owner = f"（{item['owner']}）" if item.get("owner") else ""
-            ddl = f"  截止：{item['deadline']}" if item.get("deadline") else ""
+            owner = f" **（{item['owner']}）**" if item.get("owner") else ""
+            ddl = f"  ⏰ 截止：`{item['deadline']}`" if item.get("deadline") else ""
             lines.append(f"- [ ] {item['task']}{owner}{ddl}")
 
-    # RAID 摘要：仅列 decisions 和 risks（action_items 已在上方）
+    # RAID 详细决策 & 风险
     raid = info.get("raid_elements") or {}
     raid_decisions = raid.get("decisions") or []
     raid_risks = raid.get("risks") or []
     if raid_decisions:
-        lines += ["", "**本次决策（详细）**:"]
+        lines += ["", "### 📜 本次决策（详细）"]
         for d in raid_decisions:
-            rationale = f"（{d['rationale']}）" if d.get("rationale") else ""
-            scope = f"  影响：{d['impact_scope']}" if d.get("impact_scope") else ""
-            lines.append(f"- {d['decision']}{rationale}{scope}")
+            rationale = f"  *理由：{d['rationale']}*" if d.get("rationale") else ""
+            scope = f"  影响范围：{d['impact_scope']}" if d.get("impact_scope") else ""
+            lines.append(f"- **{d['decision']}**{rationale}{scope}")
     if raid_risks:
-        lines += ["", "**识别风险**:"]
+        lines += ["", "### ⚠️ 识别风险"]
         for r in raid_risks:
             prob = r.get("probability", "?")
             impact = r.get("impact", "?")
             mitigation = f"  应对：{r['mitigation']}" if r.get("mitigation") else ""
-            lines.append(f"- [{prob}/{impact}] {r['description']}{mitigation}")
+            lines.append(f"- `[{prob}/{impact}]` {r['description']}{mitigation}")
 
     if next_steps:
-        lines += ["", f"**后续跟进**: {next_steps}"]
+        lines += ["", "### 🔄 后续跟进", "", next_steps]
 
     return "\n".join(lines)
 
@@ -299,10 +335,19 @@ def format_raid_rows(raid_elements: dict, date: str = "") -> str:
 
 
 def write_to_project_page(info: dict, page_token: str, doc_url: str = "") -> str:
-    """将会议 info 追加到项目 04_会议纪要 子页面，返回 page_token。"""
+    """将会议 info 追加到项目 04_会议纪要 子页面，返回 page_token。
+    使用富文本块（md_to_feishu_blocks）写入，确保标题/表格/引用块正确渲染。
+    """
     from integrations.feishu.knowledge import FeishuKnowledge
+    from integrations.feishu.rich_text import md_to_feishu_blocks
     content = format_for_project_page(info, doc_url)
-    FeishuKnowledge().append_to_page(page_token, content)
+    kb = FeishuKnowledge()
+    try:
+        blocks = md_to_feishu_blocks(content)
+        kb.append_blocks_to_page(page_token, blocks)
+    except Exception as e:
+        logger.warning(f"[MeetingAnalyzer] 富文本写入失败，降级纯文本: {e}")
+        kb.append_to_page(page_token, content)
     logger.info(f"[MeetingAnalyzer] 会议纪要已写入项目页: {page_token}")
     return page_token
 
