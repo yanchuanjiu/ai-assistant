@@ -22,7 +22,19 @@
 
 ---
 
-## 二、文档类型 → 目标页面
+## 二、快速索引：用户意图 → 工具 → 关键参数
+
+| 用户意图 | 调用工具 | 关键参数 |
+|----------|----------|----------|
+| 新建项目 | `feishu_project_setup` | `project_name`, `project_code` |
+| 写会议纪要 | `feishu_wiki_page(find_or_create)` → `feishu_append_to_page` | parent = `04_会议纪要` token |
+| 更新风险/决策/行动项 | `feishu_append_to_page` | target = `06_RAID 日志` token |
+| 写周报/进展 | `feishu_append_to_page` | target = `05_状态周报` token，最新在上 |
+| 初始化章程/技术方案 | `feishu_overwrite_page` | target = `00_项目章程` / `02_技术方案` token |
+| 查看项目结构 | `feishu_wiki_page(list_children)` | `parent_wiki_token` = 项目文件夹 token |
+| 需要完整文档模板 | 读取 `workspace/SKILLS_PROJECT_MGMT_TEMPLATES.md` | — |
+
+## 三、文档类型 → 目标页面
 
 | 内容类型 | 写入目标 | 写入方式 |
 |----------|----------|----------|
@@ -34,7 +46,7 @@
 
 ---
 
-## 三、写入前治理检查
+## 四、写入前治理检查
 
 1. **页面归属**：内容属于哪个项目？写到对应项目文件夹下
 2. **类型匹配**：按上表选择正确文档
@@ -43,7 +55,7 @@
 
 ---
 
-## 四、特殊关注点
+## 五、特殊关注点
 
 - **多系统接口**：每个集成点必须在 `02_技术方案` 系统交互清单中登记
 - **AI 项目**：模型版本、训练数据、评估指标、上线监控必须记录

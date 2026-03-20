@@ -121,6 +121,9 @@ _PROJECT_MGMT_KEYWORDS = [
     "项目", "章程", "周报", "里程碑", "raid", "portfolio",
     "迭代", "sprint", "需求清单", "验收", "立项",
 ]
+_BITABLE_KEYWORDS = [
+    "多维表格", "bitable", "表格记录", "任务", "待办", "清单", "task",
+]
 _COMPLEX_MSG_KEYWORDS = [
     "项目", "会议", "纪要", "飞书", "钉钉", "知识库", "wiki",
     "分析", "整理", "写入", "迭代", "开发", "修复", "帮我",
@@ -131,9 +134,10 @@ _COMPLEX_MSG_KEYWORDS = [
 def _build_system_prompt(messages: list | None = None) -> str:
     """动态构建系统提示词，每次 agent_node 调用时加载最新 workspace 文件。
 
-    messages 用于判断是否需要注入 SKILLS_PROJECT_MGMT 和 MEMORY：
-    - SKILLS_PROJECT_MGMT：仅在消息含项目管理关键词时注入（~3.2K tokens）
-    - MEMORY：简单问候（<30字且无复杂关键词）时跳过（~1.9K tokens）
+    - SOUL/USER/MEMORY_CORE：始终注入
+    - MEMORY_HISTORY：简单消息时跳过（~1K tokens）
+    - SKILLS_PROJECT_MGMT：仅在消息含项目管理关键词时注入（~0.4K tokens）
+    - SKILLS_FEISHU_BITABLE：仅在消息含 Bitable/任务关键词时注入
     """
     from datetime import date
 
@@ -156,13 +160,14 @@ def _build_system_prompt(messages: list | None = None) -> str:
         and not any(kw in latest_content for kw in _COMPLEX_MSG_KEYWORDS)
     )
 
-    # 注入 workspace 文件：SOUL / USER 始终注入，MEMORY 简单消息时跳过
-    for fp, label in [
-        ("workspace/SOUL.md", "SOUL"),
-        ("workspace/USER.md", "USER"),
-        ("workspace/MEMORY.md", "MEMORY"),
+    # SOUL / USER / MEMORY_CORE 始终注入；MEMORY_HISTORY 简单消息时跳过
+    for fp, label, skip_if_simple in [
+        ("workspace/SOUL.md", "SOUL", False),
+        ("workspace/USER.md", "USER", False),
+        ("workspace/MEMORY_CORE.md", "MEMORY_CORE", False),
+        ("workspace/MEMORY_HISTORY.md", "MEMORY_HISTORY", True),
     ]:
-        if label == "MEMORY" and is_simple_msg:
+        if skip_if_simple and is_simple_msg:
             continue
         try:
             with open(fp, encoding="utf-8") as f:
@@ -172,19 +177,25 @@ def _build_system_prompt(messages: list | None = None) -> str:
         except FileNotFoundError:
             pass
 
-    # SKILLS_PROJECT_MGMT：仅在最近 3 条消息含项目管理关键词时注入
+    # 按需注入 Skill 文件（关键词匹配最近 3 条消息）
     recent_text = ""
     if messages:
         for m in messages[-3:]:
             recent_text += (m.content if isinstance(m.content, str) else "") + " "
-    if any(kw in recent_text for kw in _PROJECT_MGMT_KEYWORDS):
-        try:
-            with open("workspace/SKILLS_PROJECT_MGMT.md", encoding="utf-8") as f:
-                content = f.read().strip()
-            if content:
-                parts.append(f"\n---\n## Workspace: SKILL_PROJECT_MGMT\n{content}")
-        except FileNotFoundError:
-            pass
+
+    skill_files = [
+        ("workspace/SKILLS_PROJECT_MGMT.md", "SKILL_PROJECT_MGMT", _PROJECT_MGMT_KEYWORDS),
+        ("workspace/SKILLS_FEISHU_BITABLE.md", "SKILL_FEISHU_BITABLE", _BITABLE_KEYWORDS),
+    ]
+    for fp, label, keywords in skill_files:
+        if any(kw in recent_text for kw in keywords):
+            try:
+                with open(fp, encoding="utf-8") as f:
+                    content = f.read().strip()
+                if content:
+                    parts.append(f"\n---\n## Workspace: {label}\n{content}")
+            except FileNotFoundError:
+                pass
 
     return "\n".join(parts)
 

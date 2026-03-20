@@ -1558,6 +1558,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "feishu_advanced": [
         "多维表格", "bitable", "表格", "任务", "task", "日程",
         "全文搜索", "群聊", "消息记录", "im消息",
+        "表格记录", "待办", "清单",
     ],
     "claude": [
         "迭代", "开发", "修复", "实现", "编写代码", "重构",

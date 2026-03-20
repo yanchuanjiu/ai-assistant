@@ -175,6 +175,18 @@
 ## 钉钉文档 URL 处理
 收到 `alidocs.dingtalk.com/i/nodes/{nodeId}` 链接时，直接提取 nodeId 调用 `get_document_content`（MCP 工具），禁止使用 `web_fetch`（需登录）或 `feishu_read_page`（飞书工具）。
 
+## 飞书 API 常见错误处理
+
+遇到飞书 API 报错时，按以下映射快速定位原因：
+
+| 错误现象 | 根因 | 处理方式 |
+|----------|------|----------|
+| wiki API 400 Bad Request | `parent_wiki_token` 传了 space_id（纯数字）而非 node token | 用 `_is_space_level_token()` 兜底，或直接在根目录创建 |
+| `create_wiki_child_page` 400 | `obj_type` 传了 `"wiki"`（无效枚举） | 改为 `"docx"` |
+| wiki spaces API 403 | tenant_access_token 不支持 `/wiki/v2/spaces` 系列 | 改用 docx API（`/docx/v1/documents/{obj_token}`） |
+| `feishu_append_to_page` 400 | 单次写入超过 50 块限制 | 分批写入，每批 ≤40 块 |
+| `feishu_wiki_page` 返回空列表 | parent 是 space 级标识，无法列子节点 | 直接走创建分支，跳过列表步骤 |
+
 ---
 
 # 运行时配置（无需重启）
@@ -195,7 +207,7 @@
 
 ## 对话重置
 
-**每次对话最多保留最近 5 轮用户消息**（系统自动截断，节省 token）。长期记忆通过 `workspace/MEMORY.md` 和心跳任务持久保存，不受截断影响。
+**每次对话最多保留最近 2 轮用户消息**（系统自动截断，节省 token）。长期记忆通过 `workspace/MEMORY.md` 和心跳任务持久保存，不受截断影响。
 
 当用户反映「你记错了」「上下文乱了」「重新开始」「之前说的不算」时，主动提示：
 > 你可以发送 `/clear` 清空本对话的历史记录，我将从头开始，不带之前的上下文。
