@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-20（v0.8.8）
+> 最后更新：2026-03-20（v0.8.9）
 
 ---
 
@@ -56,6 +56,20 @@
 ---
 
 ## 版本变更历史
+
+### v0.8.9（2026-03-20）— 自我改进：workspace 记忆初始化 + admin 端口修复
+
+**修改文件**：
+- `workspace/MEMORY.md` — 首次基于 31 条交互日志完整填充：用户行为模式、3个核心项目信息、已知坑点（延迟/parent_wiki_token/admin端口）
+- `workspace/USER.md` — 补充用户工作背景（美妆护肤行业、AI落地项目负责人）和操作注意事项
+- `workspace/HEARTBEAT.md` — 新增"优先级 4：项目进展跟踪（每周一次）"；admin-http 崩溃标注为已知问题（同天只提醒一次）
+- `admin/server.py` — `start_admin_server()` 设置 `HTTPServer.allow_reuse_address = True` + `SO_REUSEADDR`，解决重启时端口 8080 占用导致的持续 crash
+
+**数据发现**：
+- 31 条交互，用户纠正率 6.5%（2/31，低于 15% 阈值）
+- 所有交互延迟均 >70 秒，平均约 2-3 分钟，平均 token 消耗 ~110K
+- 5 条错误响应均与 `parent_wiki_token` 传入 space_id 有关（v0.8.8 已修复）
+- admin-http 线程在每次服务重启时因端口已占用持续写入 crash.log
 
 ### v0.8.8（2026-03-20）— 修复飞书 wiki 子页面创建 400 Bad Request
 
