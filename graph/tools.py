@@ -229,8 +229,38 @@ def analyze_meeting_doc(file_id: str, force: bool = False) -> str:
             return "该文档不像是会议纪要，未写入飞书。"
 
         doc_url = item.get("url", "")
-        feishu_page = analyzer.write_to_feishu(info, doc_url=doc_url)
-        tracker.mark_processed(file_id, docs.space_id, doc_name, feishu_page)
+
+        # 尝试项目感知路由，降级到全局汇总页
+        project_name = (info.get("project_name") or "").strip()
+        project_code = (info.get("project_code") or "").strip().upper()
+        folder_token = ""
+        raid_written = False
+
+        if project_name or project_code:
+            try:
+                from integrations.meeting.project_router import ProjectRouter
+                router = ProjectRouter()
+                folder_token = router.get_or_create_project_folder(project_name, project_code)
+                routing = router.route_meeting(info, folder_token)
+                feishu_page = analyzer.write_to_project_page(
+                    info, routing["meeting_notes_token"], doc_url
+                )
+                raid = info.get("raid_elements") or {}
+                has_raid = any(raid.get(k) for k in ("risks", "actions", "issues", "decisions"))
+                if has_raid and routing.get("raid_token"):
+                    analyzer.write_raid_rows(raid, routing["raid_token"], date=info.get("date") or "")
+                    raid_written = True
+            except Exception as e:
+                logger.warning(f"[analyze_meeting_doc] 项目路由失败，降级: {e}")
+                feishu_page = analyzer.write_to_feishu(info, doc_url=doc_url)
+        else:
+            feishu_page = analyzer.write_to_feishu(info, doc_url=doc_url)
+
+        tracker.mark_processed(
+            file_id, docs.space_id, doc_name, feishu_page,
+            project_name=project_name, project_code=project_code,
+            project_folder_token=folder_token, raid_written=raid_written,
+        )
 
         summary = info.get("summary", "")
         decisions = "\n".join(f"  - {d}" for d in (info.get("decisions") or []))
@@ -238,12 +268,14 @@ def analyze_meeting_doc(file_id: str, force: bool = False) -> str:
             f"  - {a['task']}（{a.get('owner','?')} / {a.get('deadline','无截止')}）"
             for a in (info.get("action_items") or [])
         )
+        proj_hint = f" [{project_code}]" if project_code else ""
         return (
-            f"✅ 分析完成：{doc_name}\n"
+            f"✅ 分析完成{proj_hint}：{doc_name}\n"
             f"摘要：{summary}\n"
             + (f"决策：\n{decisions}\n" if decisions else "")
             + (f"待办：\n{actions}\n" if actions else "")
             + f"已写入飞书：{feishu_page}"
+            + (f"\nRAID 日志：已更新" if raid_written else "")
         )
     except Exception as e:
         logger.error(f"[analyze_meeting_doc] {e}")
@@ -788,6 +820,79 @@ def feishu_wiki_page(
         return f"操作失败：{e}"
 
 
+@tool
+def feishu_project_setup(
+    project_name: str,
+    project_code: str,
+    parent_wiki_token: str = "",
+    docs_to_create: str = "all",
+) -> str:
+    """
+    一键在飞书知识库中建立标准项目文件夹结构（含全套文档模板）。
+
+    参数：
+      project_name     — 项目中文名称，如"知识库AI项目"
+      project_code     — 项目英文代号，如"AIKG"（用于文件夹命名和缓存键）
+      parent_wiki_token — 父页面 wiki token（默认使用 FEISHU_WIKI_PORTFOLIO_PAGE
+                          或 FEISHU_WIKI_CONTEXT_PAGE）
+      docs_to_create   — "all" 创建全套7个文档，或逗号分隔的文档名，
+                         如 "00_项目章程,02_技术方案"
+
+    创建内容（默认 all）：
+      项目文件夹（命名：{code} {name} 🔵）
+      00_项目章程 / 01_需求与范围 / 02_技术方案 / 03_项目计划
+      04_会议纪要 / 05_状态周报 / 06_RAID 日志
+
+    幂等：重复调用安全，已存在文档不覆盖内容。
+    创建结果自动缓存到 config_store（FEISHU_PROJECT_{CODE}），后续无需重复查找。
+    """
+    try:
+        from integrations.feishu.knowledge import FeishuKnowledge, _PROJECT_DOCS
+        from integrations.storage.config_store import get as cfg_get
+
+        # 确定父页面
+        if not parent_wiki_token:
+            parent_wiki_token = (
+                cfg_get("FEISHU_WIKI_PORTFOLIO_PAGE")
+                or os.getenv("FEISHU_WIKI_PORTFOLIO_PAGE", "")
+                or cfg_get("FEISHU_WIKI_CONTEXT_PAGE")
+                or os.getenv("FEISHU_WIKI_CONTEXT_PAGE", "")
+            )
+        if not parent_wiki_token:
+            return "❌ 未配置项目集根页面，请先通过 agent_config 设置 FEISHU_WIKI_PORTFOLIO_PAGE"
+
+        docs = (
+            None
+            if docs_to_create.strip().lower() == "all"
+            else [d.strip() for d in docs_to_create.split(",") if d.strip()]
+        )
+
+        kb = FeishuKnowledge()
+        result = kb.bootstrap_project(
+            project_name=project_name,
+            project_code=project_code,
+            parent_wiki_token=parent_wiki_token,
+            docs_to_create=docs,
+        )
+
+        lines = [f"✅ 项目结构创建完成：{project_code} {project_name}"]
+        folder_token = result.get("folder", "")
+        if folder_token:
+            lines.append(f"📁 项目文件夹：https://feishu.cn/wiki/{folder_token}")
+        for doc_name, token in result.items():
+            if doc_name == "folder":
+                continue
+            if token:
+                lines.append(f"  📄 {doc_name}：https://feishu.cn/wiki/{token}")
+            else:
+                lines.append(f"  ❌ {doc_name}：创建失败")
+        return "\n".join(lines)
+
+    except Exception as e:
+        logger.error(f"[feishu_project_setup] {e}")
+        return f"❌ 项目结构创建失败：{e}"
+
+
 # --------------------------------------------------------------------------- #
 # 飞书多维表格（Bitable）— 记录 CRUD
 # --------------------------------------------------------------------------- #
@@ -1287,6 +1392,7 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_search_wiki,
         sync_context_to_feishu,
         feishu_wiki_page,
+        feishu_project_setup,
     ],
     # 飞书高级工具（Bitable / Task / 搜索 / IM）——schema 较重，按需加载
     "feishu_advanced": [
@@ -1316,6 +1422,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "会议", "纪要", "meeting", "会议纪要", "整理会议", "写入飞书", "汇总",
         "项目", "章程", "周报", "里程碑", "需求文档", "技术方案", "风险", "raid",
         "复盘", "项目集", "portfolio", "上线", "验收", "立项",
+        "新建项目", "项目初始化", "建立项目", "创建项目", "项目结构",
     ],
     "feishu_advanced": [
         "多维表格", "bitable", "表格", "任务", "task", "日程",

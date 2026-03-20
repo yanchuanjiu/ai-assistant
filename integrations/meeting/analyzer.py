@@ -167,3 +167,144 @@ def write_to_feishu(info: dict, doc_url: str = "") -> str:
     kb.append_to_page(meeting_page, content)
     logger.info(f"[MeetingAnalyzer] 会议纪要已写入: {meeting_page}")
     return meeting_page
+
+
+# --------------------------------------------------------------------------- #
+# 项目感知格式化（用于写入项目子页面）
+# --------------------------------------------------------------------------- #
+
+def format_for_project_page(info: dict, doc_url: str = "") -> str:
+    """将会议 info 格式化为写入项目 04_会议纪要 子页面的内容（比全局汇总页更详细）。"""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    title = info.get("title") or "未命名会议"
+    date = info.get("date") or "日期不明"
+    participants = "、".join(info.get("participants") or []) or "未记录"
+    summary = info.get("summary") or ""
+    decisions = info.get("decisions") or []
+    action_items = info.get("action_items") or []
+    next_steps = info.get("next_steps") or ""
+    project_name = info.get("project_name") or ""
+    project_code = info.get("project_code") or ""
+    milestone = (info.get("milestone_impact") or {})
+    weekly_hint = info.get("weekly_report_hint") or ""
+
+    lines = [
+        "",
+        "---",
+        f"## 📋 {title}",
+        f"**会议日期**: {date}　　**分析时间**: {now}",
+        f"**参与人**: {participants}",
+    ]
+    if project_code or project_name:
+        proj_label = f"{project_code} {project_name}".strip()
+        lines.append(f"**项目**: {proj_label}")
+    if doc_url:
+        lines.append(f"**原始文档**: {doc_url}")
+    if summary:
+        lines += ["", f"**摘要**: {summary}"]
+    if milestone.get("milestone"):
+        status_map = {"on_track": "🟢 正常", "at_risk": "🟡 有风险", "delayed": "🔴 延迟"}
+        status_label = status_map.get(milestone.get("status", ""), milestone.get("status", ""))
+        lines += ["", f"**里程碑影响**: {milestone['milestone']} — {status_label}"]
+    if weekly_hint:
+        lines += ["", f"**本周状态**: {weekly_hint}"]
+    if decisions:
+        lines += ["", "**决策/结论**:"]
+        for d in decisions:
+            lines.append(f"- {d}")
+    if action_items:
+        lines += ["", "**待办事项**:"]
+        for item in action_items:
+            owner = f"（{item['owner']}）" if item.get("owner") else ""
+            ddl = f"  截止：{item['deadline']}" if item.get("deadline") else ""
+            lines.append(f"- [ ] {item['task']}{owner}{ddl}")
+
+    # RAID 摘要：仅列 decisions 和 risks（action_items 已在上方）
+    raid = info.get("raid_elements") or {}
+    raid_decisions = raid.get("decisions") or []
+    raid_risks = raid.get("risks") or []
+    if raid_decisions:
+        lines += ["", "**本次决策（详细）**:"]
+        for d in raid_decisions:
+            rationale = f"（{d['rationale']}）" if d.get("rationale") else ""
+            scope = f"  影响：{d['impact_scope']}" if d.get("impact_scope") else ""
+            lines.append(f"- {d['decision']}{rationale}{scope}")
+    if raid_risks:
+        lines += ["", "**识别风险**:"]
+        for r in raid_risks:
+            prob = r.get("probability", "?")
+            impact = r.get("impact", "?")
+            mitigation = f"  应对：{r['mitigation']}" if r.get("mitigation") else ""
+            lines.append(f"- [{prob}/{impact}] {r['description']}{mitigation}")
+
+    if next_steps:
+        lines += ["", f"**后续跟进**: {next_steps}"]
+
+    return "\n".join(lines)
+
+
+def format_raid_rows(raid_elements: dict, date: str = "") -> str:
+    """
+    将 raid_elements 格式化为追加到 06_RAID 日志的 markdown 内容。
+    各节仅在有数据时输出，空数组不输出该节。
+    """
+    if not date:
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    parts: list[str] = [f"\n<!-- from meeting: {date} -->"]
+
+    risks = raid_elements.get("risks") or []
+    if risks:
+        parts.append("\n### 新增风险")
+        for r in risks:
+            prob = r.get("probability", "?")
+            impact = r.get("impact", "?")
+            mitigation = r.get("mitigation") or "待定"
+            parts.append(
+                f"| — | {r['description']} | {prob} | {impact} | — | {mitigation} | — | {date} | 开放 |"
+            )
+
+    actions = raid_elements.get("actions") or []
+    if actions:
+        parts.append("\n### 新增行动项")
+        for a in actions:
+            owner = a.get("owner") or "—"
+            ddl = a.get("deadline") or "—"
+            priority = a.get("priority") or "M"
+            parts.append(f"| — | {a['task']} | {owner} | {ddl} | {priority} | 进行中 |")
+
+    issues = raid_elements.get("issues") or []
+    if issues:
+        parts.append("\n### 新增问题")
+        for i in issues:
+            solution = i.get("solution") or "待定"
+            owner = i.get("owner") or "—"
+            parts.append(f"| — | {i['description']} | — | {solution} | {owner} | — | 开放 |")
+
+    decisions = raid_elements.get("decisions") or []
+    if decisions:
+        parts.append("\n### 新增决策")
+        for d in decisions:
+            rationale = d.get("rationale") or "—"
+            scope = d.get("impact_scope") or "—"
+            parts.append(f"| — | {d['decision']} | {rationale} | — | {date} | {scope} |")
+
+    return "\n".join(parts)
+
+
+def write_to_project_page(info: dict, page_token: str, doc_url: str = "") -> str:
+    """将会议 info 追加到项目 04_会议纪要 子页面，返回 page_token。"""
+    from integrations.feishu.knowledge import FeishuKnowledge
+    content = format_for_project_page(info, doc_url)
+    FeishuKnowledge().append_to_page(page_token, content)
+    logger.info(f"[MeetingAnalyzer] 会议纪要已写入项目页: {page_token}")
+    return page_token
+
+
+def write_raid_rows(raid_elements: dict, raid_page_token: str, date: str = "") -> str:
+    """将 RAID 元素追加到项目 06_RAID 日志页面，返回 raid_page_token。"""
+    from integrations.feishu.knowledge import FeishuKnowledge
+    content = format_raid_rows(raid_elements, date)
+    FeishuKnowledge().append_to_page(raid_page_token, content)
+    logger.info(f"[MeetingAnalyzer] RAID 已写入: {raid_page_token}")
+    return raid_page_token

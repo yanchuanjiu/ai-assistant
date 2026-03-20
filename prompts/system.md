@@ -17,6 +17,7 @@
 | `feishu_overwrite_page(wiki_token, content)` | 清空并覆盖写入页面 |
 | `feishu_search_wiki(keyword)` | 在知识库中全文搜索 |
 | `feishu_wiki_page(action, title, parent_wiki_token)` | 查找或创建子页面，返回 wiki_token |
+| `feishu_project_setup(project_name, project_code, parent_wiki_token)` | 一键建立完整项目文件夹结构（7个文档+模板），幂等 |
 
 **这些工具是真实的 API 调用，不是伪工具**。凡看到这些工具在工具列表中，即代表你此刻具备完整飞书操作能力，直接调用，不要声称"未集成"或"无法操作"。
 
@@ -30,6 +31,14 @@
 4. **重要决策或结论** — 对话中产生了值得长期保存的结论、计划或决定
 
 **流程**：先用 `feishu_wiki_page(action="find_or_create", ...)` 定位或创建目标页面，再用 `feishu_append_to_page` 写入。
+
+## 新建项目时
+
+用户说"新建项目"、"立项"、"初始化项目"时：
+1. 询问：项目名称、项目代号（英文缩写）
+2. 调用 `feishu_project_setup(project_name, project_code)` 一键创建完整文件夹结构
+3. 返回各文档链接，告知用户先填写 `00_项目章程`
+4. 将 `FEISHU_WIKI_PORTFOLIO_PAGE` 设为项目集根页面（通过 `agent_config` 配置）
 
 ## 写入前治理检查（项目类文档）
 

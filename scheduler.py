@@ -16,6 +16,49 @@ scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
 
 
 # --------------------------------------------------------------------------- #
+# 会议路由辅助（项目感知写入）
+# --------------------------------------------------------------------------- #
+def _route_and_write_meeting(info: dict, doc_url: str, analyzer) -> tuple:
+    """
+    根据 info 中的项目信息决定写入目标：
+    - 能识别项目 → 写项目 04_会议纪要（及 06_RAID 日志）
+    - 无法识别 → 降级到全局「📋 会议纪要汇总」页
+
+    返回 (feishu_page, project_name, project_code, folder_token, raid_written)
+    """
+    project_name = (info.get("project_name") or "").strip()
+    project_code = (info.get("project_code") or "").strip().upper()
+
+    if project_name or project_code:
+        try:
+            from integrations.meeting.project_router import ProjectRouter
+            router = ProjectRouter()
+            folder_token = router.get_or_create_project_folder(project_name, project_code)
+            routing = router.route_meeting(info, folder_token)
+
+            feishu_page = analyzer.write_to_project_page(
+                info, routing["meeting_notes_token"], doc_url
+            )
+
+            raid_written = False
+            raid = info.get("raid_elements") or {}
+            has_raid = any(raid.get(k) for k in ("risks", "actions", "issues", "decisions"))
+            if has_raid and routing.get("raid_token"):
+                analyzer.write_raid_rows(
+                    raid, routing["raid_token"], date=info.get("date") or ""
+                )
+                raid_written = True
+
+            return feishu_page, project_name, project_code, folder_token, raid_written
+        except Exception as e:
+            logger.warning(f"[Scheduler] 项目路由失败，降级到全局汇总页: {e}")
+
+    # 降级：写全局汇总页
+    feishu_page = analyzer.write_to_feishu(info, doc_url=doc_url)
+    return feishu_page, "", "", "", False
+
+
+# --------------------------------------------------------------------------- #
 # 钉钉会议纪要轮询（主流程）
 # --------------------------------------------------------------------------- #
 def poll_dingtalk_meetings():
@@ -48,15 +91,21 @@ def poll_dingtalk_meetings():
 
             info = analyzer.analyze(content, doc_name=doc_name)
             if info is None:
-                # 非会议文档，仍标记为已处理避免下次重复
                 tracker.mark_processed(doc_id, docs.space_id, doc_name, "not_meeting")
                 continue
 
             doc_url = item.get("url", "")
-            feishu_page = analyzer.write_to_feishu(info, doc_url=doc_url)
-            tracker.mark_processed(doc_id, docs.space_id, doc_name, feishu_page)
+            feishu_page, project_name, project_code, folder_token, raid_written = (
+                _route_and_write_meeting(info, doc_url, analyzer)
+            )
+            tracker.mark_processed(
+                doc_id, docs.space_id, doc_name, feishu_page,
+                project_name=project_name, project_code=project_code,
+                project_folder_token=folder_token, raid_written=raid_written,
+            )
             new_count += 1
-            logger.info(f"[Scheduler] 会议纪要已写入飞书: {doc_name!r}")
+            proj_hint = f" [{project_code}]" if project_code else ""
+            logger.info(f"[Scheduler] 会议纪要已写入飞书{proj_hint}: {doc_name!r}")
         except Exception as e:
             logger.error(f"[Scheduler] 处理文档失败 ({doc_name}): {e}")
 

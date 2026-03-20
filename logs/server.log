@@ -1,0 +1,224 @@
+Traceback (most recent call last):
+  File "/root/ai-assistant/main.py", line 14, in <module>
+    from dotenv import load_dotenv
+ModuleNotFoundError: No module named 'dotenv'
+INFO:     Started server process [72785]
+INFO:     Waiting for application startup.
+2026-03-18 09:29:07,244 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-18 09:29:07,244 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-18 09:29:07,244 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-18 09:29:07,244 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-18 09:29:07,244 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-18 09:29:07,245 [INFO] scheduler: Scheduler 已启动
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-03-18 09:29:07,568 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-18 09:29:07,568 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-18 09:29:07,841 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': 'dbae64fe-2269-11f1-af0b-2e8e4ca333d9'}
+2026-03-18 09:29:11,606 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-18 09:30:00,433 [INFO] graph.nodes: LLM 链：火山云(ep-20260317143459-qtgqn) → OpenRouter(anthropic/claude-sonnet-4-5)
+2026-03-18 09:30:00,557 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=https://alidocs.dingtalk.com/i/spaces/r9xmyYP7YK1w1mEO/overview我的钉钉会议纪要都在这个知识库里，
+2026-03-18 09:30:00,803 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-18 09:30:01,291 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54944f9350b8c38074d659e900c/reactions "HTTP/1.1 200 OK"
+2026-03-18 09:30:23,852 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:30:24,114 [INFO] httpx: HTTP Request: POST https://api.dingtalk.com/v1.0/oauth2/accessToken "HTTP/1.1 200 OK"
+2026-03-18 09:30:24,363 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 09:30:24,364 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 09:30:24,576 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 09:30:24,576 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 09:30:47,650 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:30:47,903 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 09:30:47,904 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 09:30:48,110 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 09:30:48,110 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 09:31:11,806 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:31:12,037 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 09:31:12,037 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 09:31:12,281 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 09:31:12,281 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 09:31:40,387 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:31:40,605 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 09:31:40,606 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 09:31:40,850 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 09:31:40,851 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 09:32:10,887 [INFO] openai._base_client: Retrying request to /chat/completions in 0.395835 seconds
+2026-03-18 09:32:41,972 [INFO] openai._base_client: Retrying request to /chat/completions in 0.978328 seconds
+2026-03-18 09:33:09,979 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:33:10,200 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 09:33:10,201 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 09:33:10,433 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 09:33:10,434 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 09:33:34,632 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:34:00,430 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:34:22,193 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:34:50,775 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:35:14,142 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:35:38,421 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:35:57,374 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:36:20,529 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:36:20,532 [INFO] graph.tools: [自迭代] 异步启动 thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b，需求：修复钉钉文档访问问题：
+1. 问题：调用get_latest_meeting_docs返回404/403错误，日志显示API需要unionId参数
+2. 根本原
+2026-03-18 09:36:20,775 [INFO] integrations.claude_code.tmux_session: [TmuxSession] ai-claude-feishu-oc_d2b5bb8b3ee37fdc61aebaa9d98819 已启动
+2026-03-18 09:36:35,678 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:36:36,796 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54944f9350b8c38074d659e900c/reactions/ZpZRfmHeTABuOLCRBki75Th5NCER_OpUkFKvOS06NIafTjCt4Icm-9jJy1PJAfvp6YQJzTNLdNmL2N-zY2M8vA== "HTTP/1.1 200 OK"
+2026-03-18 09:36:37,234 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54944f9350b8c38074d659e900c/reactions "HTTP/1.1 200 OK"
+2026-03-18 09:38:02,485 [INFO] integrations.claude_code.tmux_session: [TmuxSession] ai-claude-feishu-oc_d2b5bb8b3ee37fdc61aebaa9d98819 监控结束
+2026-03-18 09:39:34,941 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=https://alidocs.dingtalk.com/i/spaces/r9xmyYP7YK1w1mEO/overview我的钉钉会议纪要都在这个知识库里，
+2026-03-18 09:39:35,396 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54946baf40b0c31098f40875c79/reactions "HTTP/1.1 200 OK"
+2026-03-18 09:39:57,826 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:39:58,053 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 09:39:58,054 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 09:39:58,283 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 09:39:58,284 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 09:40:14,296 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:40:43,440 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:41:14,277 [INFO] openai._base_client: Retrying request to /chat/completions in 0.417697 seconds
+2026-03-18 09:41:39,004 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:42:07,048 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:42:27,163 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:42:51,873 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:43:01,821 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:43:02,056 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 09:43:02,057 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 09:43:02,290 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 09:43:02,291 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 09:43:30,851 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:43:52,067 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:44:16,411 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:44:42,870 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:45:11,922 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:45:38,090 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:46:07,044 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:46:33,119 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:46:46,982 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:47:08,910 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:47:39,494 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:48:10,316 [INFO] openai._base_client: Retrying request to /chat/completions in 0.410554 seconds
+2026-03-18 09:48:33,317 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:48:52,398 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:48:52,652 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 09:48:52,653 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 09:48:52,882 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 09:48:52,882 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 09:49:19,379 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:49:34,778 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 09:49:34,996 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 09:49:34,997 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 09:49:35,212 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 09:49:35,213 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=10&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 09:50:05,287 [INFO] openai._base_client: Retrying request to /chat/completions in 0.464811 seconds
+2026-03-18 09:50:36,422 [INFO] openai._base_client: Retrying request to /chat/completions in 0.891099 seconds
+2026-03-18 09:51:08,604 [INFO] httpx: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-03-18 09:51:08,606 [ERROR] integrations.feishu.bot: [飞书] Agent 处理失败: Request timed out.
+2026-03-18 09:51:09,070 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54946baf40b0c31098f40875c79/reactions/KN08BCXCCxPdvfWnBrMHGYC9M6IIpJbfyV1KWHAquzFvk5qoEWB0k03JHFKyv-40Kx2UaXRBtAEVuUGzAgpEDQ== "HTTP/1.1 200 OK"
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-03-18 09:54:09,243 [INFO] apscheduler.scheduler: Scheduler has been shut down
+INFO:     Application shutdown complete.
+INFO:     Finished server process [72785]
+INFO:     Started server process [75410]
+INFO:     Waiting for application startup.
+2026-03-18 09:54:10,441 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-18 09:54:10,441 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-18 09:54:10,441 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-18 09:54:10,442 [INFO] apscheduler.scheduler: Added job "poll_dingtalk_meetings" to job store "default"
+2026-03-18 09:54:10,442 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-18 09:54:10,442 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-18 09:54:10,442 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-18 09:54:10,443 [INFO] scheduler: Scheduler 已启动
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-03-18 09:54:10,767 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-18 09:54:10,767 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-18 09:54:11,037 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '5ba9b8c1-226d-11f1-b101-56a747ee939d'}
+2026-03-18 09:54:12,238 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-18 10:06:04,439 [INFO] graph.nodes: LLM 链：火山云(ep-20260317143459-qtgqn) → OpenRouter(anthropic/claude-sonnet-4-5)
+2026-03-18 10:06:04,444 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=hi
+2026-03-18 10:06:04,625 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-18 10:06:05,111 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54abdd2558b8c10ec542ee21d3a/reactions "HTTP/1.1 200 OK"
+2026-03-18 10:06:17,584 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-18 10:06:18,889 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54abdd2558b8c10ec542ee21d3a/reactions/zgD-z-1LflM_V83_wMUrs0RW7o1bRQXfeyUnFdZI5bmiBX6tyuPlCso1dsttf-dCat2OdKvjiBiO9k7b_r_4CA== "HTTP/1.1 200 OK"
+2026-03-18 10:06:19,360 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54abdd2558b8c10ec542ee21d3a/reactions "HTTP/1.1 200 OK"
+2026-03-18 10:06:20,824 [ERROR] Lark: receive message loop exit, err: no close frame received or sent [conn_id=7618408030907927780]
+2026-03-18 10:24:10,442 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-18 10:24:10 CST)" (scheduled at 2026-03-18 10:24:10.441622+08:00)
+2026-03-18 10:24:10,442 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-18 10:54:10 CST)" (scheduled at 2026-03-18 10:24:10.441944+08:00)
+2026-03-18 10:24:10,446 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-18 10:24:10,449 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-18 10:24:10,718 [INFO] httpx: HTTP Request: POST https://api.dingtalk.com/v1.0/oauth2/accessToken "HTTP/1.1 200 OK"
+2026-03-18 10:24:10,939 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-18 10:24:10,940 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-18 10:24:10,977 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-18 10:24:11,166 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 10:24:11,167 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 10:24:11,259 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/RhP8d7EzEoaEzUx6QTbcREOsneb/blocks "HTTP/1.1 200 OK"
+2026-03-18 10:24:11,374 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-18 10:24:11,375 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-18 10:24:11,618 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 10:24:11,618 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 10:24:11,618 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-18 10:54:10 CST)" executed successfully
+2026-03-18 10:24:11,676 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/RhP8d7EzEoaEzUx6QTbcREOsneb/blocks/RhP8d7EzEoaEzUx6QTbcREOsneb/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-18 10:24:12,065 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/RhP8d7EzEoaEzUx6QTbcREOsneb/blocks/RhP8d7EzEoaEzUx6QTbcREOsneb/children "HTTP/1.1 200 OK"
+2026-03-18 10:24:12,066 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/RhP8d7EzEoaEzUx6QTbcREOsneb
+2026-03-18 10:24:12,066 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-18 10:54:10 CST)" executed successfully
+2026-03-18 10:52:24,778 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=https://alidocs.dingtalk.com/i/spaces/r9xmyYP7YK1w1mEO/overview我的钉钉会议纪要都在这个知识库里，
+2026-03-18 10:52:25,272 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b549578b2d4a8c2c2834ae8dfc8f/reactions "HTTP/1.1 200 OK"
+2026-03-18 10:52:56,322 [INFO] openai._base_client: Retrying request to /chat/completions in 0.445730 seconds
+2026-03-18 10:53:28,502 [INFO] openai._base_client: Retrying request to /chat/completions in 0.754139 seconds
+2026-03-18 10:54:00,535 [INFO] httpx: HTTP Request: POST https://openrouter.ai/api/v1/chat/completions "HTTP/1.1 401 Unauthorized"
+2026-03-18 10:54:00,537 [ERROR] integrations.feishu.bot: [飞书] Agent 处理失败: Request timed out.
+2026-03-18 10:54:01,027 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b549578b2d4a8c2c2834ae8dfc8f/reactions/frbUoQNfLYHTDch8mKaKQkJaF-8TpBBmAjfTI4tNLb6WDfL1rwKdTBq1v77SYNY_08QJyidqcxs5xy-gmXuCnw== "HTTP/1.1 200 OK"
+2026-03-18 10:54:10,442 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-18 11:24:10 CST)" (scheduled at 2026-03-18 10:54:10.441622+08:00)
+2026-03-18 10:54:10,442 [INFO] apscheduler.executors.default: Running job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-18 11:54:10 CST)" (scheduled at 2026-03-18 10:54:10.441848+08:00)
+2026-03-18 10:54:10,442 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-18 11:24:10 CST)" (scheduled at 2026-03-18 10:54:10.441944+08:00)
+2026-03-18 10:54:10,442 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-18 10:54:10,443 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-18 10:54:10,719 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-18 10:54:10,719 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-18 10:54:10,869 [INFO] scheduler: [Scheduler] 开始轮询邮件...
+2026-03-18 10:54:10,960 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-18 10:54:10,960 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-18 10:54:10,967 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-18 10:54:11,240 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-18 10:54:11,246 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-18 10:54:11,293 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/RhP8d7EzEoaEzUx6QTbcREOsneb/blocks "HTTP/1.1 200 OK"
+2026-03-18 10:54:11,512 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-18 10:54:11,512 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-18 10:54:11,512 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-18 11:24:10 CST)" executed successfully
+2026-03-18 10:54:11,703 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/RhP8d7EzEoaEzUx6QTbcREOsneb/blocks/RhP8d7EzEoaEzUx6QTbcREOsneb/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-18 10:54:12,084 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/RhP8d7EzEoaEzUx6QTbcREOsneb/blocks/RhP8d7EzEoaEzUx6QTbcREOsneb/children "HTTP/1.1 200 OK"
+2026-03-18 10:54:12,085 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/RhP8d7EzEoaEzUx6QTbcREOsneb
+2026-03-18 10:54:12,085 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-18 11:24:10 CST)" executed successfully
+2026-03-18 10:54:13,510 [ERROR] integrations.email.imap_client: [IMAP] 连接 imap.163.com:993 失败: select failed: SELECT Unsafe Login. Please contact kefu@188.com for help
+2026-03-18 10:54:13,510 [INFO] apscheduler.executors.default: Job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-18 11:54:10 CST)" executed successfully
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-03-18 11:12:58,095 [INFO] apscheduler.scheduler: Scheduler has been shut down
+INFO:     Application shutdown complete.
+INFO:     Finished server process [75410]
