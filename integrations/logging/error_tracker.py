@@ -30,6 +30,18 @@ _FALSE_POSITIVE_PATTERNS = [
     "no error", "fixed the error", "without error",
 ]
 
+# 分析/描述性上下文前缀词 — 这些词之后出现的"错误/失败"是描述性的，不是实际错误
+# e.g. "分析错误率", "识别错误模式", "统计失败率", "检测错误关键词"
+_ANALYTICAL_CONTEXT_PREFIXES = [
+    "分析", "统计", "识别", "检测", "记录", "追踪", "监控", "评估", "汇总",
+    "纠正率", "错误率", "失败率", "成功率", "占比", "次数",
+    "错误模式", "错误关键词", "失败案例", "错误案例",
+    "自动修复", "自我改进", "自我优化", "改进评估", "优化评估",
+]
+
+# 响应长度下限：超过此长度且包含分析性上下文词时，认为是描述性回复而非真实错误
+_MIN_DESCRIPTIVE_RESPONSE_LEN = 300
+
 MAX_AUTO_FIX_ATTEMPTS = 3  # 同一错误模式的最大自动修复次数
 _TRACKER_FILE = "data/auto_fix_tracker.json"
 _LOCK = threading.Lock()
@@ -54,6 +66,29 @@ def _save_tracker(data: dict):
         logger.warning(f"[ErrorTracker] 写入追踪文件失败: {e}")
 
 
+def _is_analytical_context(response: str, kw_idx: int) -> bool:
+    """
+    检查关键词出现的上下文是否是分析/描述性的（而非实际错误）。
+
+    规则：
+    1. 关键词前后100字符内出现分析性前缀词（"统计"/"分析"/"识别"等）
+    2. 或回复整体含多个分析性词汇（>=2个），且回复长度超过阈值（描述性文本）
+    """
+    # 检查关键词附近（前后100字符）是否有分析性前缀
+    nearby = response[max(0, kw_idx - 100): kw_idx + 100]
+    for prefix in _ANALYTICAL_CONTEXT_PREFIXES:
+        if prefix in nearby:
+            return True
+
+    # 次级检查：整体回复含多个分析性词汇 + 足够长
+    if len(response) >= _MIN_DESCRIPTIVE_RESPONSE_LEN:
+        hit_count = sum(1 for prefix in _ANALYTICAL_CONTEXT_PREFIXES if prefix in response)
+        if hit_count >= 2:
+            return True
+
+    return False
+
+
 def detect_error_in_response(response: str) -> str | None:
     """
     检测回复中是否有错误关键词。
@@ -69,8 +104,14 @@ def detect_error_in_response(response: str) -> str | None:
 
     for kw in ERROR_RESPONSE_KEYWORDS:
         if kw.lower() in resp_lower:
-            # 提取关键词周围上下文（前20后60字符）
             idx = resp_lower.find(kw.lower())
+
+            # 检查是否是分析/描述性上下文（误报过滤）
+            if _is_analytical_context(response, idx):
+                logger.debug(f"[ErrorTracker] 误报过滤：关键词 '{kw}' 出现在分析性上下文中，跳过")
+                continue
+
+            # 提取关键词周围上下文（前20后60字符）
             context = response[max(0, idx - 20): idx + 60].strip()
             # 归一化：去掉数字、时间戳、具体 token 等变量
             normalized = re.sub(r'\d{4}-\d{2}-\d{2}T[\d:]+', 'TIMESTAMP', context)
