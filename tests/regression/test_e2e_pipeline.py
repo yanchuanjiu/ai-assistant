@@ -137,3 +137,118 @@ class TestAnalyzeMeetingDocTool:
         assert tool is not None
         result = tool.invoke({})
         assert isinstance(result, str)
+
+
+# ── T5: 端到端 mock LLM 场景（v0.8.23 / 完整流程验证）──────────────────────
+class TestE2EMockedLLM:
+    """mock LLM 工具调用，验证工具执行和路由逻辑，无需真实 LLM"""
+
+    def test_bitable_placeholder_blocked_in_tools_node(self):
+        """tools_node 执行 feishu_bitable_record(placeholder) → ToolMessage 含错误提示"""
+        from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+        from graph.nodes import tools_node
+
+        state = {
+            "messages": [
+                HumanMessage(content="帮我查多维表格"),
+                AIMessage(content="", tool_calls=[{
+                    "id": "call_bitable_001",
+                    "name": "feishu_bitable_record",
+                    "args": {"action": "list", "app_token": "placeholder", "table_id": "tbl_001"},
+                    "type": "tool_call",
+                }]),
+            ],
+            "platform": "test",
+            "chat_id": "chat_test",
+        }
+
+        from unittest.mock import patch, MagicMock
+        with patch("graph.nodes.set_tool_ctx"):
+            with patch("integrations.claude_code.session.reply_fn_registry", {}):
+                result = tools_node(state)
+
+        tool_msgs = result["messages"]
+        assert len(tool_msgs) == 1
+        assert isinstance(tool_msgs[0], ToolMessage)
+        assert "app_token 无效" in tool_msgs[0].content
+
+    def test_meeting_router_falls_back_when_no_project(self):
+        """会议分析无项目信息 → 降级到全局汇总页，不调用项目路由"""
+        from integrations.meeting import analyzer as meeting_analyzer
+        from integrations.meeting.project_router import ProjectRouter
+        from unittest.mock import patch, MagicMock
+
+        fake_info_no_project = {
+            "title": "临时会议",
+            "date": "2026-03-21",
+            "participants": ["Alice"],
+            "summary": "讨论临时事项",
+            "decisions": [],
+            "action_items": [],
+            "is_meeting": True,
+            "project_name": "",
+            "project_code": "",
+        }
+
+        with patch.object(meeting_analyzer, "write_to_feishu", return_value="global_tok") as mock_global:
+            with patch.object(ProjectRouter, "get_or_create_project_folder") as mock_proj:
+                from scheduler import _route_and_write_meeting
+                feishu_page, proj_name, proj_code, folder_tok, raid_written = \
+                    _route_and_write_meeting(fake_info_no_project, "https://doc.url", meeting_analyzer)
+
+        mock_global.assert_called_once()
+        mock_proj.assert_not_called()
+        assert feishu_page == "global_tok"
+
+    def test_meeting_router_routes_to_project_page(self):
+        """会议分析含项目信息 → 调用项目路由，写入项目子页面"""
+        from integrations.meeting import analyzer as meeting_analyzer
+        from integrations.meeting.project_router import ProjectRouter
+        from unittest.mock import patch, MagicMock
+
+        fake_info_with_project = {
+            "title": "VOC 项目会议",
+            "date": "2026-03-21",
+            "participants": ["Alice", "Bob"],
+            "summary": "VOC 项目进展讨论",
+            "decisions": ["确认上线时间"],
+            "action_items": [],
+            "is_meeting": True,
+            "project_name": "VOC数字化",
+            "project_code": "VOC",
+        }
+
+        with patch.object(ProjectRouter, "get_or_create_project_folder",
+                          return_value="folder_tok_voc") as mock_folder:
+            with patch.object(ProjectRouter, "route_meeting",
+                              return_value={"meeting_notes_token": "mock_meeting_tok",
+                                            "raid_token": None,
+                                            "weekly_report_token": None}):
+                with patch.object(meeting_analyzer, "write_to_project_page",
+                                  return_value="proj_page_tok") as mock_proj_write:
+                    with patch.object(meeting_analyzer, "write_raid_rows",
+                                      return_value=None):
+                        from scheduler import _route_and_write_meeting
+                        feishu_page, proj_name, proj_code, folder_tok, raid_written = \
+                            _route_and_write_meeting(fake_info_with_project, "https://doc.url", meeting_analyzer)
+
+        mock_folder.assert_called_once()
+        assert proj_name == "VOC数字化"
+        assert proj_code == "VOC"
+
+    def test_wiki_token_logic_recovers_from_stale_token(self):
+        """feishu_read_page 收到失效 token 返回错误，不崩溃"""
+        from graph.tools import feishu_read_page
+        from unittest.mock import patch
+
+        # 模拟 wiki_token_to_obj_token 返回空（页面已删除）
+        with patch("integrations.feishu.knowledge.feishu_get", return_value={
+            "data": {"node": {}}  # 空 node，obj_token 为空
+        }):
+            result = feishu_read_page.invoke({
+                "wiki_url_or_token": "StaleTokenXyz123"
+            })
+
+        # 应返回错误提示而非崩溃
+        assert isinstance(result, str)
+        assert len(result) > 0

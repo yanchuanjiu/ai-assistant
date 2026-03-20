@@ -49,7 +49,7 @@ def wiki_token_to_obj_token(wiki_token: str) -> tuple[str, str]:
     """
     resp = feishu_get(
         "/wiki/v2/spaces/get_node",
-        params={"token": wiki_token, "obj_type": "wiki"},
+        params={"token": wiki_token},
     )
     node = resp.get("data", {}).get("node", {})
     obj_token = node.get("obj_token", "")

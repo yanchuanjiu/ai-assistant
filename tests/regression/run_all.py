@@ -7,6 +7,9 @@
   python tests/regression/run_all.py feishu    # 只跑飞书知识库
   python tests/regression/run_all.py dingtalk  # 只跑钉钉 MCP
   python tests/regression/run_all.py e2e       # 只跑端到端流水线
+  python tests/regression/run_all.py error     # 只跑历史 bug 修复场景
+  python tests/regression/run_all.py context   # 只跑上下文管理逻辑
+  python tests/regression/run_all.py bot       # 只跑 Bot 层行为
 
 退出码：
   0 — 全部通过
@@ -26,6 +29,9 @@ SUITE_MAP = {
     "feishu":   "tests/regression/test_feishu_wiki.py",
     "dingtalk": "tests/regression/test_dingtalk_mcp.py",
     "e2e":      "tests/regression/test_e2e_pipeline.py",
+    "error":    "tests/regression/test_error_scenarios.py",
+    "context":  "tests/regression/test_context_management.py",
+    "bot":      "tests/regression/test_bot_behavior.py",
 }
 
 def main():
