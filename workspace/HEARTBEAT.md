@@ -34,6 +34,11 @@
 - 若有调用超过 30K tokens，说明该 thread 上下文过重，在心跳消息中提醒用户可发 `/clear` 重置
 - v0.8.20 起历史 ToolMessage 截断至 300 字符，检查时若 avg input_tokens 仍 >50K，考虑进一步降低 HISTORY_TOOL_CONTENT_LIMIT
 
+**响应速度监控（v0.8.21）**：
+- 从 `logs/interactions.jsonl` 统计最近 50 条中 `slow_response=true`（>15s）的数量和比例
+- 若 >15s 比例超过 30%，在心跳消息中汇报：出现次数、对应 user_message 摘要、推测原因
+- 关注 `latency_ms` 最高的 3 条，分析是否有工具调用链导致多轮 LLM 调用
+
 ## 优先级 3：自我改进检查（每3天一次）
 
 - 统计近期用户纠正次数（`has_correction=true` 的比例）

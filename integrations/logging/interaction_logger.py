@@ -50,6 +50,7 @@ def log_interaction(
             "agent_response": agent_response[:500],
             "tools_used": tools_used,
             "latency_ms": round(latency_ms),
+            "slow_response": latency_ms > 15000,
             "has_correction": has_correction,
         }
         os.makedirs("logs", exist_ok=True)

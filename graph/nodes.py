@@ -117,8 +117,24 @@ def _extract_text_tool_calls(content: str) -> list[dict] | None:
         return None
 
 
-def _build_system_prompt() -> str:
-    """动态构建系统提示词，每次 agent_node 调用时加载最新 workspace 文件。"""
+_PROJECT_MGMT_KEYWORDS = [
+    "项目", "章程", "周报", "里程碑", "raid", "portfolio",
+    "迭代", "sprint", "需求清单", "验收", "立项",
+]
+_COMPLEX_MSG_KEYWORDS = [
+    "项目", "会议", "纪要", "飞书", "钉钉", "知识库", "wiki",
+    "分析", "整理", "写入", "迭代", "开发", "修复", "帮我",
+    "搜索", "查找", "创建", "多维表格", "任务", "周报",
+]
+
+
+def _build_system_prompt(messages: list | None = None) -> str:
+    """动态构建系统提示词，每次 agent_node 调用时加载最新 workspace 文件。
+
+    messages 用于判断是否需要注入 SKILLS_PROJECT_MGMT 和 MEMORY：
+    - SKILLS_PROJECT_MGMT：仅在消息含项目管理关键词时注入（~3.2K tokens）
+    - MEMORY：简单问候（<30字且无复杂关键词）时跳过（~1.9K tokens）
+    """
     from datetime import date
 
     parts = []
@@ -130,18 +146,43 @@ def _build_system_prompt() -> str:
     except FileNotFoundError:
         parts.append("你是一个智能个人助理，帮助用户管理会议、项目和开发任务。")
 
-    # 注入 workspace 文件（SOUL / USER / MEMORY），每次都读最新版本
+    # 判断最新消息是否为简单消息（短且无复杂关键词）
+    latest_content = ""
+    if messages:
+        last = messages[-1]
+        latest_content = last.content if isinstance(last.content, str) else ""
+    is_simple_msg = (
+        len(latest_content) < 30
+        and not any(kw in latest_content for kw in _COMPLEX_MSG_KEYWORDS)
+    )
+
+    # 注入 workspace 文件：SOUL / USER 始终注入，MEMORY 简单消息时跳过
     for fp, label in [
         ("workspace/SOUL.md", "SOUL"),
         ("workspace/USER.md", "USER"),
         ("workspace/MEMORY.md", "MEMORY"),
-        ("workspace/SKILLS_PROJECT_MGMT.md", "SKILL_PROJECT_MGMT"),
     ]:
+        if label == "MEMORY" and is_simple_msg:
+            continue
         try:
             with open(fp, encoding="utf-8") as f:
                 content = f.read().strip()
             if content:
                 parts.append(f"\n---\n## Workspace: {label}\n{content}")
+        except FileNotFoundError:
+            pass
+
+    # SKILLS_PROJECT_MGMT：仅在最近 3 条消息含项目管理关键词时注入
+    recent_text = ""
+    if messages:
+        for m in messages[-3:]:
+            recent_text += (m.content if isinstance(m.content, str) else "") + " "
+    if any(kw in recent_text for kw in _PROJECT_MGMT_KEYWORDS):
+        try:
+            with open("workspace/SKILLS_PROJECT_MGMT.md", encoding="utf-8") as f:
+                content = f.read().strip()
+            if content:
+                parts.append(f"\n---\n## Workspace: SKILL_PROJECT_MGMT\n{content}")
         except FileNotFoundError:
             pass
 
@@ -296,7 +337,7 @@ def agent_node(state: AgentState) -> dict:
     thread_id = f"{state.get('platform', '?')}:{state.get('chat_id', '?')}"
     # 截断历史：只取最近 MAX_USER_TURNS 轮用户消息，控制 token 消耗
     trimmed = _trim_to_user_turns(state["messages"])
-    messages = [SystemMessage(content=_build_system_prompt())] + trimmed
+    messages = [SystemMessage(content=_build_system_prompt(trimmed))] + trimmed
 
     # 动态选择工具（渐进式披露）
     tools = _select_tools(messages)

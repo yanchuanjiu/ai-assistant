@@ -434,6 +434,16 @@ def trigger_self_improvement(reason: str = "") -> str:
 - 找出 tools_count=7（只有 CORE_TOOLS）但用户消息应该触发更多工具的情况
 - 统计 token 消耗趋势
 
+### 2.5 响应延迟专项分析（持续目标：>15s 的响应需评估优化空间）
+从 `logs/interactions.jsonl` 分析延迟分布：
+- 统计 latency_ms 的 p50/p95/max
+- 列出 latency_ms > 15000 的记录（Top 10），逐条分析：
+  - 对应的 user_message（短还是长？有无工具关键词？）
+  - 对应的 tools_used（工具调用次数是否过多？）
+  - 可能的原因：多轮工具调用链？tokens 过多？
+- 对比 slow_response=true 和 slow_response=false 的记录，找出差异规律
+- 在报告中输出"⚡ 响应速度分析"节，给出具体优化建议
+
 ### 3. 崩溃日志检查
 读取 `logs/crash.log`（如存在）：
 - 列出最近 5 条崩溃记录

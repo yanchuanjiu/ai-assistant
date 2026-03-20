@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-20（v0.8.20）
+> 最后更新：2026-03-20（v0.8.21）
 
 ---
 
@@ -56,6 +56,24 @@
 ---
 
 ## 版本变更历史
+
+### v0.8.21（2026-03-20）— 响应速度优化：system prompt 按需加载 + >15s 响应监控
+
+**触发**：用户反馈简单问候"hi"也要很久响应，要求优化速度并持续监控 >15s 的响应。
+
+**修改文件**：
+- `graph/nodes.py` — `_build_system_prompt()` 新增 `messages` 参数，实现按需加载：
+  1. `SKILLS_PROJECT_MGMT.md`（8KB，~3.2K tokens）仅在消息含项目管理关键词时注入
+  2. `MEMORY.md`（~5KB，~1.9K tokens）简单消息（<30字且无复杂关键词）时跳过
+  3. `agent_node()` 传入 `trimmed` 消息列表给 `_build_system_prompt`
+- `integrations/logging/interaction_logger.py` — 新增 `slow_response` 字段（`latency_ms > 15000`），方便后续分析
+- `workspace/HEARTBEAT.md` — 新增"响应速度监控"任务：统计 >15s 比例，超 30% 时汇报
+- `graph/tools.py` — `trigger_self_improvement` 新增"2.5 响应延迟专项分析"节，分析慢响应原因并给出优化建议
+
+**预期效果**：
+- 简单问候：跳过 MEMORY + SKILLS，节省 ~5.1K tokens，预期快 3-6s
+- 普通消息（无项目词）：跳过 SKILLS，节省 ~3.2K tokens，预期快 2-4s
+- 项目相关消息：行为不变，所有文件照常注入
 
 ### v0.8.20（2026-03-20）— 多任务上下文隔离：历史 ToolMessage 截断 + system.md 规则
 
