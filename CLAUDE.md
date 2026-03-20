@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-20（v0.8.10）
+> 最后更新：2026-03-20（v0.8.11）
 
 ---
 
@@ -70,6 +70,18 @@
 - 所有交互延迟均 >70 秒，平均约 2-3 分钟，平均 token 消耗 ~110K
 - 5 条错误响应均与 `parent_wiki_token` 传入 space_id 有关（v0.8.8 已修复）
 - admin-http 线程在每次服务重启时因端口已占用持续写入 crash.log
+
+### v0.8.11（2026-03-20）— 主动错误检测 + 自动修复 + GitHub Issue 上报
+
+**修改文件**：
+- `integrations/logging/error_tracker.py` — **新建**：错误关键词检测、出现次数追踪（`data/auto_fix_tracker.json`）、GitHub Issue 创建（`gh` CLI）
+- `graph/agent.py` — `invoke()` 在返回前启动后台线程 `_maybe_auto_fix()`；新增 `_maybe_auto_fix()` 和 `_build_auto_fix_requirement()` 函数
+
+**能力变化**：
+- Agent 回复含错误/异常关键词时（如"错误"、"失败"、"Exception"等），自动在后台触发 Claude Code 修复
+- 同一错误模式第 1-2 次：静默修复（启动 Claude Code 会话，修复后推送报告）
+- 第 3 次及以上：停止自动修复，通知用户一起排查，并自动创建 GitHub Issue
+- 错误追踪数据持久化到 `data/auto_fix_tracker.json`
 
 ### v0.8.10（2026-03-20）— 上下文截断 + Token 优化 + 自我改进增强
 
