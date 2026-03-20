@@ -325,21 +325,24 @@ class FeishuKnowledge:
         全程 tenant_access_token，无需 user OAuth。
         """
         if self._is_space_level_token(parent_wiki_token):
-            raise ValueError(
-                f"create_wiki_child_page: parent_wiki_token {parent_wiki_token!r} 是 space 级标识，"
-                f"请传入有效的 wiki node token（如 FalZwGDOkiqpbQkeAjGc8jaznMd）"
+            logger.info(
+                f"[FeishuKnowledge] create_wiki_child_page: 收到 space 级标识 {parent_wiki_token!r}，"
+                f"将在 wiki 空间根目录创建（不指定 parent_node_token）"
             )
 
         # 方案 A：直接创建 wiki 节点（无需 docx 中转）
         try:
+            payload: dict = {
+                "obj_type": "wiki",
+                "node_type": "origin",
+                "title": title,
+            }
+            # space 级标识 → 创建在 wiki 空间根目录，不传 parent_node_token
+            if not self._is_space_level_token(parent_wiki_token):
+                payload["parent_node_token"] = parent_wiki_token
             resp = feishu_post(
                 f"/wiki/v2/spaces/{self.space_id}/nodes",
-                json={
-                    "obj_type": "wiki",
-                    "parent_node_token": parent_wiki_token,
-                    "node_type": "origin",
-                    "title": title,
-                },
+                json=payload,
             )
             node = resp.get("data", {}).get("node", {})
             node_token = node.get("node_token", "")
@@ -355,14 +358,13 @@ class FeishuKnowledge:
         doc_resp = feishu_post("/docx/v1/documents", json={"title": title})
         doc_id = doc_resp["data"]["document"]["document_id"]
 
-        # ② 移入 wiki
+        # ② 移入 wiki（space 级标识时不传 parent_wiki_token → 移到根节点）
+        move_payload: dict = {"obj_type": "docx", "obj_token": doc_id}
+        if not self._is_space_level_token(parent_wiki_token):
+            move_payload["parent_wiki_token"] = parent_wiki_token
         move_resp = feishu_post(
             f"/wiki/v2/spaces/{self.space_id}/nodes/move_docs_to_wiki",
-            json={
-                "parent_wiki_token": parent_wiki_token,
-                "obj_type": "docx",
-                "obj_token": doc_id,
-            },
+            json=move_payload,
         )
         task_id = move_resp["data"]["task_id"]
 

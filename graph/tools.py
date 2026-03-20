@@ -887,7 +887,10 @@ def feishu_project_setup(
                 or os.getenv("FEISHU_WIKI_CONTEXT_PAGE", "")
             )
         if not parent_wiki_token:
-            return "❌ 未配置项目集根页面，请先通过 agent_config 设置 FEISHU_WIKI_PORTFOLIO_PAGE"
+            # 降级到 wiki 空间根目录创建（使用 space_id 作为标识，create_wiki_child_page 会处理）
+            from integrations.feishu.knowledge import FeishuKnowledge as _KB
+            parent_wiki_token = _KB().space_id
+            logger.info(f"[feishu_project_setup] 未配置 FEISHU_WIKI_PORTFOLIO_PAGE，将在 wiki 根目录创建")
 
         # 清理 token（去除 URL 前缀、inline comment 残留、空白）
         from integrations.feishu.knowledge import parse_wiki_token

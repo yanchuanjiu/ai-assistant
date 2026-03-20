@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-20（v0.8.11）
+> 最后更新：2026-03-20（v0.8.12）
 
 ---
 
@@ -70,6 +70,19 @@
 - 所有交互延迟均 >70 秒，平均约 2-3 分钟，平均 token 消耗 ~110K
 - 5 条错误响应均与 `parent_wiki_token` 传入 space_id 有关（v0.8.8 已修复）
 - admin-http 线程在每次服务重启时因端口已占用持续写入 crash.log
+
+### v0.8.12（2026-03-20）— 飞书项目目录自动创建无需手动配置父页面
+
+**修改文件**：
+- `integrations/feishu/knowledge.py` — `create_wiki_child_page()` 收到 space 级标识时不再抛 ValueError，改为在 wiki 空间根目录创建（方案A/B 均处理）；原 ValueError 改为 info 日志
+- `graph/tools.py` — `feishu_project_setup` 无 `parent_wiki_token` 时降级到 `space_id`（在 wiki 根目录创建），不再报错要求手动配置 `FEISHU_WIKI_PORTFOLIO_PAGE`
+
+**根因**：`create_wiki_child_page` 对 space 级标识直接报错，且 `feishu_project_setup` 无 parent 时返回错误提示让用户手动配置，而实际上飞书 API 支持不传 `parent_node_token` 直接创建在根目录。
+
+**能力变化**：
+- 用户直接说"帮我新建 XX 项目目录"→ Agent 不再要求手动配置父页面，自动在 wiki 根目录创建
+- 已有 `FEISHU_WIKI_PORTFOLIO_PAGE` 配置时继续使用，保持向后兼容
+- 创建后仍缓存到 config_store，后续操作直接命中缓存
 
 ### v0.8.11（2026-03-20）— 主动错误检测 + 自动修复 + GitHub Issue 上报
 
