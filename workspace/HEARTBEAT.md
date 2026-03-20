@@ -32,6 +32,7 @@
 **上下文健康检查**：
 - 从 `logs/llm.jsonl` 检查最近 10 次调用的 input token 数
 - 若有调用超过 30K tokens，说明该 thread 上下文过重，在心跳消息中提醒用户可发 `/clear` 重置
+- v0.8.20 起历史 ToolMessage 截断至 300 字符，检查时若 avg input_tokens 仍 >50K，考虑进一步降低 HISTORY_TOOL_CONTENT_LIMIT
 
 ## 优先级 3：自我改进检查（每3天一次）
 
