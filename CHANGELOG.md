@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.6 - 2026-03-21
+
+### Fixed
+- **飞书 OAuth：已登录状态下仍触发重新授权流程**
+  - 根因：`feishu_oauth_setup` 工具无状态检查入口，LLM 遇到 token 相关错误（99991668/131006）时直接调用 `get_auth_url` 要求用户重新授权，即使 token 实际仍有效
+  - 修复：新增 `action="check_status"` —— 先检查 token 是否有效/已过期；过期且有 refresh_token 时自动续期（复用 client.py 刷新逻辑）；只有确认无法续期时才返回"需要重新授权"
+  - 修复：工具 docstring 增加强制规则：遇到 token 错误时**必须先调用 check_status**，check_status 返回"有效"或"已自动续期"则不得再触发 OAuth 流程
+  - 修复：`expires_at == 0` 的手动配置 token 在 check_status 中正确识别为有效（与 get_user_access_token 逻辑一致）
+
 ## v0.9.5 - 2026-03-21
 
 ### Fixed

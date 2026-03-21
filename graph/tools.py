@@ -1859,19 +1859,96 @@ def feishu_oauth_setup(action: str, code: str = "") -> str:
     """飞书 OAuth 授权工具：获取/更新 user_access_token + refresh_token，修复 wiki 空间 131006 权限问题。
 
     action 取值：
-      - "get_auth_url"  : 返回飞书登录授权链接，发给用户在浏览器中打开
+      - "check_status"  : ⚠️ 必须首先调用！检查当前 token 状态，过期则自动用 refresh_token 续期
+      - "get_auth_url"  : 返回飞书登录授权链接，发给用户在浏览器中打开（仅 check_status 确认需要时才调用）
       - "exchange_code" : 用授权 code 换取 access_token + refresh_token，自动写入 .env
 
-    使用流程（首次或 token 过期后）：
+    ⚠️ 重要规则：遇到 token 相关错误时，必须先调用 check_status，不得直接调用 get_auth_url。
+    - check_status 返回"有效"或"已自动续期" → token 正常，不需要重新授权，不得再触发 OAuth 流程
+    - check_status 返回"需要重新授权" → 才可调用 get_auth_url 让用户登录
+
+    使用流程（check_status 确认需要授权后）：
     1. feishu_oauth_setup(action="get_auth_url")  → 将链接发给用户
-    2. 用户在浏览器打开链接，登录飞书后页面跳转，从地址栏复制 code=xxx 参数
+    2. 用户在浏览器打开链接，登录飞书后页面跳转，从地址栏复制 code=xxx 参数值，
     3. feishu_oauth_setup(action="exchange_code", code="xxx")
     4. .env 自动写入 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN，立即生效
-
-    ⛔ token 过期后：重复步骤 1-3 即可，无需重启服务。
     """
     app_id = os.getenv("FEISHU_APP_ID", "")
     app_secret = os.getenv("FEISHU_APP_SECRET", "")
+
+    if action == "check_status":
+        token = os.getenv("FEISHU_USER_ACCESS_TOKEN", "")
+        refresh_token = os.getenv("FEISHU_USER_REFRESH_TOKEN", "")
+        expires_at = float(os.getenv("FEISHU_USER_TOKEN_EXPIRES_AT", "0"))
+        now = time.time()
+
+        if not token:
+            return (
+                "⚠️ token 状态：未配置\n"
+                "FEISHU_USER_ACCESS_TOKEN 未设置，需要重新授权。\n"
+                'feishu_oauth_setup(action="get_auth_url") 开始授权流程。'
+            )
+
+        # 手动配置 token 但未设置过期时间，视为有效（与 get_user_access_token 逻辑一致）
+        if token and expires_at == 0:
+            return (
+                "✅ token 状态：有效（手动配置，未设置过期时间，视为有效）\n"
+                "用户已登录，无需重新授权。token 可正常使用。"
+            )
+
+        # token 在缓存中且未过期
+        if expires_at > 0 and now < expires_at - 60:
+            remaining = int((expires_at - now) / 60)
+            return (
+                f"✅ token 状态：有效（剩余约 {remaining} 分钟）\n"
+                "用户已登录，无需重新授权。token 可正常使用。"
+            )
+
+        # token 已过期，尝试用 refresh_token 续期
+        if refresh_token:
+            try:
+                app_resp = httpx.post(
+                    f"{FEISHU_BASE}/auth/v3/app_access_token/internal",
+                    json={"app_id": app_id, "app_secret": app_secret},
+                    timeout=10,
+                )
+                app_resp.raise_for_status()
+                app_token = app_resp.json()["app_access_token"]
+
+                resp = httpx.post(
+                    f"{FEISHU_BASE}/authen/v1/refresh_access_token",
+                    headers={"Authorization": f"Bearer {app_token}"},
+                    json={"grant_type": "refresh_token", "refresh_token": refresh_token},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json().get("data", resp.json())
+                new_token = data.get("access_token", "")
+                new_refresh = data.get("refresh_token", refresh_token)
+                new_expires_in = data.get("expires_in", 7200)
+                new_expires_at = now + new_expires_in
+
+                if new_token:
+                    os.environ["FEISHU_USER_ACCESS_TOKEN"] = new_token
+                    os.environ["FEISHU_USER_REFRESH_TOKEN"] = new_refresh
+                    os.environ["FEISHU_USER_TOKEN_EXPIRES_AT"] = str(int(new_expires_at))
+                    _user_token_cache["token"] = new_token
+                    _user_token_cache["expires_at"] = new_expires_at
+                    _update_env_user_token(new_token, new_refresh, new_expires_at)
+                    return (
+                        f"✅ token 状态：已自动续期（新有效期约 {new_expires_in // 60} 分钟）\n"
+                        "用户已登录，无需重新授权。续期后可立即使用。"
+                    )
+            except Exception as e:
+                return (
+                    f"⚠️ token 已过期，自动续期失败：{e}\n"
+                    "需要重新授权，请调用 feishu_oauth_setup(action=\"get_auth_url\")。"
+                )
+
+        return (
+            "⚠️ token 状态：已过期且无 refresh_token\n"
+            "需要重新授权，请调用 feishu_oauth_setup(action=\"get_auth_url\")。"
+        )
 
     if action == "get_auth_url":
         scope = "wiki:wiki docx:document bitable:app im:message:send_as_bot"
@@ -1933,7 +2010,7 @@ def feishu_oauth_setup(action: str, code: str = "") -> str:
         except Exception as e:
             return f"❌ 换取 token 失败：{e}"
 
-    return f"❌ 未知 action：{action}，支持 get_auth_url / exchange_code"
+    return f"❌ 未知 action：{action}，支持 check_status / get_auth_url / exchange_code"
 
 
 # --------------------------------------------------------------------------- #
