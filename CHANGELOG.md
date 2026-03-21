@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.30 - 2026-03-21
+
+### Fixed
+- **`integrations/feishu/knowledge.py`**：`list_wiki_children` 根节点分支和子节点分支遇到 error 131006 时，原来静默返回空列表导致 `find_or_create_child_page` 继续尝试创建页面（同样 131006），造成级联失败。现在改为遇到 131006 立即抛出明确权限错误，终止后续无意义的创建操作，直接向用户呈现可操作的修复建议。
+
+---
+
 ## v0.8.29 - 2026-03-21
 
 ### Fixed

@@ -349,6 +349,13 @@ class FeishuKnowledge:
                 logger.info(f"[FeishuKnowledge] 空间根节点数量: {len(items)}")
                 return items
             except Exception as e:
+                detail = str(e)
+                if "131006" in detail:
+                    raise RuntimeError(
+                        f"wiki 空间权限不足（error 131006）：应用需要被 wiki 空间管理员授予「读取」权限，"
+                        f"或在 .env 中配置 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN。"
+                        f"原始错误: {e}"
+                    ) from e
                 logger.warning(f"[FeishuKnowledge] 列出根节点失败: {e}，返回空列表")
                 return []
         else:
@@ -358,7 +365,14 @@ class FeishuKnowledge:
                     params={"parent_node_token": parent_wiki_token, "page_size": 50},
                 )
             except Exception as e:
-                if "400" in str(e):
+                detail = str(e)
+                if "131006" in detail:
+                    raise RuntimeError(
+                        f"wiki 空间权限不足（error 131006）：应用需要被 wiki 空间管理员授予「读取」权限，"
+                        f"或在 .env 中配置 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN。"
+                        f"原始错误: {e}"
+                    ) from e
+                if "400" in detail:
                     logger.warning(
                         f"[FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: "
                         f"{parent_wiki_token!r}，返回空列表"
