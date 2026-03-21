@@ -210,12 +210,12 @@ def _build_system_prompt(messages: list | None = None) -> str:
 
 _LLM_LOG_PATH = "logs/llm.jsonl"
 
-# 上下文截断：最多保留最近 N 轮用户消息（每轮含 AI 回复 + 工具消息）
-MAX_USER_TURNS = 2
 # 历史工具结果内容限制：非当前轮的 ToolMessage 内容截断至此长度，防止旧任务结果污染新任务上下文
+# 注：不再按轮次截断对话历史，完整历史均传给 LLM（SQLite 存储）
 HISTORY_TOOL_CONTENT_LIMIT = 300
 # 每轮最大工具调用迭代次数（防止死循环）
-MAX_TOOL_ITERATIONS = 5
+# 设为 10：复杂开发任务（自迭代 + 上下文分析）通常需要 6-8 次，保留 2 次余量
+MAX_TOOL_ITERATIONS = 10
 
 # 需要用户手动交互的信号词（出现则提前终止，避免无效重试）
 _USER_INTERACTION_SIGNALS = [
@@ -227,51 +227,34 @@ _USER_INTERACTION_SIGNALS = [
 ]
 
 
-def _trim_to_user_turns(messages: list) -> list:
+def _trim_tool_content(messages: list) -> list:
     """
-    保留最近 MAX_USER_TURNS 轮用户消息及其后续 AI 回复/工具消息。
-    超出部分从 LLM 输入中截掉（SQLite 中仍保留完整历史，用户可 /clear 重置）。
+    对历史轮次（非当前轮）的 ToolMessage 内容做截断，
+    避免旧任务的工具结果（如飞书页面内容、钉钉文档内容）占用大量 token。
 
-    同时对历史轮次（非当前轮）的 ToolMessage 内容做截断，
-    避免旧任务的工具结果（如飞书页面内容、钉钉文档内容）污染当前任务的上下文。
+    不再按轮次截断对话历史——完整对话历史均传给 LLM，
+    仅限制历史 ToolMessage 内容长度至 HISTORY_TOOL_CONTENT_LIMIT 字符。
     """
     human_indices = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
-    if len(human_indices) == 0:
-        return messages
-
-    # 步骤1：按轮次截断（保留最近 MAX_USER_TURNS 轮）
-    if len(human_indices) > MAX_USER_TURNS:
-        cutoff = human_indices[-MAX_USER_TURNS]
-        trimmed = messages[cutoff:]
-        logger.info(
-            f"[ContextTrim] 历史从 {len(messages)} 条截断至 {len(trimmed)} 条"
-            f"（保留最近 {MAX_USER_TURNS} 轮用户消息）"
-        )
-        human_indices = [i for i, m in enumerate(trimmed) if isinstance(m, HumanMessage)]
-    else:
-        trimmed = messages
-
-    # 步骤2：对非当前轮的 ToolMessage 只保留人可读摘要（工具名 + 极短结果），
-    # 隔离不相关任务的上下文，同时保留"上一轮做了什么"的最小线索
     if len(human_indices) <= 1:
-        return trimmed
+        return messages
 
     current_turn_start = human_indices[-1]
     result = []
     tool_truncated = 0
-    for i, m in enumerate(trimmed):
+    for i, m in enumerate(messages):
         if i < current_turn_start and isinstance(m, ToolMessage):
             content = m.content if isinstance(m.content, str) else str(m.content)
             if len(content) > HISTORY_TOOL_CONTENT_LIMIT:
-                # 只保留前 100 字符作为人可读摘要，丢弃原始工具数据
-                new_content = content[:100] + f"…[工具结果已省略，原长{len(content)}字符]"
+                # 只保留前 HISTORY_TOOL_CONTENT_LIMIT 字符作为人可读摘要，丢弃原始工具数据
+                new_content = content[:HISTORY_TOOL_CONTENT_LIMIT] + f"…[工具结果已省略，原长{len(content)}字符]"
                 result.append(ToolMessage(content=new_content, tool_call_id=m.tool_call_id))
                 tool_truncated += 1
                 continue
         result.append(m)
 
     if tool_truncated:
-        logger.info(f"[ContextIsolation] 省略 {tool_truncated} 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染")
+        logger.info(f"[ContextIsolation] 省略 {tool_truncated} 条历史 ToolMessage 内容（保留前{HISTORY_TOOL_CONTENT_LIMIT}字符），防止跨任务上下文污染")
     return result
 
 
@@ -433,8 +416,8 @@ def agent_node(state: AgentState) -> dict:
         ))]}
     # ─────────────────────────────────────────────────────────────────────────
 
-    # 截断历史：只取最近 MAX_USER_TURNS 轮用户消息，控制 token 消耗
-    trimmed = _trim_to_user_turns(state["messages"])
+    # 截断历史 ToolMessage 内容：保留完整对话历史，仅压缩历史轮工具结果体积
+    trimmed = _trim_tool_content(state["messages"])
     messages = [SystemMessage(content=_build_system_prompt(trimmed))] + trimmed
 
     # 动态选择工具（渐进式披露）

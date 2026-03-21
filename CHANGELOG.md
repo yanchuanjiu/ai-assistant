@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.9.7 - 2026-03-21
+
+### Changed
+- **移除上下文轮次截断，保留工具内容限制**
+  - 根因：`MAX_USER_TURNS=2` 导致 LLM 只能看到最近 2 轮对话历史，无法理解跨轮次的任务背景和用户意图
+  - 修改：删除 `MAX_USER_TURNS` 常量及按轮截断逻辑，完整对话历史均传给 LLM
+  - 保留：`HISTORY_TOOL_CONTENT_LIMIT=300` 对历史 ToolMessage 内容截断，防止旧工具结果（飞书页面内容等）占用大量 token
+  - 重命名：`_trim_to_user_turns()` → `_trim_tool_content()`，函数职责更清晰
+  - 调用处注释更新，反映新的截断语义
+  - Token 分析（基于 logs/llm.jsonl 近 50 条）：平均 prompt 22,660 tokens，最低 5,945，最高 36,649；火山云 doubao-pro-32k 上下文 32K tokens，完整历史策略在正常对话长度下有充足空间
+
+---
+
 ## v0.9.6 - 2026-03-21
 
 ### Fixed
