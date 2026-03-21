@@ -6900,3 +6900,1203 @@ For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/St
 2026-03-20 23:32:53,653 [INFO] graph.nodes: [ContextTrim] 历史从 709 条截断至 20 条（保留最近 5 轮用户消息）
 2026-03-20 23:32:53,653 [INFO] graph.nodes: [ContextIsolation] 截断 2 条历史 ToolMessage（限300字符），防止跨任务上下文污染
 2026-03-20 23:33:12,804 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-20 23:33:16,268 [INFO] graph.nodes: [ContextTrim] 历史从 711 条截断至 22 条（保留最近 5 轮用户消息）
+2026-03-20 23:33:16,274 [INFO] graph.nodes: [ContextIsolation] 截断 2 条历史 ToolMessage（限300字符），防止跨任务上下文污染
+2026-03-20 23:33:35,798 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-20 23:33:37,069 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e2cbea70a8c3431ea6098e92d/reactions/dDrhfF1exHLNehJX36gOEpN6HHh1LDE6pYtVuoXaNAXEzrsJ4WaDAVYted_f8lDB "HTTP/1.1 200 OK"
+2026-03-20 23:33:37,456 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e2cbea70a8c3431ea6098e92d/reactions "HTTP/1.1 200 OK"
+2026-03-20 23:53:17,806 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=hi
+2026-03-20 23:53:18,197 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e2981e14a4c320d282d8db9da/reactions "HTTP/1.1 200 OK"
+2026-03-20 23:53:18,230 [INFO] graph.nodes: [ContextTrim] 历史从 713 条截断至 20 条（保留最近 5 轮用户消息）
+2026-03-20 23:53:18,230 [INFO] graph.nodes: [ContextIsolation] 截断 5 条历史 ToolMessage（限300字符），防止跨任务上下文污染
+2026-03-20 23:53:28,033 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-20 23:53:28,938 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e2981e14a4c320d282d8db9da/reactions/5GflyoMmIPqkZa6-lpjc2gagho7rNbfSDJ3Wv8LJ61rA9MqX_LHMo90SoxYQinGW "HTTP/1.1 200 OK"
+2026-03-20 23:53:29,399 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e2981e14a4c320d282d8db9da/reactions "HTTP/1.1 200 OK"
+2026-03-20 23:53:59,657 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=你可以读取到你所在服务器的root目录下，AI assistant的项目内容吗？
+2026-03-20 23:54:00,037 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e297beb0a0c3e85961948fc2f/reactions "HTTP/1.1 200 OK"
+2026-03-20 23:54:00,062 [INFO] graph.nodes: [ContextTrim] 历史从 715 条截断至 18 条（保留最近 5 轮用户消息）
+2026-03-20 23:54:00,062 [INFO] graph.nodes: [ContextIsolation] 截断 4 条历史 ToolMessage（限300字符），防止跨任务上下文污染
+2026-03-20 23:54:17,319 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-20 23:54:17,331 [INFO] graph.nodes: [ContextTrim] 历史从 717 条截断至 20 条（保留最近 5 轮用户消息）
+2026-03-20 23:54:17,331 [INFO] graph.nodes: [ContextIsolation] 截断 4 条历史 ToolMessage（限300字符），防止跨任务上下文污染
+2026-03-20 23:54:43,410 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-20 23:54:44,365 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e297beb0a0c3e85961948fc2f/reactions/gvmPbH5H3FZbUZYSgf--J4ILWLts_DR4JXcvFaQnL6IHF4roD1JnyGD0O0eM6NQM "HTTP/1.1 200 OK"
+2026-03-20 23:54:44,736 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e297beb0a0c3e85961948fc2f/reactions "HTTP/1.1 200 OK"
+2026-03-20 23:55:34,533 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=读取Workspace目录下。Skills project management的MD文件
+2026-03-20 23:55:34,874 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e2919340a0c4207a9b28e984f/reactions "HTTP/1.1 200 OK"
+2026-03-20 23:55:34,898 [INFO] graph.nodes: [ContextTrim] 历史从 719 条截断至 19 条（保留最近 5 轮用户消息）
+2026-03-20 23:55:34,899 [INFO] graph.nodes: [ContextIsolation] 截断 4 条历史 ToolMessage（限300字符），防止跨任务上下文污染
+2026-03-20 23:55:56,734 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-20 23:55:56,745 [INFO] graph.nodes: [ContextTrim] 历史从 721 条截断至 21 条（保留最近 5 轮用户消息）
+2026-03-20 23:55:56,745 [INFO] graph.nodes: [ContextIsolation] 截断 4 条历史 ToolMessage（限300字符），防止跨任务上下文污染
+2026-03-20 23:56:04,690 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-20 23:56:04,704 [INFO] graph.nodes: [ContextTrim] 历史从 723 条截断至 23 条（保留最近 5 轮用户消息）
+2026-03-20 23:56:04,705 [INFO] graph.nodes: [ContextIsolation] 截断 4 条历史 ToolMessage（限300字符），防止跨任务上下文污染
+2026-03-20 23:56:25,409 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-20 23:56:25,421 [INFO] graph.nodes: [ContextTrim] 历史从 725 条截断至 25 条（保留最近 5 轮用户消息）
+2026-03-20 23:56:25,421 [INFO] graph.nodes: [ContextIsolation] 截断 4 条历史 ToolMessage（限300字符），防止跨任务上下文污染
+2026-03-20 23:56:52,218 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-20 23:56:53,213 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e2919340a0c4207a9b28e984f/reactions/Oz4QWR4jz2lD9DJB5mhwtAUXTu4XHl1hE8PqPOI7rTHLOtuVpmCwJ2Y66s1g3Zs1 "HTTP/1.1 200 OK"
+2026-03-20 23:56:53,577 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54e2919340a0c4207a9b28e984f/reactions "HTTP/1.1 200 OK"
+2026-03-20 23:58:59,422 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-20 23:58:59 CST)" (scheduled at 2026-03-20 23:58:59.422047+08:00)
+2026-03-20 23:58:59,423 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 00:28:59 CST)" (scheduled at 2026-03-20 23:58:59.422738+08:00)
+2026-03-20 23:58:59,424 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-20 23:58:59,423 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 00:28:59 CST)" (scheduled at 2026-03-20 23:58:59.422899+08:00)
+2026-03-20 23:58:59,429 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 00:28:59 CST)" executed successfully
+2026-03-20 23:58:59,430 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-20 23:58:59,709 [INFO] httpx: HTTP Request: POST https://api.dingtalk.com/v1.0/oauth2/accessToken "HTTP/1.1 200 OK"
+2026-03-20 23:58:59,797 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-20 23:58:59,798 [ERROR] sync.context_sync: 同步飞书失败: Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-20 23:58:59,798 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 00:28:59 CST)" executed successfully
+2026-03-20 23:58:59,920 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-20 23:58:59,920 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-20 23:59:00,159 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-20 23:59:00,160 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-20 23:59:00,427 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-20 23:59:00,428 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-20 23:59:00,641 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-20 23:59:00,641 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-20 23:59:00,641 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 00:28:59 CST)" executed successfully
+2026-03-21 00:28:59,423 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 00:58:59 CST)" (scheduled at 2026-03-21 00:28:59.422047+08:00)
+2026-03-21 00:28:59,423 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 00:28:59,424 [INFO] apscheduler.executors.default: Running job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 01:28:59 CST)" (scheduled at 2026-03-21 00:28:59.422608+08:00)
+2026-03-21 00:28:59,424 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 00:58:59 CST)" (scheduled at 2026-03-21 00:28:59.422738+08:00)
+2026-03-21 00:28:59,425 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 00:28:59,425 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 00:58:59 CST)" (scheduled at 2026-03-21 00:28:59.422899+08:00)
+2026-03-21 00:28:59,426 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 00:58:59 CST)" executed successfully
+2026-03-21 00:28:59,467 [INFO] scheduler: [Scheduler] 开始轮询邮件...
+2026-03-21 00:28:59,678 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 00:28:59,678 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 00:28:59,782 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 00:28:59,782 [ERROR] sync.context_sync: 同步飞书失败: Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 00:28:59,783 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 00:58:59 CST)" executed successfully
+2026-03-21 00:28:59,914 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 00:28:59,915 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 00:29:00,132 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 00:29:00,132 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 00:29:00,367 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 00:29:00,368 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 00:29:00,368 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 00:58:59 CST)" executed successfully
+2026-03-21 00:29:03,907 [ERROR] integrations.email.imap_client: [IMAP] 连接 imap.163.com:993 失败: select failed: SELECT Unsafe Login. Please contact kefu@188.com for help
+2026-03-21 00:29:03,908 [INFO] apscheduler.executors.default: Job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 01:28:59 CST)" executed successfully
+2026-03-21 00:35:10,817 [INFO] main: 收到信号 15，准备关闭…
+2026-03-21 00:35:10,818 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-03-21 00:35:10,818 [INFO] main: AI 助理已退出
+2026-03-21 00:35:10,932 [INFO] main: PID 124084 写入 /root/ai-assistant/logs/service.pid
+2026-03-21 00:35:10,932 [INFO] main: [feishu-ws] 启动
+2026-03-21 00:35:10,936 [INFO] main: [dingtalk-stream] 启动
+2026-03-21 00:35:10,950 [INFO] main: [admin-http] 启动
+2026-03-21 00:35:10,953 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 00:35:10,953 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 00:35:10,953 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 00:35:10,953 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 00:35:10,959 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 00:35:10,962 [INFO] apscheduler.scheduler: Added job "poll_dingtalk_meetings" to job store "default"
+2026-03-21 00:35:10,962 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-21 00:35:10,962 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-21 00:35:10,962 [INFO] apscheduler.scheduler: Added job "heartbeat" to job store "default"
+2026-03-21 00:35:10,962 [INFO] apscheduler.scheduler: Added job "daily_meeting_migration" to job store "default"
+2026-03-21 00:35:10,962 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-21 00:35:10,968 [INFO] scheduler: Scheduler 已启动（每日迁移 08:00 触发）
+2026-03-21 00:35:10,968 [INFO] main: AI 助理启动完成（无 HTTP 层）
+2026-03-21 00:35:10,984 [ERROR] main: [admin-http] 崩溃: [Errno 98] Address already in use，5s 后重启
+Traceback (most recent call last):
+  File "/root/ai-assistant/main.py", line 57, in _run
+    target()
+  File "/root/ai-assistant/main.py", line 79, in _start_admin
+    start_admin_server()
+  File "/root/ai-assistant/admin/server.py", line 424, in start_admin_server
+    server = HTTPServer(("0.0.0.0", port), AdminHandler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/usr/lib/python3.12/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/lib/python3.12/socketserver.py", line 473, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 98] Address already in use
+2026-03-21 00:35:11,404 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-21 00:35:11,405 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-21 00:35:11,700 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': 'c3e76c04-247a-11f1-a0db-f2b60f80adf6'}
+2026-03-21 00:35:13,013 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-21 00:35:15,984 [INFO] main: [admin-http] 启动
+2026-03-21 00:35:15,985 [INFO] admin.server: [admin] 配置管理界面启动：http://0.0.0.0:8080
+2026-03-21 00:42:11,140 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=hi
+2026-03-21 01:05:10,953 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 01:05:10 CST)" (scheduled at 2026-03-21 01:05:10.952937+08:00)
+2026-03-21 01:05:10,954 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 01:35:10 CST)" (scheduled at 2026-03-21 01:05:10.953457+08:00)
+2026-03-21 01:05:10,957 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 01:35:10 CST)" (scheduled at 2026-03-21 01:05:10.953537+08:00)
+2026-03-21 01:05:10,961 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 01:35:10 CST)" executed successfully
+2026-03-21 01:05:10,962 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 01:05:10,963 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 01:05:11,245 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-21 01:05:11,314 [INFO] httpx: HTTP Request: POST https://api.dingtalk.com/v1.0/oauth2/accessToken "HTTP/1.1 200 OK"
+2026-03-21 01:05:11,575 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 01:05:11,576 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:05:11,576 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 01:05:11,577 [ERROR] sync.context_sync: 同步飞书失败: Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:05:11,577 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 01:35:10 CST)" executed successfully
+2026-03-21 01:05:11,801 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 01:05:11,802 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 01:05:12,036 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 01:05:12,036 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:05:12,250 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 01:05:12,250 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 01:05:12,250 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 01:35:10 CST)" executed successfully
+2026-03-21 01:28:41,816 [INFO] main: 收到信号 15，准备关闭…
+2026-03-21 01:28:41,819 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-03-21 01:28:41,821 [INFO] main: AI 助理已退出
+2026-03-21 01:28:41,933 [INFO] main: PID 126835 写入 /root/ai-assistant/logs/service.pid
+2026-03-21 01:28:41,934 [INFO] main: [feishu-ws] 启动
+2026-03-21 01:28:41,935 [INFO] main: [dingtalk-stream] 启动
+2026-03-21 01:28:41,935 [INFO] main: [admin-http] 启动
+2026-03-21 01:28:41,946 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 01:28:41,946 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 01:28:41,946 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 01:28:41,946 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 01:28:41,950 [ERROR] main: [admin-http] 崩溃: [Errno 98] Address already in use，5s 后重启
+Traceback (most recent call last):
+  File "/root/ai-assistant/main.py", line 57, in _run
+    target()
+  File "/root/ai-assistant/main.py", line 79, in _start_admin
+    start_admin_server()
+  File "/root/ai-assistant/admin/server.py", line 424, in start_admin_server
+    server = HTTPServer(("0.0.0.0", port), AdminHandler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/usr/lib/python3.12/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/lib/python3.12/socketserver.py", line 473, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 98] Address already in use
+2026-03-21 01:28:41,968 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 01:28:41,979 [INFO] apscheduler.scheduler: Added job "poll_dingtalk_meetings" to job store "default"
+2026-03-21 01:28:41,979 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-21 01:28:41,979 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-21 01:28:41,979 [INFO] apscheduler.scheduler: Added job "heartbeat" to job store "default"
+2026-03-21 01:28:41,979 [INFO] apscheduler.scheduler: Added job "daily_meeting_migration" to job store "default"
+2026-03-21 01:28:41,979 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-21 01:28:41,983 [INFO] scheduler: Scheduler 已启动（每日迁移 08:00 触发）
+2026-03-21 01:28:41,984 [INFO] main: AI 助理启动完成（无 HTTP 层）
+2026-03-21 01:28:42,440 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-21 01:28:42,441 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-21 01:28:42,707 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '3dce3802-2482-11f1-899a-5e6c444bf2d8'}
+2026-03-21 01:28:43,858 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-21 01:28:46,954 [INFO] main: [admin-http] 启动
+2026-03-21 01:28:46,954 [INFO] admin.server: [admin] 配置管理界面启动：http://0.0.0.0:8080
+2026-03-21 01:38:47,227 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=https://pw46ob73t1c.feishu.cn/wiki/LkmAwSTmbivFy9klt9RcTA50nde?fromScene=spaceOv
+2026-03-21 01:38:48,765 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 01:38:48,766 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 01:38:48,941 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 202 Accepted"
+2026-03-21 01:38:49,518 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 01:38:49,523 [INFO] integrations.mcp.client: [MCP] dingtalk_docs 已加载 15 个工具: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file']
+2026-03-21 01:38:50,106 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 01:38:50,107 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 01:38:50,294 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 202 Accepted"
+2026-03-21 01:38:50,658 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 01:38:50,662 [INFO] integrations.mcp.client: [MCP] dingtalk_table 已加载 21 个工具: ['delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 01:38:50,662 [INFO] graph.tools: [tools] 钉钉 MCP 工具已注册: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file', 'delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 01:38:50,662 [INFO] graph.tools: [tools] 会议纪要流水线工具已注册到 dingtalk_mcp 分类
+2026-03-21 01:38:51,163 [INFO] graph.nodes: LLM 链：火山云(ep-20260317143459-qtgqn) → OpenRouter(anthropic/claude-sonnet-4-5)
+2026-03-21 01:38:51,340 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-21 01:38:51,710 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ec2ca4bca4b21d7ebf0b59112/reactions "HTTP/1.1 200 OK"
+2026-03-21 01:38:51,742 [INFO] graph.nodes: [ContextTrim] 历史从 727 条截断至 9 条（保留最近 2 轮用户消息）
+2026-03-21 01:38:51,742 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:39:19,972 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:39:20,350 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LkmAwSTmbivFy9klt9RcTA50nde&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:39:20,623 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/D75cdHC3nosIfzxzqlCcYTtMnMc/raw_content "HTTP/1.1 200 OK"
+2026-03-21 01:39:20,626 [INFO] graph.nodes: [ContextTrim] 历史从 729 条截断至 11 条（保留最近 2 轮用户消息）
+2026-03-21 01:39:20,626 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:40:28,157 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:40:28,533 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LkmAwSTmbivFy9klt9RcTA50nde&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:40:28,785 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/D75cdHC3nosIfzxzqlCcYTtMnMc/blocks "HTTP/1.1 200 OK"
+2026-03-21 01:40:29,151 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/D75cdHC3nosIfzxzqlCcYTtMnMc/blocks/D75cdHC3nosIfzxzqlCcYTtMnMc/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 01:40:29,513 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/D75cdHC3nosIfzxzqlCcYTtMnMc/blocks/D75cdHC3nosIfzxzqlCcYTtMnMc/children "HTTP/1.1 200 OK"
+2026-03-21 01:40:30,206 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/D75cdHC3nosIfzxzqlCcYTtMnMc/blocks/D75cdHC3nosIfzxzqlCcYTtMnMc/children "HTTP/1.1 200 OK"
+2026-03-21 01:40:30,209 [INFO] graph.nodes: [ContextTrim] 历史从 731 条截断至 13 条（保留最近 2 轮用户消息）
+2026-03-21 01:40:30,215 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:40:54,612 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:40:55,686 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ec2ca4bca4b21d7ebf0b59112/reactions/z2_KwLAlrnoaFrm8rD7ecD2JhfNu9q-RKpD-STuse226qhJvrXgRVN9wq-lmDebV "HTTP/1.1 200 OK"
+2026-03-21 01:40:56,040 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ec2ca4bca4b21d7ebf0b59112/reactions "HTTP/1.1 200 OK"
+2026-03-21 01:46:55,019 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=我觉得你这样的分类还是不够合适。是否可以做得更加通用一点的？就比如我现在已经在飞书文档下有三个实际的项目，且刚刚我已经描述了这三个项目可能会涉及到的关键主题，那
+2026-03-21 01:46:55,388 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ecce2ba8a0b249008befe39a1/reactions "HTTP/1.1 200 OK"
+2026-03-21 01:46:55,413 [INFO] graph.nodes: [ContextTrim] 历史从 733 条截断至 7 条（保留最近 2 轮用户消息）
+2026-03-21 01:46:55,413 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:47:19,115 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:47:19,128 [INFO] graph.nodes: [ContextTrim] 历史从 735 条截断至 9 条（保留最近 2 轮用户消息）
+2026-03-21 01:47:19,128 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:47:42,108 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:47:42,441 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Er5mwrzNaindsYkNs0nczm6onLf&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 01:47:42,441 [ERROR] graph.tools: [feishu_read_page] Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Er5mwrzNaindsYkNs0nczm6onLf&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:47:42,443 [INFO] graph.nodes: [ContextTrim] 历史从 737 条截断至 11 条（保留最近 2 轮用户消息）
+2026-03-21 01:47:42,443 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:48:18,010 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:48:18,348 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Jbvxw7jiMiIRYVkpYNFcsm2Knac&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 01:48:18,349 [ERROR] graph.tools: [feishu_read_page] Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Jbvxw7jiMiIRYVkpYNFcsm2Knac&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:48:18,643 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=GQqCwd95ciKFhikUjZ1cGnt7nLh&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 01:48:18,644 [ERROR] graph.tools: [feishu_read_page] Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=GQqCwd95ciKFhikUjZ1cGnt7nLh&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:48:18,948 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Ofk7wFHyHisVX6kcmkscNDxAn4e&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 01:48:18,949 [ERROR] graph.tools: [feishu_read_page] Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Ofk7wFHyHisVX6kcmkscNDxAn4e&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:48:18,951 [INFO] graph.nodes: [ContextTrim] 历史从 741 条截断至 15 条（保留最近 2 轮用户消息）
+2026-03-21 01:48:18,956 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:48:51,898 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:48:52,142 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=XdSywSXhfiw8jZknMzBcbg9xnfb&page_size=50 "HTTP/1.1 400 Bad Request"
+2026-03-21 01:48:52,143 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: 'XdSywSXhfiw8jZknMzBcbg9xnfb'，返回空列表
+2026-03-21 01:48:52,374 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=VzCPwOIpsiXtQckjotGcRFTCnNd&page_size=50 "HTTP/1.1 400 Bad Request"
+2026-03-21 01:48:52,374 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: 'VzCPwOIpsiXtQckjotGcRFTCnNd'，返回空列表
+2026-03-21 01:48:52,596 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=Aw8RwaRqeixtjukdT2Ocnu4mnrb&page_size=50 "HTTP/1.1 400 Bad Request"
+2026-03-21 01:48:52,597 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: 'Aw8RwaRqeixtjukdT2Ocnu4mnrb'，返回空列表
+2026-03-21 01:48:52,598 [INFO] graph.nodes: [ContextTrim] 历史从 745 条截断至 19 条（保留最近 2 轮用户消息）
+2026-03-21 01:48:52,598 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:49:29,759 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:49:29,978 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=XdSywSXhfiw8jZknMzBcbg9xnfb&page_size=50 "HTTP/1.1 400 Bad Request"
+2026-03-21 01:49:29,978 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: 'XdSywSXhfiw8jZknMzBcbg9xnfb'，返回空列表
+2026-03-21 01:49:29,978 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '04_会议纪要'
+2026-03-21 01:49:30,218 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 400 Bad Request"
+2026-03-21 01:49:30,219 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 失败，降级到方案B: Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 | 响应体: {'code': 131005, 'msg': 'not found', 'error': {'log_id': '202603210149305699ED51EC9F7D3D24DA', 'troubleshooter': '排查建议查看(Troubleshooting suggestions): https://open.feishu.cn/search?from=openapi&log_id=202603210149305699ED51EC9F7D3D24DA&code=131005&method_id=6976461983962234881'}}
+2026-03-21 01:49:30,968 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents "HTTP/1.1 200 OK"
+2026-03-21 01:49:31,345 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes/move_docs_to_wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 01:49:31,345 [ERROR] graph.tools: [feishu_wiki_page] Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes/move_docs_to_wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:49:31,557 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=VzCPwOIpsiXtQckjotGcRFTCnNd&page_size=50 "HTTP/1.1 400 Bad Request"
+2026-03-21 01:49:31,557 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: 'VzCPwOIpsiXtQckjotGcRFTCnNd'，返回空列表
+2026-03-21 01:49:31,557 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '04_会议纪要'
+2026-03-21 01:49:31,801 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 400 Bad Request"
+2026-03-21 01:49:31,802 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 失败，降级到方案B: Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 | 响应体: {'code': 131005, 'msg': 'not found', 'error': {'log_id': '20260321014931D2FD2DF2589635371DE9', 'troubleshooter': '排查建议查看(Troubleshooting suggestions): https://open.feishu.cn/search?from=openapi&log_id=20260321014931D2FD2DF2589635371DE9&code=131005&method_id=6976461983962234881'}}
+2026-03-21 01:49:32,509 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents "HTTP/1.1 200 OK"
+2026-03-21 01:49:32,889 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes/move_docs_to_wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 01:49:32,890 [ERROR] graph.tools: [feishu_wiki_page] Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes/move_docs_to_wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:49:33,089 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=Aw8RwaRqeixtjukdT2Ocnu4mnrb&page_size=50 "HTTP/1.1 400 Bad Request"
+2026-03-21 01:49:33,089 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: 'Aw8RwaRqeixtjukdT2Ocnu4mnrb'，返回空列表
+2026-03-21 01:49:33,089 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '04_会议纪要'
+2026-03-21 01:49:33,321 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 400 Bad Request"
+2026-03-21 01:49:33,322 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 失败，降级到方案B: Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 | 响应体: {'code': 131005, 'msg': 'not found', 'error': {'log_id': '202603210149333921D32AA62CCD38FEE1', 'troubleshooter': '排查建议查看(Troubleshooting suggestions): https://open.feishu.cn/search?from=openapi&log_id=202603210149333921D32AA62CCD38FEE1&code=131005&method_id=6976461983962234881'}}
+2026-03-21 01:49:33,976 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents "HTTP/1.1 200 OK"
+2026-03-21 01:49:34,339 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes/move_docs_to_wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 01:49:34,339 [ERROR] graph.tools: [feishu_wiki_page] Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes/move_docs_to_wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:49:34,341 [INFO] graph.nodes: [ContextTrim] 历史从 749 条截断至 23 条（保留最近 2 轮用户消息）
+2026-03-21 01:49:34,346 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:49:55,839 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:49:56,765 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ecce2ba8a0b249008befe39a1/reactions/dIpCh2pH46NB28zJUYjpf5fVfpqW5RUWIlNRPI8MWhUO7G-EAe0OfSFPGH4atqHq "HTTP/1.1 200 OK"
+2026-03-21 01:49:57,120 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ecce2ba8a0b249008befe39a1/reactions "HTTP/1.1 200 OK"
+2026-03-21 01:50:25,790 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=https://bytedance.larkoffice.com/wiki/Vbk9w0oIMiFFJekDGENcZOPLnwe?from=from_copy
+2026-03-21 01:50:26,153 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ecc0dc54a8b4b1dd084a30200/reactions "HTTP/1.1 200 OK"
+2026-03-21 01:50:26,179 [INFO] graph.nodes: [ContextTrim] 历史从 751 条截断至 19 条（保留最近 2 轮用户消息）
+2026-03-21 01:50:26,180 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:50:39,804 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:50:40,182 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Vbk9w0oIMiFFJekDGENcZOPLnwe&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:50:40,423 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/RP1Gd6pC9o8ywTxix9fcmHhMnUd/raw_content "HTTP/1.1 200 OK"
+2026-03-21 01:50:40,425 [INFO] graph.nodes: [ContextTrim] 历史从 753 条截断至 21 条（保留最近 2 轮用户消息）
+2026-03-21 01:50:40,425 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:51:08,343 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:51:08,715 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Vbk9w0oIMiFFJekDGENcZOPLnwe&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:51:08,968 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/RP1Gd6pC9o8ywTxix9fcmHhMnUd/raw_content "HTTP/1.1 200 OK"
+2026-03-21 01:51:08,970 [INFO] graph.nodes: [ContextTrim] 历史从 755 条截断至 23 条（保留最近 2 轮用户消息）
+2026-03-21 01:51:08,970 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:52:00,788 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:52:00,802 [INFO] graph.nodes: [ContextTrim] 历史从 757 条截断至 25 条（保留最近 2 轮用户消息）
+2026-03-21 01:52:00,802 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:52:47,794 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:52:47,806 [INFO] graph.nodes: [ContextTrim] 历史从 759 条截断至 27 条（保留最近 2 轮用户消息）
+2026-03-21 01:52:47,807 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:53:23,320 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:53:23,687 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Vbk9w0oIMiFFJekDGENcZOPLnwe&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:53:23,932 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/RP1Gd6pC9o8ywTxix9fcmHhMnUd/raw_content "HTTP/1.1 200 OK"
+2026-03-21 01:53:24,341 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=Qo4nwLphWiWZyfkGAHHcoHwQnEf&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 01:53:24,341 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '📋 会议纪要总库'
+2026-03-21 01:53:25,061 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 01:53:25,061 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: '📋 会议纪要总库' → LALdwqf7JicxU9kyzvzcV2OpnKJ
+2026-03-21 01:53:25,064 [INFO] graph.nodes: [ContextTrim] 历史从 762 条截断至 30 条（保留最近 2 轮用户消息）
+2026-03-21 01:53:25,064 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:54:06,179 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:54:06,582 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LALdwqf7JicxU9kyzvzcV2OpnKJ&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 01:54:06,582 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '01_大模型产品知识库'
+2026-03-21 01:54:07,273 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 01:54:07,273 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: '01_大模型产品知识库' → RrdkwG6qUiakfJkTMDpcBAXinsc
+2026-03-21 01:54:07,653 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LALdwqf7JicxU9kyzvzcV2OpnKJ&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 01:54:07,653 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '02_VOC电商运营'
+2026-03-21 01:54:08,339 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 01:54:08,339 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: '02_VOC电商运营' → WhwQwUKWki6pPKkgetQc0w2YnYe
+2026-03-21 01:54:08,690 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LALdwqf7JicxU9kyzvzcV2OpnKJ&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 01:54:08,690 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '03_AI赋能消费者决策链路'
+2026-03-21 01:54:09,338 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 01:54:09,339 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: '03_AI赋能消费者决策链路' → KBhIwR64xiFlmkkfHbXc1U7OnQb
+2026-03-21 01:54:09,699 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LALdwqf7JicxU9kyzvzcV2OpnKJ&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 01:54:09,699 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '04_其他会议'
+2026-03-21 01:54:10,366 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 01:54:10,374 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: '04_其他会议' → EGLfwjYHtijhNrkpp6AcwQoSnMh
+2026-03-21 01:54:10,378 [INFO] graph.nodes: [ContextTrim] 历史从 767 条截断至 35 条（保留最近 2 轮用户消息）
+2026-03-21 01:54:10,378 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:54:40,421 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:54:40,880 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LALdwqf7JicxU9kyzvzcV2OpnKJ&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 01:54:40,881 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: 'Agent飞书能力优化方案'
+2026-03-21 01:54:41,554 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 01:54:41,555 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: 'Agent飞书能力优化方案' → VKmHwLyNSisefzkXSMBcfVNGnDb
+2026-03-21 01:54:41,573 [INFO] graph.nodes: [ContextTrim] 历史从 771 条截断至 39 条（保留最近 2 轮用户消息）
+2026-03-21 01:54:41,574 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:54:57,868 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:thread:om_x100b54ecc28e9cb0c4596cd33555e20 msg=好的，继续迁移
+2026-03-21 01:54:58,231 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ecd1d92ca0b2c334f25cdeacb/reactions "HTTP/1.1 200 OK"
+2026-03-21 01:54:58,258 [INFO] graph.nodes: [ContextTrim] 历史从 772 条截断至 22 条（保留最近 2 轮用户消息）
+2026-03-21 01:54:58,258 [INFO] graph.nodes: [ContextIsolation] 省略 3 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:55:09,304 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:55:09,643 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=VKmHwLyNSisefzkXSMBcfVNGnDb&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:55:10,018 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/CixhdHl0DoKFo1xJvRdcwgiGnbd/blocks/CixhdHl0DoKFo1xJvRdcwgiGnbd/children "HTTP/1.1 200 OK"
+2026-03-21 01:55:10,021 [INFO] graph.nodes: [ContextTrim] 历史从 773 条截断至 41 条（保留最近 2 轮用户消息）
+2026-03-21 01:55:10,021 [INFO] graph.nodes: [ContextIsolation] 省略 1 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:55:24,193 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:55:43,509 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:55:46,514 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ecc0dc54a8b4b1dd084a30200/reactions/jOTVlYm_nXnyZG2G44qKYvM56DZ92Xs1mgUt8CpIOolnfUry-XjJ2__1AEj4Z6cU "HTTP/1.1 200 OK"
+2026-03-21 01:55:46,883 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ecc0dc54a8b4b1dd084a30200/reactions "HTTP/1.1 200 OK"
+2026-03-21 01:56:25,770 [INFO] graph.nodes: [ContextTrim] 历史从 775 条截断至 25 条（保留最近 2 轮用户消息）
+2026-03-21 01:56:25,814 [INFO] graph.nodes: [ContextIsolation] 省略 3 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:56:57,589 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:56:58,020 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Vbk9w0oIMiFFJekDGENcZOPLnwe&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:56:58,315 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/RP1Gd6pC9o8ywTxix9fcmHhMnUd/raw_content "HTTP/1.1 200 OK"
+2026-03-21 01:56:58,652 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=VKmHwLyNSisefzkXSMBcfVNGnDb&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:56:59,017 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/CixhdHl0DoKFo1xJvRdcwgiGnbd/blocks/CixhdHl0DoKFo1xJvRdcwgiGnbd/children "HTTP/1.1 200 OK"
+2026-03-21 01:56:59,020 [INFO] graph.nodes: [ContextTrim] 历史从 778 条截断至 28 条（保留最近 2 轮用户消息）
+2026-03-21 01:56:59,020 [INFO] graph.nodes: [ContextIsolation] 省略 3 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:57:30,169 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:57:30,547 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=Vbk9w0oIMiFFJekDGENcZOPLnwe&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:57:30,800 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/RP1Gd6pC9o8ywTxix9fcmHhMnUd/raw_content "HTTP/1.1 200 OK"
+2026-03-21 01:57:30,991 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/bitable/v1/apps/app_token_placeholder/tables?page_size=50&page_token= "HTTP/1.1 400 Bad Request"
+2026-03-21 01:57:30,994 [ERROR] graph.tools: [feishu_bitable_meta] Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/bitable/v1/apps/app_token_placeholder/tables?page_size=50&page_token='
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:57:31,150 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/task/v2/tasklists "HTTP/1.1 400 Bad Request"
+2026-03-21 01:57:31,151 [ERROR] graph.tools: [feishu_task_tasklist] Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/task/v2/tasklists'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:57:31,152 [INFO] graph.nodes: [ContextTrim] 历史从 782 条截断至 32 条（保留最近 2 轮用户消息）
+2026-03-21 01:57:31,152 [INFO] graph.nodes: [ContextIsolation] 省略 3 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:58:05,706 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:58:06,140 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LALdwqf7JicxU9kyzvzcV2OpnKJ&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 01:58:06,141 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '05_飞书多维表格模板'
+2026-03-21 01:58:06,817 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 01:58:06,817 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: '05_飞书多维表格模板' → Ee2Owqx8giwWlik6v1ncbfcBnr7
+2026-03-21 01:58:07,174 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LALdwqf7JicxU9kyzvzcV2OpnKJ&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 01:58:07,175 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '06_飞书任务管理指南'
+2026-03-21 01:58:07,835 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 01:58:07,835 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: '06_飞书任务管理指南' → L8fiwmiDJiViPBkUYsEc6ooUnXb
+2026-03-21 01:58:08,118 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=VKmHwLyNSisefzkXSMBcfVNGnDb&obj_type=wiki "HTTP/1.1 200 OK"
+2026-03-21 01:58:08,449 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/CixhdHl0DoKFo1xJvRdcwgiGnbd/blocks/CixhdHl0DoKFo1xJvRdcwgiGnbd/children "HTTP/1.1 200 OK"
+2026-03-21 01:58:08,451 [INFO] graph.nodes: [ContextTrim] 历史从 786 条截断至 36 条（保留最近 2 轮用户消息）
+2026-03-21 01:58:08,451 [INFO] graph.nodes: [ContextIsolation] 省略 3 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 01:58:34,806 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 01:58:35,906 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ecd1d92ca0b2c334f25cdeacb/reactions/6HbC85VmzRh_y2UDtuj8BG8FSx7dOKLYfpw_hNrhMq1y0V7aStpFd5jmPMmBoYi5 "HTTP/1.1 200 OK"
+2026-03-21 01:58:36,272 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ecd1d92ca0b2c334f25cdeacb/reactions "HTTP/1.1 200 OK"
+2026-03-21 01:58:41,964 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 01:58:41 CST)" (scheduled at 2026-03-21 01:58:41.946302+08:00)
+2026-03-21 01:58:41,969 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 01:58:41 CST)" (scheduled at 2026-03-21 01:58:41.946631+08:00)
+2026-03-21 01:58:41,975 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 02:28:41 CST)" (scheduled at 2026-03-21 01:58:41.946719+08:00)
+2026-03-21 01:58:41,975 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 01:58:41,988 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 02:28:41 CST)" executed successfully
+2026-03-21 01:58:42,068 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 01:58:42,310 [INFO] httpx: HTTP Request: POST https://api.dingtalk.com/v1.0/oauth2/accessToken "HTTP/1.1 200 OK"
+2026-03-21 01:58:42,351 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 01:58:42,351 [ERROR] sync.context_sync: 同步飞书失败: Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:58:42,351 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 02:28:41 CST)" executed successfully
+2026-03-21 01:58:42,543 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 01:58:42,543 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:58:42,771 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 01:58:42,772 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 01:58:42,987 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 01:58:42,987 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 01:58:43,218 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 01:58:43,219 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 01:58:43,219 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 02:28:41 CST)" executed successfully
+2026-03-21 02:28:41,947 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 02:58:41 CST)" (scheduled at 2026-03-21 02:28:41.946302+08:00)
+2026-03-21 02:28:41,948 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 02:28:41,948 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 02:58:41 CST)" (scheduled at 2026-03-21 02:28:41.946719+08:00)
+2026-03-21 02:28:41,948 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 02:58:41 CST)" (scheduled at 2026-03-21 02:28:41.946631+08:00)
+2026-03-21 02:28:41,949 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 02:28:41,948 [INFO] apscheduler.executors.default: Running job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 03:28:41 CST)" (scheduled at 2026-03-21 02:28:41.946528+08:00)
+2026-03-21 02:28:41,955 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 02:58:41 CST)" executed successfully
+2026-03-21 02:28:42,218 [INFO] scheduler: [Scheduler] 开始轮询邮件...
+2026-03-21 02:28:42,337 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 02:28:42,338 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 02:28:42,400 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 02:28:42,401 [ERROR] sync.context_sync: 同步飞书失败: Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 02:28:42,401 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 02:58:41 CST)" executed successfully
+2026-03-21 02:28:42,582 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 02:28:42,582 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 02:28:42,816 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 02:28:42,816 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 02:28:43,046 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 02:28:43,046 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 02:28:43,046 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 02:58:41 CST)" executed successfully
+2026-03-21 02:28:45,558 [ERROR] integrations.email.imap_client: [IMAP] 连接 imap.163.com:993 失败: select failed: SELECT Unsafe Login. Please contact kefu@188.com for help
+2026-03-21 02:28:45,559 [INFO] apscheduler.executors.default: Job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 03:28:41 CST)" executed successfully
+2026-03-21 02:58:41,946 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 03:28:41 CST)" (scheduled at 2026-03-21 02:58:41.946302+08:00)
+2026-03-21 02:58:41,947 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 02:58:41,949 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 03:28:41 CST)" (scheduled at 2026-03-21 02:58:41.946631+08:00)
+2026-03-21 02:58:41,949 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 02:58:41,949 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 03:28:41 CST)" (scheduled at 2026-03-21 02:58:41.946719+08:00)
+2026-03-21 02:58:41,956 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 03:28:41 CST)" executed successfully
+2026-03-21 02:58:42,201 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 02:58:42,202 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 02:58:42,306 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki "HTTP/1.1 400 Bad Request"
+2026-03-21 02:58:42,306 [ERROR] sync.context_sync: 同步飞书失败: Client error '400 Bad Request' for url 'https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=FalZwGDOkiqpbQkeAjGc8jaznMd&obj_type=wiki'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 02:58:42,306 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 03:28:41 CST)" executed successfully
+2026-03-21 02:58:42,417 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 02:58:42,418 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 02:58:42,664 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 02:58:42,664 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 02:58:42,894 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 02:58:42,895 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 02:58:42,895 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 03:28:41 CST)" executed successfully
+2026-03-21 03:09:51,675 [INFO] main: PID 133525 写入 /root/ai-assistant/logs/service.pid
+2026-03-21 03:09:51,676 [INFO] main: [feishu-ws] 启动
+2026-03-21 03:09:51,678 [INFO] main: [dingtalk-stream] 启动
+2026-03-21 03:09:51,678 [INFO] main: [admin-http] 启动
+2026-03-21 03:09:51,688 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 03:09:51,688 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 03:09:51,689 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 03:09:51,689 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 03:09:51,706 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 03:09:51,709 [ERROR] main: [admin-http] 崩溃: [Errno 98] Address already in use，5s 后重启
+Traceback (most recent call last):
+  File "/root/ai-assistant/main.py", line 57, in _run
+    target()
+  File "/root/ai-assistant/main.py", line 79, in _start_admin
+    start_admin_server()
+  File "/root/ai-assistant/admin/server.py", line 424, in start_admin_server
+    server = HTTPServer(("0.0.0.0", port), AdminHandler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/usr/lib/python3.12/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/lib/python3.12/socketserver.py", line 473, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 98] Address already in use
+2026-03-21 03:09:51,710 [INFO] apscheduler.scheduler: Added job "poll_dingtalk_meetings" to job store "default"
+2026-03-21 03:09:51,710 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-21 03:09:51,710 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-21 03:09:51,710 [INFO] apscheduler.scheduler: Added job "heartbeat" to job store "default"
+2026-03-21 03:09:51,710 [INFO] apscheduler.scheduler: Added job "daily_meeting_migration" to job store "default"
+2026-03-21 03:09:51,710 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-21 03:09:51,713 [INFO] scheduler: Scheduler 已启动（每日迁移 08:00 触发）
+2026-03-21 03:09:51,713 [INFO] main: AI 助理启动完成（无 HTTP 层）
+2026-03-21 03:09:52,067 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-21 03:09:52,068 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-21 03:09:52,339 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '5f93edd8-2490-11f1-a262-3a24657c5738'}
+2026-03-21 03:09:53,590 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-21 03:09:56,710 [INFO] main: [admin-http] 启动
+2026-03-21 03:09:56,710 [INFO] admin.server: [admin] 配置管理界面启动：http://0.0.0.0:8080
+2026-03-21 03:39:51,689 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 03:39:51 CST)" (scheduled at 2026-03-21 03:39:51.688675+08:00)
+2026-03-21 03:39:51,690 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 04:09:51 CST)" (scheduled at 2026-03-21 03:39:51.689001+08:00)
+2026-03-21 03:39:51,690 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 04:09:51 CST)" (scheduled at 2026-03-21 03:39:51.689071+08:00)
+2026-03-21 03:39:51,698 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 04:09:51 CST)" executed successfully
+2026-03-21 03:39:51,698 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 03:39:51,703 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 03:39:51,960 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-21 03:39:52,025 [INFO] httpx: HTTP Request: POST https://api.dingtalk.com/v1.0/oauth2/accessToken "HTTP/1.1 200 OK"
+2026-03-21 03:39:52,240 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 03:39:52,241 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 03:39:52,323 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 03:39:52,465 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 03:39:52,466 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 03:39:52,586 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 03:39:52,697 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 03:39:52,698 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 03:39:52,927 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 03:39:52,927 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 03:39:52,927 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 04:09:51 CST)" executed successfully
+2026-03-21 03:39:52,929 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 03:39:53,260 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 03:39:53,261 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 03:39:53,261 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 04:09:51 CST)" executed successfully
+2026-03-21 04:09:51,689 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 04:39:51 CST)" (scheduled at 2026-03-21 04:09:51.688675+08:00)
+2026-03-21 04:09:51,689 [INFO] apscheduler.executors.default: Running job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 05:09:51 CST)" (scheduled at 2026-03-21 04:09:51.688887+08:00)
+2026-03-21 04:09:51,689 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 04:39:51 CST)" (scheduled at 2026-03-21 04:09:51.689001+08:00)
+2026-03-21 04:09:51,690 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 04:09:51,689 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 04:09:51,689 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 04:39:51 CST)" (scheduled at 2026-03-21 04:09:51.689071+08:00)
+2026-03-21 04:09:51,696 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 04:39:51 CST)" executed successfully
+2026-03-21 04:09:51,962 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 04:09:51,973 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 04:09:52,086 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 04:09:52,245 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 04:09:52,253 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 04:09:52,474 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 04:09:52,502 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 04:09:52,504 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 04:09:52,757 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 04:09:52,758 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 04:09:52,765 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 04:39:51 CST)" executed successfully
+2026-03-21 04:09:52,819 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 04:09:53,206 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 04:09:53,207 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 04:09:53,208 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 04:39:51 CST)" executed successfully
+2026-03-21 04:09:53,258 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 04:09:53,259 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 04:09:53,427 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 202 Accepted"
+2026-03-21 04:09:53,760 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 04:09:53,764 [INFO] integrations.mcp.client: [MCP] dingtalk_docs 已加载 15 个工具: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file']
+2026-03-21 04:09:53,989 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 04:09:53,990 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 04:09:54,163 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 202 Accepted"
+2026-03-21 04:09:54,513 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 04:09:54,517 [INFO] integrations.mcp.client: [MCP] dingtalk_table 已加载 21 个工具: ['delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 04:09:54,517 [INFO] graph.tools: [tools] 钉钉 MCP 工具已注册: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file', 'delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 04:09:54,517 [INFO] graph.tools: [tools] 会议纪要流水线工具已注册到 dingtalk_mcp 分类
+2026-03-21 04:09:54,975 [INFO] graph.nodes: LLM 链：火山云(ep-20260317143459-qtgqn) → OpenRouter(anthropic/claude-sonnet-4-5)
+2026-03-21 04:09:54,980 [INFO] scheduler: [Scheduler] 开始轮询邮件...
+2026-03-21 04:09:57,546 [ERROR] integrations.email.imap_client: [IMAP] 连接 imap.163.com:993 失败: select failed: SELECT Unsafe Login. Please contact kefu@188.com for help
+2026-03-21 04:09:57,547 [INFO] apscheduler.executors.default: Job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 05:09:51 CST)" executed successfully
+2026-03-21 04:39:51,689 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 05:09:51 CST)" (scheduled at 2026-03-21 04:39:51.688675+08:00)
+2026-03-21 04:39:51,689 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 04:39:51,690 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 05:09:51 CST)" (scheduled at 2026-03-21 04:39:51.689001+08:00)
+2026-03-21 04:39:51,690 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 04:39:51,694 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 05:09:51 CST)" (scheduled at 2026-03-21 04:39:51.689071+08:00)
+2026-03-21 04:39:51,695 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 05:09:51 CST)" executed successfully
+2026-03-21 04:39:51,957 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 04:39:51,958 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 04:39:52,097 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 04:39:52,181 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 04:39:52,182 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 04:39:52,363 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 04:39:52,419 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 04:39:52,419 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 04:39:52,647 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 04:39:52,647 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 04:39:52,647 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 05:09:51 CST)" executed successfully
+2026-03-21 04:39:52,703 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 04:39:53,018 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 04:39:53,018 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 04:39:53,018 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 05:09:51 CST)" executed successfully
+[Lark] [2026-03-21 04:49:31,083] [ERROR] receive message loop exit, err: no close frame received or sent [conn_id=7619417064340753600]
+2026-03-21 04:49:31,083 [ERROR] Lark: receive message loop exit, err: no close frame received or sent [conn_id=7619417064340753600]
+2026-03-21 05:09:51,690 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 05:39:51 CST)" (scheduled at 2026-03-21 05:09:51.688675+08:00)
+2026-03-21 05:09:51,690 [INFO] apscheduler.executors.default: Running job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 06:09:51 CST)" (scheduled at 2026-03-21 05:09:51.688887+08:00)
+2026-03-21 05:09:51,690 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 05:39:51 CST)" (scheduled at 2026-03-21 05:09:51.689001+08:00)
+2026-03-21 05:09:51,690 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 05:09:51,691 [INFO] scheduler: [Scheduler] 开始轮询邮件...
+2026-03-21 05:09:51,691 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 05:39:51 CST)" (scheduled at 2026-03-21 05:09:51.689071+08:00)
+2026-03-21 05:09:51,691 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 05:09:51,697 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 05:39:51 CST)" executed successfully
+2026-03-21 05:09:51,934 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-21 05:09:51,969 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 05:09:51,969 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 05:09:52,201 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 05:09:52,201 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 05:09:52,300 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 05:09:52,417 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 05:09:52,417 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 05:09:52,544 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 05:09:52,632 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 05:09:52,632 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 05:09:52,632 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 05:39:51 CST)" executed successfully
+2026-03-21 05:09:52,908 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 05:09:53,234 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 05:09:53,234 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 05:09:53,234 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 05:39:51 CST)" executed successfully
+2026-03-21 05:09:54,193 [ERROR] integrations.email.imap_client: [IMAP] 连接 imap.163.com:993 失败: select failed: SELECT Unsafe Login. Please contact kefu@188.com for help
+2026-03-21 05:09:54,194 [INFO] apscheduler.executors.default: Job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 06:09:51 CST)" executed successfully
+2026-03-21 05:39:51,689 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 06:09:51 CST)" (scheduled at 2026-03-21 05:39:51.688675+08:00)
+2026-03-21 05:39:51,690 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 05:39:51,692 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 06:09:51 CST)" (scheduled at 2026-03-21 05:39:51.689001+08:00)
+2026-03-21 05:39:51,692 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 05:39:51,695 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 06:09:51 CST)" (scheduled at 2026-03-21 05:39:51.689071+08:00)
+2026-03-21 05:39:51,696 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 06:09:51 CST)" executed successfully
+2026-03-21 05:39:51,952 [INFO] httpx: HTTP Request: POST https://api.dingtalk.com/v1.0/oauth2/accessToken "HTTP/1.1 200 OK"
+2026-03-21 05:39:52,085 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 05:39:52,182 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 05:39:52,182 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 05:39:52,384 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 05:39:52,386 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 05:39:52,386 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 05:39:52,646 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 05:39:52,646 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 05:39:52,785 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 05:39:52,874 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 05:39:52,875 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 05:39:52,875 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 06:09:51 CST)" executed successfully
+2026-03-21 05:39:53,121 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 05:39:53,122 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 05:39:53,122 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 06:09:51 CST)" executed successfully
+2026-03-21 06:09:51,689 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 06:39:51 CST)" (scheduled at 2026-03-21 06:09:51.688675+08:00)
+2026-03-21 06:09:51,689 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 06:09:51,691 [INFO] apscheduler.executors.default: Running job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 07:09:51 CST)" (scheduled at 2026-03-21 06:09:51.688887+08:00)
+2026-03-21 06:09:51,691 [INFO] scheduler: [Scheduler] 开始轮询邮件...
+2026-03-21 06:09:51,691 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 06:39:51 CST)" (scheduled at 2026-03-21 06:09:51.689001+08:00)
+2026-03-21 06:09:51,691 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 06:39:51 CST)" (scheduled at 2026-03-21 06:09:51.689071+08:00)
+2026-03-21 06:09:51,691 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 06:09:51,695 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 06:39:51 CST)" executed successfully
+2026-03-21 06:09:51,948 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 06:09:51,948 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 06:09:52,111 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 06:09:52,167 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 06:09:52,168 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 06:09:52,360 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 06:09:52,400 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 06:09:52,400 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 06:09:52,643 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 06:09:52,644 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 06:09:52,644 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 06:39:51 CST)" executed successfully
+2026-03-21 06:09:52,723 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 06:09:53,062 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 06:09:53,063 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 06:09:53,063 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 06:39:51 CST)" executed successfully
+2026-03-21 06:09:54,215 [ERROR] integrations.email.imap_client: [IMAP] 连接 imap.163.com:993 失败: select failed: SELECT Unsafe Login. Please contact kefu@188.com for help
+2026-03-21 06:09:54,216 [INFO] apscheduler.executors.default: Job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 07:09:51 CST)" executed successfully
+2026-03-21 06:39:51,689 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 07:09:51 CST)" (scheduled at 2026-03-21 06:39:51.688675+08:00)
+2026-03-21 06:39:51,689 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 06:39:51,690 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 07:09:51 CST)" (scheduled at 2026-03-21 06:39:51.689001+08:00)
+2026-03-21 06:39:51,690 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 06:39:51,690 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 07:09:51 CST)" (scheduled at 2026-03-21 06:39:51.689071+08:00)
+2026-03-21 06:39:51,691 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 07:09:51 CST)" executed successfully
+2026-03-21 06:39:51,963 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 06:39:51,964 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 06:39:52,100 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 06:39:52,198 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 06:39:52,198 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 06:39:52,353 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 06:39:52,440 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 06:39:52,440 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 06:39:52,677 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 06:39:52,678 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 06:39:52,678 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 07:09:51 CST)" executed successfully
+2026-03-21 06:39:52,722 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 06:39:53,051 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 06:39:53,051 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 06:39:53,051 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 07:09:51 CST)" executed successfully
+2026-03-21 07:09:51,690 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 07:39:51 CST)" (scheduled at 2026-03-21 07:09:51.688675+08:00)
+2026-03-21 07:09:51,691 [INFO] apscheduler.executors.default: Running job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 08:09:51 CST)" (scheduled at 2026-03-21 07:09:51.688887+08:00)
+2026-03-21 07:09:51,691 [INFO] scheduler: [Scheduler] 开始轮询邮件...
+2026-03-21 07:09:51,691 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 07:09:51,691 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 07:39:51 CST)" (scheduled at 2026-03-21 07:09:51.689001+08:00)
+2026-03-21 07:09:51,691 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 07:39:51 CST)" (scheduled at 2026-03-21 07:09:51.689071+08:00)
+2026-03-21 07:09:51,691 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 07:09:51,942 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-21 07:09:52,004 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 07:09:52,005 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 07:09:52,257 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 07:09:52,258 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 07:09:52,307 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 07:09:52,471 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 07:09:52,471 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 07:09:52,562 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 07:09:52,705 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 07:09:52,705 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 07:09:52,705 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 07:39:51 CST)" executed successfully
+2026-03-21 07:09:52,947 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 07:09:53,308 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 07:09:53,309 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 07:09:53,309 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 07:39:51 CST)" executed successfully
+2026-03-21 07:09:54,277 [ERROR] integrations.email.imap_client: [IMAP] 连接 imap.163.com:993 失败: select failed: SELECT Unsafe Login. Please contact kefu@188.com for help
+2026-03-21 07:09:54,277 [INFO] apscheduler.executors.default: Job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 08:09:51 CST)" executed successfully
+2026-03-21 07:10:02,713 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 07:10:10,262 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 07:10:21,699 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 07:10:43,829 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 07:11:13,512 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 07:11:13,517 [INFO] main: 收到信号 15，准备关闭…
+2026-03-21 07:11:34,176 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 07:11:34,180 [INFO] main: 收到信号 15，准备关闭…
+Traceback (most recent call last):
+  File "/root/ai-assistant/main.py", line 121, in <module>
+    main()
+  File "/root/ai-assistant/main.py", line 116, in main
+    _stop.wait()
+  File "/usr/lib/python3.12/threading.py", line 655, in wait
+    signaled = self._cond.wait(timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/threading.py", line 355, in wait
+    waiter.acquire()
+  File "/root/ai-assistant/main.py", line 110, in _shutdown
+    sched.stop()
+  File "/root/ai-assistant/scheduler.py", line 310, in stop
+    scheduler.shutdown()
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/background.py", line 40, in shutdown
+    super().shutdown(*args, **kwargs)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/blocking.py", line 22, in shutdown
+    super().shutdown(wait)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/base.py", line 239, in shutdown
+    executor.shutdown(wait)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/executors/pool.py", line 33, in shutdown
+    self._pool.shutdown(wait)
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 238, in shutdown
+    t.join()
+  File "/usr/lib/python3.12/threading.py", line 1147, in join
+    self._wait_for_tstate_lock()
+  File "/usr/lib/python3.12/threading.py", line 1167, in _wait_for_tstate_lock
+    if lock.acquire(block, timeout):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/ai-assistant/main.py", line 110, in _shutdown
+    sched.stop()
+  File "/root/ai-assistant/scheduler.py", line 310, in stop
+    scheduler.shutdown()
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/background.py", line 40, in shutdown
+    super().shutdown(*args, **kwargs)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/blocking.py", line 22, in shutdown
+    super().shutdown(wait)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/base.py", line 232, in shutdown
+    raise SchedulerNotRunningError
+apscheduler.schedulers.SchedulerNotRunningError: Scheduler is not running
+2026-03-21 07:11:34,296 [INFO] main: PID 142910 写入 /root/ai-assistant/logs/service.pid
+2026-03-21 07:11:34,296 [INFO] main: [feishu-ws] 启动
+2026-03-21 07:11:34,299 [INFO] main: [dingtalk-stream] 启动
+2026-03-21 07:11:34,303 [INFO] main: [admin-http] 启动
+2026-03-21 07:11:34,314 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 07:11:34,314 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 07:11:34,314 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 07:11:34,317 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 07:11:34,325 [ERROR] main: [admin-http] 崩溃: [Errno 98] Address already in use，5s 后重启
+Traceback (most recent call last):
+  File "/root/ai-assistant/main.py", line 57, in _run
+    target()
+  File "/root/ai-assistant/main.py", line 79, in _start_admin
+    start_admin_server()
+  File "/root/ai-assistant/admin/server.py", line 424, in start_admin_server
+    server = HTTPServer(("0.0.0.0", port), AdminHandler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/usr/lib/python3.12/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/lib/python3.12/socketserver.py", line 473, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 98] Address already in use
+2026-03-21 07:11:34,334 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 07:11:34,334 [INFO] apscheduler.scheduler: Added job "poll_dingtalk_meetings" to job store "default"
+2026-03-21 07:11:34,334 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-21 07:11:34,335 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-21 07:11:34,337 [INFO] apscheduler.scheduler: Added job "heartbeat" to job store "default"
+2026-03-21 07:11:34,337 [INFO] apscheduler.scheduler: Added job "daily_meeting_migration" to job store "default"
+2026-03-21 07:11:34,337 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-21 07:11:34,340 [INFO] scheduler: Scheduler 已启动（每日迁移 08:00 触发）
+2026-03-21 07:11:34,340 [INFO] main: AI 助理启动完成（无 HTTP 层）
+2026-03-21 07:11:34,686 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-21 07:11:34,687 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-21 07:11:34,959 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '23d22c84-24b2-11f1-a0db-f2b60f80adf6'}
+2026-03-21 07:11:36,295 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-21 07:11:39,325 [INFO] main: [admin-http] 启动
+2026-03-21 07:11:39,326 [INFO] admin.server: [admin] 配置管理界面启动：http://0.0.0.0:8080
+2026-03-21 07:41:34,398 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 08:11:34 CST)" (scheduled at 2026-03-21 07:41:34.314140+08:00)
+2026-03-21 07:41:34,406 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 08:11:34 CST)" (scheduled at 2026-03-21 07:41:34.314502+08:00)
+2026-03-21 07:41:34,425 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 08:11:34 CST)" (scheduled at 2026-03-21 07:41:34.317756+08:00)
+2026-03-21 07:41:34,828 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 07:41:34,969 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 07:41:38,173 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-21 07:41:38,230 [INFO] httpx: HTTP Request: POST https://api.dingtalk.com/v1.0/oauth2/accessToken "HTTP/1.1 200 OK"
+2026-03-21 07:41:38,499 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 07:41:38,500 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 07:41:38,592 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 07:41:45,011 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 07:41:45,012 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 07:41:45,014 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 07:41:45,296 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 07:41:45,299 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 07:41:45,412 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 07:41:45,534 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 07:41:45,535 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 07:41:45,535 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 08:11:34 CST)" executed successfully
+2026-03-21 07:41:45,751 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 07:41:45,752 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 07:41:45,752 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 08:11:34 CST)" executed successfully
+2026-03-21 07:41:46,671 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 07:41:46,672 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 07:41:46,865 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 202 Accepted"
+2026-03-21 07:41:47,564 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 07:41:47,570 [INFO] integrations.mcp.client: [MCP] dingtalk_docs 已加载 15 个工具: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file']
+2026-03-21 07:41:47,801 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 07:41:47,802 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 07:41:47,969 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 202 Accepted"
+2026-03-21 07:41:48,324 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 07:41:48,329 [INFO] integrations.mcp.client: [MCP] dingtalk_table 已加载 21 个工具: ['delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 07:41:48,329 [INFO] graph.tools: [tools] 钉钉 MCP 工具已注册: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file', 'delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 07:41:48,329 [INFO] graph.tools: [tools] 会议纪要流水线工具已注册到 dingtalk_mcp 分类
+2026-03-21 07:41:48,884 [INFO] graph.nodes: LLM 链：火山云(ep-20260317143459-qtgqn) → OpenRouter(anthropic/claude-sonnet-4-5)
+2026-03-21 07:42:01,637 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 07:42:09,036 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 07:42:44,836 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 07:42:44,841 [INFO] apscheduler.executors.default: Job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 08:11:34 CST)" executed successfully
+2026-03-21 08:00:00,001 [INFO] apscheduler.executors.default: Running job "daily_meeting_migration (trigger: cron[hour='8', minute='0'], next run at: 2026-03-22 08:00:00 CST)" (scheduled at 2026-03-21 08:00:00+08:00)
+2026-03-21 08:00:00,006 [INFO] scheduler: [Scheduler] 触发每日会议迁移...
+2026-03-21 08:00:00,007 [INFO] integrations.meeting.daily_migration: [DailyMigration] 开始每日会议纪要迁移...
+2026-03-21 08:00:00,252 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 08:00:00,253 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 08:00:00,468 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=100&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 08:00:00,468 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=100&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 08:00:00,699 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 08:00:00,700 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 08:00:00,926 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=100&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 08:00:00,927 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=100&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 08:00:00,927 [INFO] integrations.meeting.daily_migration: [DailyMigration] 每日会议迁移完成：新增 0 篇，跳过 0 篇，错误 0 篇
+2026-03-21 08:00:00,927 [INFO] scheduler: [Scheduler] 每日迁移结果: 每日会议迁移完成：新增 0 篇，跳过 0 篇，错误 0 篇
+2026-03-21 08:00:00,927 [INFO] apscheduler.executors.default: Job "daily_meeting_migration (trigger: cron[hour='8', minute='0'], next run at: 2026-03-22 08:00:00 CST)" executed successfully
+2026-03-21 08:07:58,226 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=我重新整理了一下飞书文档的内容结构并记住它，后续我再向你提及任何关于项目的信息或者更新文档的时候，你就能快速定位到相关的内容，并且给我答复。当然，可能你也需要通
+2026-03-21 08:07:58,602 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea5b1748a0c2b572654245980/reactions "HTTP/1.1 200 OK"
+2026-03-21 08:07:58,636 [INFO] graph.nodes: [ContextTrim] 历史从 788 条截断至 17 条（保留最近 2 轮用户消息）
+2026-03-21 08:07:58,637 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:08:16,150 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:08:16,371 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LALdwqf7JicxU9kyzvzcV2OpnKJ&page_size=50 "HTTP/1.1 400 Bad Request"
+2026-03-21 08:08:16,372 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: 'LALdwqf7JicxU9kyzvzcV2OpnKJ'，返回空列表
+2026-03-21 08:08:16,374 [INFO] graph.nodes: [ContextTrim] 历史从 790 条截断至 19 条（保留最近 2 轮用户消息）
+2026-03-21 08:08:16,374 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:09:24,563 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:09:24,925 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 08:09:25,230 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/raw_content "HTTP/1.1 200 OK"
+2026-03-21 08:09:25,233 [INFO] graph.nodes: [ContextTrim] 历史从 792 条截断至 21 条（保留最近 2 轮用户消息）
+2026-03-21 08:09:25,233 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:09:46,443 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:09:46,662 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LALdwqf7JicxU9kyzvzcV2OpnKJ&page_size=50 "HTTP/1.1 400 Bad Request"
+2026-03-21 08:09:46,663 [WARNING] integrations.feishu.knowledge: [FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: 'LALdwqf7JicxU9kyzvzcV2OpnKJ'，返回空列表
+2026-03-21 08:09:46,665 [INFO] graph.nodes: [ContextTrim] 历史从 794 条截断至 23 条（保留最近 2 轮用户消息）
+2026-03-21 08:09:46,665 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:10:27,181 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=https://pw46ob73t1c.feishu.cn/wiki/VKmHwLyNSisefzkXSMBcfVNGnDb这篇文章的内容，我觉得写得还可以，现
+2026-03-21 08:10:27,573 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea51e554a8c3d936a8179e27c/reactions "HTTP/1.1 200 OK"
+2026-03-21 08:10:27,598 [INFO] graph.nodes: [ContextTrim] 历史从 795 条截断至 8 条（保留最近 2 轮用户消息）
+2026-03-21 08:10:46,577 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:10:46,589 [INFO] graph.nodes: [ContextTrim] 历史从 796 条截断至 25 条（保留最近 2 轮用户消息）
+2026-03-21 08:10:46,589 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:11:09,718 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=另外，我想知道你现在处理任务的多并发能力。加上这一个请求和前面提及的两个请求，你是否有开始同时处理？以及处理的过程中间是不是尽可能做到尽可能并发？
+2026-03-21 08:11:10,104 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea6f1ecf84c4c28fb79a497cd/reactions "HTTP/1.1 200 OK"
+2026-03-21 08:11:10,132 [INFO] graph.nodes: [ContextTrim] 历史从 797 条截断至 10 条（保留最近 2 轮用户消息）
+2026-03-21 08:11:25,642 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:11:25,686 [INFO] graph.nodes: [ContextTrim] 历史从 799 条截断至 12 条（保留最近 2 轮用户消息）
+2026-03-21 08:11:26,045 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:11:26,381 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=VKmHwLyNSisefzkXSMBcfVNGnDb "HTTP/1.1 200 OK"
+2026-03-21 08:11:26,652 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/CixhdHl0DoKFo1xJvRdcwgiGnbd/raw_content "HTTP/1.1 200 OK"
+2026-03-21 08:11:26,653 [INFO] graph.tools: [自迭代] 异步启动 thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b，需求：开发飞书文档美化工具，实现以下功能：1. 自动美化所有写入飞书的内容；2. 支持迁移现有文档并应用美化；3. 确保格式统一（标题层级/列表样式/表格美化）
+2026-03-21 08:11:26,956 [INFO] integrations.claude_code.tmux_session: [TmuxSession] ai-claude-feishu-oc_d2b5bb8b3ee37fdc61aebaa9d98819 已启动
+2026-03-21 08:11:26,962 [INFO] graph.nodes: [ContextTrim] 历史从 798 条截断至 11 条（保留最近 2 轮用户消息）
+2026-03-21 08:11:33,176 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:11:33,190 [INFO] graph.nodes: [ContextTrim] 历史从 798 条截断至 27 条（保留最近 2 轮用户消息）
+2026-03-21 08:11:33,190 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:11:34,314 [INFO] apscheduler.executors.default: Running job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 08:41:34 CST)" (scheduled at 2026-03-21 08:11:34.314140+08:00)
+2026-03-21 08:11:34,314 [INFO] apscheduler.executors.default: Running job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 09:11:34 CST)" (scheduled at 2026-03-21 08:11:34.314375+08:00)
+2026-03-21 08:11:34,315 [INFO] scheduler: [Scheduler] 开始轮询钉钉会议纪要...
+2026-03-21 08:11:34,315 [INFO] apscheduler.executors.default: Running job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 08:41:34 CST)" (scheduled at 2026-03-21 08:11:34.314502+08:00)
+2026-03-21 08:11:34,315 [INFO] scheduler: [Scheduler] 开始同步上下文至飞书...
+2026-03-21 08:11:34,320 [INFO] apscheduler.executors.default: Running job "heartbeat (trigger: interval[0:30:00], next run at: 2026-03-21 08:11:34 CST)" (scheduled at 2026-03-21 08:11:34.317756+08:00)
+2026-03-21 08:11:34,497 [INFO] scheduler: [Scheduler] 开始轮询邮件...
+2026-03-21 08:11:34,600 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 08:11:34,600 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 08:11:34,725 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=LiLpwC7uWiMPi5kSPW2c45DIn8c "HTTP/1.1 200 OK"
+2026-03-21 08:11:34,841 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 404 Not Found"
+2026-03-21 08:11:34,842 [WARNING] integrations.dingtalk.docs: [wiki/nodes] 失败: Client error '404 Not Found' for url 'https://api.dingtalk.com/v1.0/wiki/spaces/r9xmyYP7YK1w1mEO/nodes?maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-03-21 08:11:34,995 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks "HTTP/1.1 200 OK"
+2026-03-21 08:11:35,111 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v2.0/users/me "HTTP/1.1 400 Bad Request"
+2026-03-21 08:11:35,112 [WARNING] integrations.dingtalk.client: [DingTalk] 获取 unionId 失败: Client error '400 Bad Request' for url 'https://api.dingtalk.com/v2.0/users/me'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400
+2026-03-21 08:11:35,330 [INFO] httpx: HTTP Request: GET https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc "HTTP/1.1 403 Forbidden"
+2026-03-21 08:11:35,331 [WARNING] integrations.dingtalk.docs: [drive/files] 失败: Client error '403 Forbidden' for url 'https://api.dingtalk.com/v1.0/drive/spaces/r9xmyYP7YK1w1mEO/files?parentId=0&maxResults=50&orderBy=modifiedTime&order=desc'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+2026-03-21 08:11:35,331 [INFO] apscheduler.executors.default: Job "poll_dingtalk_meetings (trigger: interval[0:30:00], next run at: 2026-03-21 08:41:34 CST)" executed successfully
+2026-03-21 08:11:35,353 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children/batch_delete "HTTP/1.1 200 OK"
+2026-03-21 08:11:35,701 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/V4o7dfcLtolvWxx1vCmcrcfgnMg/blocks/V4o7dfcLtolvWxx1vCmcrcfgnMg/children "HTTP/1.1 200 OK"
+2026-03-21 08:11:35,702 [INFO] sync.context_sync: 上下文已同步至飞书: https://open.feishu.cn/docx/V4o7dfcLtolvWxx1vCmcrcfgnMg
+2026-03-21 08:11:35,702 [INFO] apscheduler.executors.default: Job "sync_context (trigger: interval[0:30:00], next run at: 2026-03-21 08:41:34 CST)" executed successfully
+2026-03-21 08:11:37,051 [ERROR] integrations.email.imap_client: [IMAP] 连接 imap.163.com:993 失败: select failed: SELECT Unsafe Login. Please contact kefu@188.com for help
+2026-03-21 08:11:37,052 [INFO] apscheduler.executors.default: Job "poll_email (trigger: interval[1:00:00], next run at: 2026-03-21 09:11:34 CST)" executed successfully
+2026-03-21 08:11:46,291 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:11:52,157 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:11:52,191 [INFO] auto_fix: [AutoFix] 检测到错误模式（第1次）: 作需按「定位页面→读取/写入」顺序执行，无法并行 - **资源限制**：受服务器 CPU/内存约束，建议同时运行 Cla
+2026-03-21 08:11:52,191 [INFO] auto_fix: [AutoFix] 启动第1次自动修复 thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b
+2026-03-21 08:11:52,246 [INFO] integrations.claude_code.tmux_session: [TmuxSession] ai-claude-feishu-oc_d2b5bb8b3ee37fdc61aebaa9d98819 监控结束
+2026-03-21 08:11:52,413 [INFO] integrations.claude_code.tmux_session: [TmuxSession] ai-claude-feishu-oc_d2b5bb8b3ee37fdc61aebaa9d98819 已启动
+2026-03-21 08:11:53,349 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea6f1ecf84c4c28fb79a497cd/reactions/-TNADlXMBsb5fTrZlpq-_5hlbVwBGHI0UDU1yTCN06rq8NGUtcggG-XCkLzlHoNP "HTTP/1.1 200 OK"
+2026-03-21 08:11:53,497 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:11:53,727 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea6f1ecf84c4c28fb79a497cd/reactions "HTTP/1.1 200 OK"
+2026-03-21 08:11:53,903 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=Qo4nwLphWiWZyfkGAHHcoHwQnEf&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 08:11:53,905 [INFO] graph.nodes: [ContextTrim] 历史从 800 条截断至 29 条（保留最近 2 轮用户消息）
+2026-03-21 08:11:53,906 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:12:06,572 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:12:13,351 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:12:18,925 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:12:19,346 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=Qo4nwLphWiWZyfkGAHHcoHwQnEf&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 08:12:19,348 [INFO] graph.nodes: [ContextTrim] 历史从 802 条截断至 31 条（保留最近 2 轮用户消息）
+2026-03-21 08:12:19,349 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:12:31,474 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:12:31,828 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=VKmHwLyNSisefzkXSMBcfVNGnDb&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 08:12:31,829 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '项目管理表格'
+2026-03-21 08:12:32,523 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 08:12:32,524 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: '项目管理表格' → IPB7w2NHPi4knnkcpEdcbp2Tnxd
+2026-03-21 08:12:32,525 [INFO] graph.nodes: [ContextTrim] 历史从 800 条截断至 13 条（保留最近 2 轮用户消息）
+2026-03-21 08:12:35,393 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:12:35,400 [INFO] main: 收到信号 15，准备关闭…
+2026-03-21 08:12:45,583 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:12:46,015 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=Qo4nwLphWiWZyfkGAHHcoHwQnEf&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 08:12:46,017 [INFO] graph.nodes: [ContextTrim] 历史从 804 条截断至 33 条（保留最近 2 轮用户消息）
+2026-03-21 08:12:46,018 [INFO] graph.nodes: [ContextIsolation] 省略 2 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:12:54,698 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:12:54,706 [INFO] main: 收到信号 15，准备关闭…
+Traceback (most recent call last):
+  File "/root/ai-assistant/main.py", line 121, in <module>
+    main()
+  File "/root/ai-assistant/main.py", line 116, in main
+    _stop.wait()
+  File "/usr/lib/python3.12/threading.py", line 655, in wait
+    signaled = self._cond.wait(timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/threading.py", line 355, in wait
+    waiter.acquire()
+  File "/root/ai-assistant/main.py", line 110, in _shutdown
+    sched.stop()
+  File "/root/ai-assistant/scheduler.py", line 310, in stop
+    scheduler.shutdown()
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/background.py", line 40, in shutdown
+    super().shutdown(*args, **kwargs)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/blocking.py", line 22, in shutdown
+    super().shutdown(wait)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/base.py", line 239, in shutdown
+    executor.shutdown(wait)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/executors/pool.py", line 33, in shutdown
+    self._pool.shutdown(wait)
+  File "/usr/lib/python3.12/concurrent/futures/thread.py", line 238, in shutdown
+    t.join()
+  File "/usr/lib/python3.12/threading.py", line 1147, in join
+    self._wait_for_tstate_lock()
+  File "/usr/lib/python3.12/threading.py", line 1167, in _wait_for_tstate_lock
+    if lock.acquire(block, timeout):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/ai-assistant/main.py", line 110, in _shutdown
+    sched.stop()
+  File "/root/ai-assistant/scheduler.py", line 310, in stop
+    scheduler.shutdown()
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/background.py", line 40, in shutdown
+    super().shutdown(*args, **kwargs)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/blocking.py", line 22, in shutdown
+    super().shutdown(wait)
+  File "/root/ai-assistant/.venv/lib/python3.12/site-packages/apscheduler/schedulers/base.py", line 232, in shutdown
+    raise SchedulerNotRunningError
+apscheduler.schedulers.SchedulerNotRunningError: Scheduler is not running
+2026-03-21 08:12:54,830 [INFO] main: PID 148934 写入 /root/ai-assistant/logs/service.pid
+2026-03-21 08:12:54,831 [INFO] main: [feishu-ws] 启动
+2026-03-21 08:12:54,833 [INFO] main: [dingtalk-stream] 启动
+2026-03-21 08:12:54,835 [INFO] main: [admin-http] 启动
+2026-03-21 08:12:54,847 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:12:54,847 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:12:54,847 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:12:54,847 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:12:54,863 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:12:54,864 [INFO] apscheduler.scheduler: Added job "poll_dingtalk_meetings" to job store "default"
+2026-03-21 08:12:54,864 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-21 08:12:54,864 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-21 08:12:54,864 [INFO] apscheduler.scheduler: Added job "heartbeat" to job store "default"
+2026-03-21 08:12:54,864 [INFO] apscheduler.scheduler: Added job "daily_meeting_migration" to job store "default"
+2026-03-21 08:12:54,864 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-21 08:12:54,863 [ERROR] main: [admin-http] 崩溃: [Errno 98] Address already in use，5s 后重启
+Traceback (most recent call last):
+  File "/root/ai-assistant/main.py", line 57, in _run
+    target()
+  File "/root/ai-assistant/main.py", line 79, in _start_admin
+    start_admin_server()
+  File "/root/ai-assistant/admin/server.py", line 424, in start_admin_server
+    server = HTTPServer(("0.0.0.0", port), AdminHandler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/usr/lib/python3.12/http/server.py", line 136, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/usr/lib/python3.12/socketserver.py", line 473, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 98] Address already in use
+2026-03-21 08:12:54,865 [INFO] scheduler: Scheduler 已启动（每日迁移 08:00 触发）
+2026-03-21 08:12:54,867 [INFO] main: AI 助理启动完成（无 HTTP 层）
+2026-03-21 08:12:55,260 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-21 08:12:55,260 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-21 08:12:55,541 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': 'b59f4ab0-24ba-11f1-899a-5e6c444bf2d8'}
+2026-03-21 08:12:56,821 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-21 08:12:59,867 [INFO] main: [admin-http] 启动
+2026-03-21 08:12:59,867 [INFO] admin.server: [admin] 配置管理界面启动：http://0.0.0.0:8080
+2026-03-21 08:14:18,055 [INFO] main: 收到信号 15，准备关闭…
+2026-03-21 08:14:18,055 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-03-21 08:14:18,056 [INFO] main: AI 助理已退出
+2026-03-21 08:14:19,177 [INFO] main: PID 149136 写入 /root/ai-assistant/logs/service.pid
+2026-03-21 08:14:19,177 [INFO] main: [feishu-ws] 启动
+2026-03-21 08:14:19,178 [INFO] main: [dingtalk-stream] 启动
+2026-03-21 08:14:19,178 [INFO] main: [admin-http] 启动
+2026-03-21 08:14:19,185 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:14:19,186 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:14:19,186 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:14:19,186 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:14:19,197 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:14:19,198 [INFO] apscheduler.scheduler: Added job "poll_dingtalk_meetings" to job store "default"
+2026-03-21 08:14:19,198 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-21 08:14:19,198 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-21 08:14:19,199 [INFO] apscheduler.scheduler: Added job "heartbeat" to job store "default"
+2026-03-21 08:14:19,199 [INFO] apscheduler.scheduler: Added job "daily_meeting_migration" to job store "default"
+2026-03-21 08:14:19,199 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-21 08:14:19,199 [INFO] scheduler: Scheduler 已启动（每日迁移 08:00 触发）
+2026-03-21 08:14:19,199 [INFO] main: AI 助理启动完成（无 HTTP 层）
+2026-03-21 08:14:19,204 [INFO] admin.server: [admin] 配置管理界面启动：http://0.0.0.0:8080
+2026-03-21 08:14:19,565 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-21 08:14:19,565 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-21 08:14:19,826 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': 'e7d9d330-24ba-11f1-9bc6-fa5b63cda609'}
+2026-03-21 08:14:21,102 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-21 08:24:14,690 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=之前的任务都处理完了吗？有在跑的任务请求吗？
+2026-03-21 08:24:16,530 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 08:24:16,531 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 08:24:16,718 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 202 Accepted"
+2026-03-21 08:24:17,168 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 08:24:17,173 [INFO] integrations.mcp.client: [MCP] dingtalk_docs 已加载 15 个工具: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file']
+2026-03-21 08:24:17,405 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 08:24:17,406 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 08:24:17,610 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 202 Accepted"
+2026-03-21 08:24:18,022 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 08:24:18,026 [INFO] integrations.mcp.client: [MCP] dingtalk_table 已加载 21 个工具: ['delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 08:24:18,026 [INFO] graph.tools: [tools] 钉钉 MCP 工具已注册: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file', 'delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 08:24:18,026 [INFO] graph.tools: [tools] 会议纪要流水线工具已注册到 dingtalk_mcp 分类
+2026-03-21 08:24:18,498 [INFO] graph.nodes: LLM 链：火山云(ep-20260317143459-qtgqn) → OpenRouter(anthropic/claude-sonnet-4-5)
+2026-03-21 08:24:18,704 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-21 08:24:19,096 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea1c2e4100c310dbde04ec462/reactions "HTTP/1.1 200 OK"
+2026-03-21 08:24:19,128 [INFO] graph.nodes: [ContextTrim] 历史从 805 条截断至 18 条（保留最近 2 轮用户消息）
+2026-03-21 08:24:32,678 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:24:32,684 [WARNING] graph.nodes: [FunctionCall] 解析失败，原始内容: [{"name":"list_claude_sessions"},{"name":"get_service_status"}]<|FunctionCallEnd|>
+2026-03-21 08:24:32,713 [INFO] auto_fix: [AutoFix] 检测到错误模式（第1次）: （工具调用格式异常，请重试）
+2026-03-21 08:24:32,713 [INFO] auto_fix: [AutoFix] 启动第1次自动修复 thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b
+2026-03-21 08:24:32,937 [INFO] integrations.claude_code.tmux_session: [TmuxSession] ai-claude-feishu-oc_d2b5bb8b3ee37fdc61aebaa9d98819 已启动
+2026-03-21 08:24:33,790 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea1c2e4100c310dbde04ec462/reactions/8jrE1Y5t1YkF0VZX9MmwqrwUql6HS8s7-y_lZFDZZw2xoT9uA6HB7iXDP6EyUfwy "HTTP/1.1 200 OK"
+2026-03-21 08:24:34,190 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea1c2e4100c310dbde04ec462/reactions "HTTP/1.1 200 OK"
+2026-03-21 08:26:16,354 [INFO] main: 收到信号 15，准备关闭…
+2026-03-21 08:26:16,354 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-03-21 08:26:16,355 [INFO] main: AI 助理已退出
+2026-03-21 08:26:17,485 [INFO] main: PID 150399 写入 /root/ai-assistant/logs/service.pid
+2026-03-21 08:26:17,485 [INFO] main: [feishu-ws] 启动
+2026-03-21 08:26:17,486 [INFO] main: [dingtalk-stream] 启动
+2026-03-21 08:26:17,486 [INFO] main: [admin-http] 启动
+2026-03-21 08:26:17,494 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:26:17,495 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:26:17,495 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:26:17,495 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:26:17,503 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 08:26:17,505 [INFO] apscheduler.scheduler: Added job "poll_dingtalk_meetings" to job store "default"
+2026-03-21 08:26:17,505 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-21 08:26:17,505 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-21 08:26:17,505 [INFO] apscheduler.scheduler: Added job "heartbeat" to job store "default"
+2026-03-21 08:26:17,505 [INFO] apscheduler.scheduler: Added job "daily_meeting_migration" to job store "default"
+2026-03-21 08:26:17,505 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-21 08:26:17,505 [INFO] scheduler: Scheduler 已启动（每日迁移 08:00 触发）
+2026-03-21 08:26:17,506 [INFO] main: AI 助理启动完成（无 HTTP 层）
+2026-03-21 08:26:17,511 [INFO] admin.server: [admin] 配置管理界面启动：http://0.0.0.0:8080
+2026-03-21 08:26:17,843 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-21 08:26:17,843 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-21 08:26:18,097 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '93fd676b-24bc-11f1-9a9d-3aff18bb39f5'}
+2026-03-21 08:26:19,334 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-21 08:29:40,646 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=觉得你现在的反应速度还是太慢。你现在单一处理任务，在后台的执行可以有多并发能力么。把中间的处理过程做成更加并发的状态，以提高你整体的任务完成效率。
+2026-03-21 08:29:42,455 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 08:29:42,456 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 08:29:42,648 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 202 Accepted"
+2026-03-21 08:29:43,011 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 08:29:43,016 [INFO] integrations.mcp.client: [MCP] dingtalk_docs 已加载 15 个工具: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file']
+2026-03-21 08:29:43,237 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 08:29:43,238 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 08:29:43,410 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 202 Accepted"
+2026-03-21 08:29:43,744 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 08:29:43,747 [INFO] integrations.mcp.client: [MCP] dingtalk_table 已加载 21 个工具: ['delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 08:29:43,747 [INFO] graph.tools: [tools] 钉钉 MCP 工具已注册: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file', 'delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 08:29:43,747 [INFO] graph.tools: [tools] 会议纪要流水线工具已注册到 dingtalk_mcp 分类
+2026-03-21 08:29:44,238 [INFO] graph.nodes: LLM 链：火山云(ep-20260317143459-qtgqn) → OpenRouter(anthropic/claude-sonnet-4-5)
+2026-03-21 08:29:44,436 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-21 08:29:44,838 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea298fb0a4c36fea3583d97e2/reactions "HTTP/1.1 200 OK"
+2026-03-21 08:29:44,869 [INFO] graph.nodes: [ContextTrim] 历史从 807 条截断至 3 条（保留最近 2 轮用户消息）
+2026-03-21 08:30:09,584 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:30:09,604 [INFO] graph.nodes: [ContextTrim] 历史从 809 条截断至 5 条（保留最近 2 轮用户消息）
+2026-03-21 08:30:15,337 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:30:15,574 [INFO] graph.nodes: [ContextTrim] 历史从 811 条截断至 7 条（保留最近 2 轮用户消息）
+2026-03-21 08:30:55,381 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:30:55,393 [INFO] graph.nodes: [ContextTrim] 历史从 813 条截断至 9 条（保留最近 2 轮用户消息）
+2026-03-21 08:31:20,059 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:31:20,086 [INFO] graph.nodes: [ContextTrim] 历史从 815 条截断至 11 条（保留最近 2 轮用户消息）
+2026-03-21 08:31:39,512 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:31:39,516 [INFO] graph.tools: [自迭代] 异步启动 thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b，需求：优化Agent并发处理能力：1. 实现多任务并行执行框架，支持同时处理独立任务；2. 优化工具调用流程，允许非阻塞式工具调用；3. 引入任务优先级队列，避免低优
+2026-03-21 08:31:39,743 [INFO] integrations.claude_code.tmux_session: [TmuxSession] ai-claude-feishu-oc_d2b5bb8b3ee37fdc61aebaa9d98819 已启动
+2026-03-21 08:31:39,745 [INFO] graph.nodes: [ContextTrim] 历史从 817 条截断至 13 条（保留最近 2 轮用户消息）
+2026-03-21 08:32:06,790 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-21 08:32:07,964 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea298fb0a4c36fea3583d97e2/reactions/QLY_BvG83WAPMaOnAOwAot2b2uCImYa4AgKSqwNoSmtrEDyVwp87RjPB7U85fFJ7 "HTTP/1.1 200 OK"
+2026-03-21 08:32:08,359 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ea298fb0a4c36fea3583d97e2/reactions "HTTP/1.1 200 OK"
+2026-03-21 08:40:34,713 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes?parent_node_token=LiLpwC7uWiMPi5kSPW2c45DIn8c&page_size=50 "HTTP/1.1 200 OK"
+2026-03-21 08:40:34,714 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 子页面不存在，新建: '📝 AI 回复详情'
+2026-03-21 08:40:35,456 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/wiki/v2/spaces/7618158120166034630/nodes "HTTP/1.1 200 OK"
+2026-03-21 08:40:35,457 [INFO] integrations.feishu.knowledge: [FeishuKnowledge] 方案A 创建子页面成功: '📝 AI 回复详情' → T17vwnSO0ijHyykYYIvc31cyndJ
+2026-03-21 08:40:35,804 [INFO] httpx: HTTP Request: GET https://open.feishu.cn/open-apis/wiki/v2/spaces/get_node?token=T17vwnSO0ijHyykYYIvc31cyndJ "HTTP/1.1 200 OK"
+2026-03-21 08:40:36,222 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/KSiFdo6YfoIEeNxyMGCc9fGmnjf/blocks/KSiFdo6YfoIEeNxyMGCc9fGmnjf/children "HTTP/1.1 200 OK"
+2026-03-21 08:40:36,865 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/docx/v1/documents/KSiFdo6YfoIEeNxyMGCc9fGmnjf/blocks/KSiFdo6YfoIEeNxyMGCc9fGmnjf/children "HTTP/1.1 200 OK"
+2026-03-21 08:40:38,004 [INFO] integrations.claude_code.tmux_session: [TmuxSession] ai-claude-feishu-oc_d2b5bb8b3ee37fdc61aebaa9d98819 监控结束
+2026-03-21 08:43:00,323 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b msg=我的理解，这些更新之后应该需要提交给GitHub和重启服务吧？如果没有执行这两个，也帮忙执行。提交GitHub的话，我建议再升一个版本，Change log写一
+2026-03-21 08:43:00,810 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54ead7f150a0c2a5264e1b7d408/reactions "HTTP/1.1 200 OK"
+2026-03-21 08:43:00,845 [INFO] graph.nodes: [ContextTrim] 历史从 819 条截断至 13 条（保留最近 2 轮用户消息）
+2026-03-21 08:43:00,845 [INFO] graph.nodes: [ContextIsolation] 省略 3 条历史 ToolMessage 内容（保留前100字符），防止跨任务上下文污染
+2026-03-21 08:43:28,818 [INFO] httpx: HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
