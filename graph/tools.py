@@ -4,15 +4,17 @@
 import json
 import os
 import re
+import time
 import subprocess
 import logging
 import textwrap
 import urllib.parse
+import httpx
 import urllib.request
 import html
 from langchain_core.tools import tool
 from integrations.feishu.knowledge import FeishuKnowledge
-from integrations.feishu.client import feishu_get, feishu_post, feishu_delete
+from integrations.feishu.client import feishu_get, feishu_post, feishu_delete, _update_env_user_token, FEISHU_BASE, _user_token_cache
 from integrations.dingtalk.docs import DingTalkDocs
 from sync.context_sync import ContextSync
 
@@ -1846,6 +1848,91 @@ def query_task_status(limit: int = 10) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# 飞书 OAuth 授权配置工具
+# --------------------------------------------------------------------------- #
+
+_FEISHU_OAUTH_REDIRECT_URI = "https://open.feishu.cn/document/server-docs/"
+
+
+@tool
+def feishu_oauth_setup(action: str, code: str = "") -> str:
+    """飞书 OAuth 授权工具：获取/更新 user_access_token + refresh_token，修复 wiki 空间 131006 权限问题。
+
+    action 取值：
+      - "get_auth_url"  : 返回飞书登录授权链接，发给用户在浏览器中打开
+      - "exchange_code" : 用授权 code 换取 access_token + refresh_token，自动写入 .env
+
+    使用流程（首次或 token 过期后）：
+    1. feishu_oauth_setup(action="get_auth_url")  → 将链接发给用户
+    2. 用户在浏览器打开链接，登录飞书后页面跳转，从地址栏复制 code=xxx 参数
+    3. feishu_oauth_setup(action="exchange_code", code="xxx")
+    4. .env 自动写入 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN，立即生效
+
+    ⛔ token 过期后：重复步骤 1-3 即可，无需重启服务。
+    """
+    app_id = os.getenv("FEISHU_APP_ID", "")
+    app_secret = os.getenv("FEISHU_APP_SECRET", "")
+
+    if action == "get_auth_url":
+        scope = "wiki:wiki docx:document bitable:app im:message:send_as_bot"
+        url = (
+            f"https://open.feishu.cn/open-apis/authen/v1/authorize"
+            f"?app_id={urllib.parse.quote(app_id)}"
+            f"&redirect_uri={urllib.parse.quote(_FEISHU_OAUTH_REDIRECT_URI)}"
+            f"&scope={urllib.parse.quote(scope)}"
+            f"&state=setup"
+        )
+        return (
+            f"请在浏览器中打开以下链接，用飞书账号登录授权：\n\n{url}\n\n"
+            f"登录后会跳转到飞书文档页面，请从浏览器地址栏复制 URL 中的 code=xxx 参数值，"
+            f"然后调用：feishu_oauth_setup(action=\"exchange_code\", code=\"粘贴code值\")"
+        )
+
+    if action == "exchange_code":
+        if not code:
+            return "❌ 请提供 code 参数，示例：feishu_oauth_setup(action=\"exchange_code\", code=\"xxx\")"
+        try:
+            resp = httpx.post(
+                f"{FEISHU_BASE}/authen/v1/oidc/access_token",
+                json={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "app_id": app_id,
+                    "app_secret": app_secret,
+                    "redirect_uri": _FEISHU_OAUTH_REDIRECT_URI,
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json().get("data", resp.json())
+            new_token = data.get("access_token", "")
+            new_refresh = data.get("refresh_token", "")
+            expires_in = data.get("expires_in", 7200)
+            if not new_token:
+                return f"❌ 换取 token 失败，飞书返回：{resp.json()}"
+
+            new_expires_at = time.time() + expires_in
+            os.environ["FEISHU_USER_ACCESS_TOKEN"] = new_token
+            os.environ["FEISHU_USER_REFRESH_TOKEN"] = new_refresh
+            os.environ["FEISHU_USER_TOKEN_EXPIRES_AT"] = str(int(new_expires_at))
+            _user_token_cache["token"] = new_token
+            _user_token_cache["expires_at"] = new_expires_at
+            _update_env_user_token(new_token, new_refresh, new_expires_at)
+
+            has_refresh = "✅ refresh_token 已写入，后续自动续期" if new_refresh else "⚠️ 未获得 refresh_token"
+            return (
+                f"✅ OAuth 授权成功！\n"
+                f"- access_token 已写入 .env（有效期约 {expires_in // 60} 分钟）\n"
+                f"- {has_refresh}\n"
+                f"- wiki 空间权限（131006）应已修复，可立即调用 feishu_wiki_page 验证"
+            )
+        except Exception as e:
+            return f"❌ 换取 token 失败：{e}"
+
+    return f"❌ 未知 action：{action}，支持 get_auth_url / exchange_code"
+
+
+# --------------------------------------------------------------------------- #
 # 工具分类（渐进式披露）
 # --------------------------------------------------------------------------- #
 
@@ -1873,6 +1960,7 @@ TOOL_CATEGORIES: dict[str, list] = {
         sync_context_to_feishu,
         feishu_wiki_page,
         feishu_project_setup,
+        feishu_oauth_setup,
     ],
     # 飞书高级工具（Bitable / Task / 搜索 / IM / 日历 / 电子表格 / 群聊）——schema 较重，按需加载
     "feishu_advanced": [
@@ -1906,6 +1994,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "项目", "章程", "周报", "里程碑", "需求文档", "技术方案", "风险", "raid",
         "复盘", "项目集", "portfolio", "上线", "验收", "立项",
         "新建项目", "项目初始化", "建立项目", "创建项目", "项目结构",
+        "oauth", "授权", "token", "权限", "131006",
     ],
     "feishu_advanced": [
         "多维表格", "bitable", "表格", "任务", "task",

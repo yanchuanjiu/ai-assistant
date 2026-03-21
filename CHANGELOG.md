@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.9.4 - 2026-03-21
+
+### Fixed
+- **飞书 user_access_token 配置，修复 131006 权限错误**
+  - `.env` 写入 `FEISHU_USER_ACCESS_TOKEN` / `FEISHU_USER_TOKEN_EXPIRES_AT` / `FEISHU_APP_SECRET`
+  - `integrations/feishu/client.py`：`get_user_access_token()` 新增兼容逻辑，当 `FEISHU_USER_TOKEN_EXPIRES_AT=0` 但 token 存在时，视为新鲜 token（避免无 expires_at 配置时强制走刷新路径）
+
+### Added
+- **`feishu_oauth_setup` 工具**（`graph/tools.py`）：飞书 OAuth 授权全流程工具
+  - `action="get_auth_url"`：生成授权链接，发给用户在浏览器打开
+  - `action="exchange_code"`：接收用户从地址栏复制的 code，换取 access_token + refresh_token，写入 .env，立即生效
+  - 注册到 `feishu_wiki` 分类，关键词 "oauth/授权/token/权限/131006" 触发
+  - 从此 user token 可通过 refresh_token 自动续期，无需人工干预
+
 ## v0.9.3 - 2026-03-21
 
 ### Refactor

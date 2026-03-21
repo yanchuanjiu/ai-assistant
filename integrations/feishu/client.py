@@ -77,6 +77,11 @@ def get_user_access_token() -> str:
     expires_at = float(os.getenv("FEISHU_USER_TOKEN_EXPIRES_AT", "0"))
     refresh_token = os.getenv("FEISHU_USER_REFRESH_TOKEN", "")
 
+    # 手动配置 token 但未设置过期时间时，视为从现在起 2 小时有效
+    if token and expires_at == 0:
+        expires_at = now + 7100
+        os.environ["FEISHU_USER_TOKEN_EXPIRES_AT"] = str(int(expires_at))
+
     if token and now < expires_at - 60:
         _user_token_cache["token"] = token
         _user_token_cache["expires_at"] = expires_at
