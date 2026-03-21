@@ -180,6 +180,52 @@ tmux list-sessions | grep ai-claude
 
 ---
 
+## 提示词架构设计原则
+
+> v0.9.3 深度精简后沉淀的设计思路，后续迭代必读。
+
+### 各文件的职责边界
+
+| 文件 | 职责 | 不该写什么 |
+|------|------|-----------|
+| `prompts/system.md` | **平台约束 + 反直觉规则 + 唯一的行为边界**。只写模型无法从工具 schema 或对话中自行推断的规则。 | 工具功能介绍（已在 schema）、错误处理流程（属工具层）、重复 SOUL.md 的原则 |
+| `workspace/SOUL.md` | **Agent 的性格和行动哲学**。主动/被动的边界，什么值得写飞书，什么时候停下来。 | 具体工具用法、平台细节 |
+| `workspace/MEMORY_CORE.md` | **已知坑点的结论性描述**。只记录「这个坑存在，需要人工解决」，不记录「Agent 可以尝试绕过的方案」。 | 引导 Agent 自主尝试解决系统配置问题的路径 |
+| `workspace/SKILLS_*.md` | **特定场景的操作 SOP**。关键词命中时注入，提供步骤级指导。 | 通用原则（写进 SOUL 或 system） |
+| `graph/tools.py` docstring | **工具的使用约束和失败行为**。工具返回错误时该怎么做，写在这里。 | 大段背景知识 |
+
+### 减法原则（修改前必问）
+
+在 system.md 增加任何内容前，先问：
+
+1. **模型天然会这样做吗？** 如果是，不写。（例：并行调用工具、结构化输出、使用已知工具）
+2. **工具 schema 已经说清楚了吗？** 如果是，不写。（例：工具功能列表、参数说明）
+3. **这是工具层该处理的吗？** 如果是，改工具的 docstring 或错误消息，不写进 system.md。（例：具体 API 错误的修复步骤）
+4. **只在某个 SKILL 场景才需要吗？** 如果是，写进对应 `SKILLS_*.md`，不写进 system.md。
+5. **SOUL.md 已经覆盖了吗？** 如果是，不重复。
+
+**只有上述问题都是「否」，才在 system.md 增加内容。**
+
+### 工具 / Skill 触发机制（与 system.md 无关）
+
+工具和 Skill 的触发完全由关键词匹配控制，**与 system.md 内容无关**：
+
+- **工具注入**：`graph/tools.py` 的 `CATEGORY_KEYWORDS` → `graph/nodes.py` 的 `_select_tools_for_context()`
+- **Skill 注入**：`graph/nodes.py` 的 `_PROJECT_MGMT_KEYWORDS` / `_BITABLE_KEYWORDS` → `_build_system_prompt()`
+- 修改工具触发词 → 改 `CATEGORY_KEYWORDS`；修改 Skill 触发词 → 改 `nodes.py` 的 keyword 列表
+
+### 死循环防御设计（三层）
+
+| 层 | 机制 | 文件 |
+|----|------|------|
+| **提示词层（最优先）** | system.md 明确：权限/配置错误 → 告知用户，停止 | `prompts/system.md` |
+| **性格层** | SOUL.md：权限不足是人工介入信号，不是「卡住」 | `workspace/SOUL.md` |
+| **代码兜底** | `MAX_TOOL_ITERATIONS=5` + `_check_user_interaction_needed()` | `graph/nodes.py` |
+
+提示词层解决「模型主动不死循环」，代码层解决「即使提示词失效也不无限跑」。两层不可互相替代。
+
+---
+
 ## OpenClaw 参考
 
 `larksuite-openclaw-lark-2026.3.15.tgz` — 飞书 API 工具和技能参考包（bitable/calendar/task/chat/drive/search）。
