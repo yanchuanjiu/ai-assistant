@@ -6,6 +6,8 @@
   BOT-2x  钉钉 Bot 问候快速路径（v0.8.22）
   BOT-3x  FeishuBot.send_text 长回复压缩（v0.8.6）
   BOT-4x  _save_to_feishu_wiki 缓存失效恢复（v0.8.6）
+  BOT-5x  飞书多话题并行与线程隔离（v1.0.0）
+  BOT-6x  钉钉 MarkdownCard 替代旧 session_webhook（v1.0.0）
 """
 import json
 import pytest
@@ -19,13 +21,22 @@ class TestFeishuGreetingFastPath:
     # 问候词集合（与 bot.py 中定义一致）
     GREETINGS = {"你好", "hi", "hello", "嗨", "哈喽", "在吗", "在不在", "hey", "yo", "早", "早上好"}
 
-    def _make_message_data(self, text: str):
+    @pytest.fixture(autouse=True)
+    def _clear_seen(self):
+        """每个测试前清空去重缓存，避免跨测试的 message_id 碰撞。"""
+        import integrations.feishu.bot as fb
+        fb._seen_message_ids.clear()
+        yield
+        fb._seen_message_ids.clear()
+
+    def _make_message_data(self, text: str, msg_id: str = None):
         """构造最小可用的飞书消息 mock 对象"""
+        import time
         data = MagicMock()
         data.event.message.message_type = "text"
         data.event.message.content = json.dumps({"text": text})
         data.event.message.chat_id = "chat_test_001"
-        data.event.message.message_id = f"msg_{text}"
+        data.event.message.message_id = msg_id or f"msg_{text}_{time.time_ns()}"
         data.event.message.root_id = None
         data.event.sender.sender_id.open_id = "user_test_001"
         return data
@@ -81,10 +92,11 @@ class TestFeishuGreetingFastPath:
 
     def test_greeting_set_completeness(self):
         """验证 _GREETINGS 集合包含所有预期的问候词"""
-        # 直接检查逻辑等价性（源码 _GREETINGS 是内嵌集合，通过行为验证）
+        import time
         from integrations.feishu import bot as feishu_bot
         for greeting in self.GREETINGS:
-            data = self._make_message_data(greeting)
+            # 每次用唯一 message_id 避免去重（dedup TTL=2min）
+            data = self._make_message_data(greeting, msg_id=f"completeness_{greeting}_{time.time_ns()}")
             sent = []
             with patch.object(feishu_bot.FeishuBot, "send_text",
                                side_effect=lambda chat_id, text: sent.append(text) or True):
@@ -304,3 +316,176 @@ class TestSaveToFeishuWiki:
         # 时间格式：YYYY-MM-DD HH:MM
         import re
         assert re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}", written[0])
+
+
+# ── BOT-5x: 飞书多话题并行与线程隔离（v1.0.0）───────────────────────────────
+class TestFeishuMultiTopicIsolation:
+    """BOT-5x: 同一 chat 的不同话题各自独立 thread_id 与 _topic_lock"""
+
+    @pytest.fixture(autouse=True)
+    def _isolate(self):
+        """每个测试隔离飞书 bot 全局状态。"""
+        import integrations.feishu.bot as fb
+        saved_anchor = dict(fb._thread_anchor)
+        saved_reverse = dict(fb._anchor_to_thread)
+        saved_seen = dict(fb._seen_message_ids)
+        saved_locks = dict(fb._topic_locks)
+        saved_db = fb._anchor_db
+
+        fb._thread_anchor.clear()
+        fb._anchor_to_thread.clear()
+        fb._seen_message_ids.clear()
+        fb._topic_locks.clear()
+        fb._anchor_db = None
+        yield fb
+
+        fb._thread_anchor.clear()
+        fb._thread_anchor.update(saved_anchor)
+        fb._anchor_to_thread.clear()
+        fb._anchor_to_thread.update(saved_reverse)
+        fb._seen_message_ids.clear()
+        fb._seen_message_ids.update(saved_seen)
+        fb._topic_locks.clear()
+        fb._topic_locks.update(saved_locks)
+        fb._anchor_db = saved_db
+
+    def _make_msg(self, text, chat_id="oc_multi", msg_id="msg_001", root_id=None):
+        data = MagicMock()
+        data.event.message.message_type = "text"
+        data.event.message.content = json.dumps({"text": text})
+        data.event.message.chat_id = chat_id
+        data.event.message.message_id = msg_id
+        data.event.message.root_id = root_id
+        data.event.sender.sender_id.open_id = "user_multi_001"
+        return data
+
+    def test_two_topics_get_different_thread_ids(self, _isolate):
+        """BOT-51: 同一 chat 两条不同话题消息 → 两个不同 thread_id"""
+        fb = _isolate
+        from integrations.feishu.bot import FeishuBot
+
+        thread_ids_seen = []
+        original_get_lock = fb._get_topic_lock
+
+        def capture_lock(tid):
+            thread_ids_seen.append(tid)
+            return original_get_lock(tid)
+
+        with patch("integrations.feishu.bot._get_topic_lock", side_effect=capture_lock):
+            with patch("integrations.claude_code.session.session_manager") as mock_sm:
+                with patch("integrations.feishu.bot.threading") as mock_thread:
+                    with patch.object(FeishuBot, "send_text", return_value=True):
+                        mock_sm.get.return_value = None
+                        mock_thread.Thread = MagicMock(return_value=MagicMock())
+                        fb._on_message(self._make_msg("#项目A 进展如何", msg_id="msg_a1"))
+                        fb._on_message(self._make_msg("#日程 明天安排", msg_id="msg_b1"))
+
+        assert len(thread_ids_seen) >= 2
+        assert thread_ids_seen[0] != thread_ids_seen[1], (
+            f"两个话题应有不同 thread_id，实际: {thread_ids_seen}"
+        )
+        assert "#topic#项目A" in thread_ids_seen[0]
+        assert "#topic#日程" in thread_ids_seen[1]
+
+    def test_two_topics_get_independent_locks(self, _isolate):
+        """BOT-51: 两个不同话题的 _topic_lock 对象独立（不是同一把锁）"""
+        fb = _isolate
+        lock_a = fb._get_topic_lock("feishu:oc_chat#topic#项目A")
+        lock_b = fb._get_topic_lock("feishu:oc_chat#topic#日程")
+        assert lock_a is not lock_b, "不同话题应各自独立的锁"
+
+    def test_same_topic_reuses_lock(self, _isolate):
+        """同一话题两次调用 _get_topic_lock → 返回同一把锁对象"""
+        fb = _isolate
+        lock1 = fb._get_topic_lock("feishu:oc_chat#topic#项目A")
+        lock2 = fb._get_topic_lock("feishu:oc_chat#topic#项目A")
+        assert lock1 is lock2
+
+    def test_empty_topic_body_no_agent(self, _isolate):
+        """BOT-52: 消息仅为 '#日程'（内容为空）→ 回复切换提示，不启动 Agent 线程"""
+        fb = _isolate
+        from integrations.feishu.bot import FeishuBot
+
+        sent_texts = []
+        with patch("integrations.claude_code.session.session_manager") as mock_sm:
+            with patch("integrations.feishu.bot.threading") as mock_thread:
+                with patch.object(
+                    FeishuBot, "send_text",
+                    side_effect=lambda chat_id, text: sent_texts.append(text) or True,
+                ):
+                    mock_sm.get.return_value = None
+                    mock_thread.Thread = MagicMock(return_value=MagicMock())
+                    fb._on_message(self._make_msg("#日程", msg_id="msg_empty"))
+
+        mock_thread.Thread.assert_not_called()
+        assert len(sent_texts) > 0
+        assert any("日程" in t for t in sent_texts), f"应提及话题名，实际: {sent_texts}"
+
+    def test_duplicate_message_id_skipped(self, _isolate):
+        """BOT-53: 同一 message_id 发两次 → 第二次被去重跳过"""
+        fb = _isolate
+        from integrations.feishu.bot import FeishuBot
+
+        thread_count = [0]
+
+        def count_thread(*args, **kwargs):
+            thread_count[0] += 1
+            return MagicMock()
+
+        with patch("integrations.claude_code.session.session_manager") as mock_sm:
+            with patch("integrations.feishu.bot.threading") as mock_thread:
+                with patch.object(FeishuBot, "send_text", return_value=True):
+                    mock_sm.get.return_value = None
+                    mock_thread.Thread = MagicMock(side_effect=count_thread)
+                    fb._on_message(self._make_msg("你好吗", msg_id="dup_msg_001"))
+                    fb._on_message(self._make_msg("你好吗", msg_id="dup_msg_001"))
+
+        assert thread_count[0] <= 1, (
+            f"重复消息应被去重，Agent 线程最多启动 1 次，实际: {thread_count[0]}"
+        )
+
+
+# ── BOT-6x: 钉钉 MarkdownCard 替代旧 session_webhook（v1.0.0）──────────────
+class TestDingTalkMarkdownCardReplacement:
+    """BOT-6x: 确认 MarkdownCard 已取代旧 session_webhook"""
+
+    def test_non_greeting_instantiates_markdown_card(self):
+        """BOT-61: 非问候钉钉消息 → MarkdownCardInstance 被实例化"""
+        from integrations.dingtalk import bot as dd_bot
+        handler = dd_bot._BotHandler.__new__(dd_bot._BotHandler)
+        handler.dingtalk_client = MagicMock()
+        callback = MagicMock()
+        callback.data = {}
+
+        parsed = {
+            "text": "帮我查一下钉钉文档",
+            "user_id": "user_bot6",
+            "chat_id": "conv_bot6",
+            "thread_id": "dingtalk:conv_bot6",
+        }
+        mock_card = MagicMock()
+        mock_card.reply.return_value = "card_id_bot6"
+
+        with patch("integrations.dingtalk.bot._parse_dingtalk_message", return_value=parsed):
+            with patch("integrations.claude_code.session.session_manager") as mock_sm:
+                with patch(
+                    "dingtalk_stream.card_instance.MarkdownCardInstance",
+                    return_value=mock_card,
+                ) as MockCard:
+                    with patch("integrations.dingtalk.bot.threading") as mock_thread:
+                        mock_sm.get.return_value = None
+                        mock_thread.Thread = MagicMock(return_value=MagicMock())
+                        handler.process(callback)
+
+        MockCard.assert_called_once()
+        mock_card.reply.assert_called_once()
+
+    def test_session_webhook_symbol_removed(self):
+        """BOT-62: session_webhook 相关旧符号已从钉钉 bot 移除"""
+        import integrations.dingtalk.bot as dd_bot
+        assert not hasattr(dd_bot, "_reply_via_webhook"), \
+            "_reply_via_webhook 应已移除"
+        assert not hasattr(dd_bot, "_thread_anchor"), \
+            "钉钉的 _thread_anchor 应已移除（仅飞书有）"
+        assert not hasattr(dd_bot, "_get_anchor"), \
+            "_get_anchor 应已从钉钉 bot 移除"
