@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.0 - 2026-03-21
+
+### Added / Fixed
+- **飞书线程路由修复（核心）**：回复飞书已有线程（消息含 `root_id`）时，正确路由到对应话题上下文，而非创建孤立的 `feishu:thread:{root_id}` 上下文
+  - 新增 `_anchor_to_thread` 反向映射（`message_id → thread_id`），`_set_anchor` 同时维护
+  - `_parse_feishu_message` 遇到 `root_id` 时先查反向映射，命中则直接使用话题 thread_id
+  - bot 回复的 message_id 也注册进反向映射，确保用户回复任意线程消息均能正确路由
+- **飞书 anchor 持久化**：`_anchor_to_thread` 写入 `data/memory.db`（新表 `feishu_anchors`），服务重启后线程路由仍有效（7天 TTL）
+- **飞书首条回复线程化**：话题/线程上下文下，第一条 bot 回复也使用 `reply_in_thread`，而非先发普通消息再从第二条起线程化；默认上下文（无话题）保持普通发送
+- **钉钉 MarkdownCard 线程化**（重构）：用 `MarkdownCardInstance.reply()` 替代 `session_webhook`
+  - 创建绑定到当前消息的 Markdown 卡片，立即显示"处理中..."，LLM 完成后 `update()` 原地更新，无5秒过期限制
+  - 移除 `_thread_anchor` / `_reply_via_webhook` / `session_webhook` 过期检查等旧机制
+- **自然语言新话题触发**：`topic_manager.extract_topic()` 新增支持 `新话题：xxx` / `新话题 xxx` / `开始新话题：xxx` 等中文自然语言格式，与 `#话题名` 并存
+
 ## v0.9.9 - 2026-03-21
 
 ### Added

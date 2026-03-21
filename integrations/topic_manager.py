@@ -23,20 +23,33 @@ _MAX_TOPICS_PER_CHAT = 20  # 单个聊天最多话题数
 
 def extract_topic(text: str) -> tuple[str | None, str]:
     """
-    从消息文本中提取 #话题名 前缀。
+    从消息文本中提取话题名前缀。
 
     支持格式：
       "#项目A 进展如何？" → ("项目A", "进展如何？")
-      "#日程" → ("日程", "")         ← 仅切换话题，无新消息
+      "#日程" → ("日程", "")            ← 仅切换话题，无新消息
+      "新话题：预算 Q2情况" → ("预算", "Q2情况")
+      "新话题 预算 Q2情况" → ("预算", "Q2情况")
+      "开始新话题：预算 Q2情况" → ("预算", "Q2情况")
       "普通消息" → (None, "普通消息")
 
     话题名：非空白字符序列，最多 20 个字符。
     """
-    m = re.match(r'^#(\S{1,20})\s*(.*)', text.strip(), re.DOTALL)
+    t = text.strip()
+
+    # ── #话题名 格式（优先）────────────────────────────────────────────────
+    m = re.match(r'^#(\S{1,20})\s*(.*)', t, re.DOTALL)
     if m:
-        topic_name = m.group(1)
-        rest = m.group(2).strip()
-        return topic_name, rest
+        return m.group(1), m.group(2).strip()
+
+    # ── 自然语言格式：新话题[：:\s]+话题名 ──────────────────────────────
+    m = re.match(
+        r'^(?:开始)?新话题[：:\s]+([^\s，,。！？]{1,20})\s*(.*)',
+        t, re.DOTALL
+    )
+    if m:
+        return m.group(1), m.group(2).strip()
+
     return None, text
 
 

@@ -4,6 +4,7 @@
 """
 import json
 import logging
+import sqlite3
 import threading
 import time
 
@@ -50,8 +51,60 @@ _DEDUP_TTL = 120  # 2 分钟内相同 message_id 视为重复
 # 话题锚点（thread reply）：记录每个 thread_id 的第一条消息 ID
 # 后续回复使用 reply_in_thread 模式，利用飞书线程隔离上下文
 # --------------------------------------------------------------------------- #
-_thread_anchor: dict[str, str] = {}  # thread_id → first message_id
+_thread_anchor: dict[str, str] = {}          # thread_id  → anchor message_id
+_anchor_to_thread: dict[str, str] = {}       # message_id → thread_id（反向映射）
 _anchor_lock = threading.Lock()
+
+# SQLite 持久化（重启后 root_id 路由仍有效）
+_anchor_db: sqlite3.Connection | None = None
+_anchor_db_lock = threading.Lock()
+_ANCHOR_TTL = 86400 * 7  # 7 天 TTL
+
+
+def _get_anchor_db() -> sqlite3.Connection:
+    """懒加载 SQLite 连接，首次调用时建表并加载历史记录到内存。"""
+    global _anchor_db
+    if _anchor_db is not None:
+        return _anchor_db
+    with _anchor_db_lock:
+        if _anchor_db is not None:
+            return _anchor_db
+        import os
+        os.makedirs("data", exist_ok=True)
+        conn = sqlite3.connect("data/memory.db", check_same_thread=False)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS feishu_anchors (
+                message_id TEXT PRIMARY KEY,
+                thread_id  TEXT NOT NULL,
+                created_at REAL NOT NULL
+            )
+        """)
+        conn.commit()
+        # 加载未过期条目到内存
+        now = time.time()
+        rows = conn.execute(
+            "SELECT message_id, thread_id FROM feishu_anchors WHERE created_at > ?",
+            (now - _ANCHOR_TTL,),
+        ).fetchall()
+        with _anchor_lock:
+            for msg_id, tid in rows:
+                _anchor_to_thread[msg_id] = tid
+        logger.info(f"[飞书] 已加载 {len(rows)} 条 anchor 记录（跨重启保持线程路由）")
+        _anchor_db = conn
+        return conn
+
+
+def _persist_anchor(message_id: str, thread_id: str) -> None:
+    """将 message_id → thread_id 持久化到 SQLite（异步写，失败不影响主流程）。"""
+    try:
+        db = _get_anchor_db()
+        db.execute(
+            "INSERT OR REPLACE INTO feishu_anchors (message_id, thread_id, created_at) VALUES (?, ?, ?)",
+            (message_id, thread_id, time.time()),
+        )
+        db.commit()
+    except Exception as e:
+        logger.warning(f"[飞书] anchor 持久化失败: {e}")
 
 
 def _is_duplicate(message_id: str) -> bool:
@@ -172,7 +225,11 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
     msg_type = msg.message_type or "text"
     chat_id = msg.chat_id or ""
     root_id = getattr(msg, "root_id", None) or ""
-    thread_id = f"feishu:thread:{root_id}" if root_id else f"feishu:{chat_id}"
+    if root_id:
+        # 优先从反向映射查找已知话题 thread_id（重启后也有效，已从 SQLite 恢复）
+        thread_id = _anchor_to_thread.get(root_id) or f"feishu:thread:{root_id}"
+    else:
+        thread_id = f"feishu:{chat_id}"
     message_id = msg.message_id or ""
     user_id = sender.sender_id.open_id or ""
 
@@ -361,14 +418,15 @@ def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
             chat_id=parsed["chat_id"],
             thread_id=parsed["thread_id"],
         )
-        # ── 优先使用 reply_in_thread（利用飞书线程隔离上下文）──────────────
+        # ── 话题/线程上下文：所有回复（含首条）均 reply_in_thread ──────────
+        # 默认上下文（feishu:{chat_id}）不线程化，保持普通发送
         anchor = _get_anchor(parsed["thread_id"])
+        default_thread_id = f"feishu:{parsed['chat_id']}"
+        is_threaded = parsed["thread_id"] != default_thread_id
         sent = False
-        if anchor and anchor != parsed["message_id"]:
-            # 非首条消息：回复到锚点线程
-            sent = bot.reply_in_thread(anchor, reply)
+        if anchor and is_threaded:
+            sent = bot.reply_in_thread(anchor, reply, thread_id=parsed["thread_id"])
         if not sent:
-            # 首条消息 / reply_in_thread 失败 / 超长消息：回退到普通发送
             sent = bot.send_text(chat_id=parsed["chat_id"], text=reply)
         bot.remove_reaction(parsed["message_id"], processing_reaction_id)
         if sent:
@@ -497,12 +555,14 @@ def _get_anchor(thread_id: str) -> str | None:
 
 
 def _set_anchor(thread_id: str, message_id: str) -> None:
-    """登记 thread_id 的锚点（仅首次有效）。"""
+    """登记 thread_id 的锚点（仅首次有效），同时维护反向映射并持久化。"""
     if not message_id:
         return
     with _anchor_lock:
         if thread_id not in _thread_anchor:
             _thread_anchor[thread_id] = message_id
+            _anchor_to_thread[message_id] = thread_id
+    _persist_anchor(message_id, thread_id)
 
 
 class FeishuBot:
@@ -529,11 +589,14 @@ class FeishuBot:
         except Exception as e:
             logger.warning(f"[飞书] 删除 reaction 失败: {e}")
 
-    def reply_in_thread(self, anchor_message_id: str, text: str) -> bool:
+    def reply_in_thread(self, anchor_message_id: str, text: str, thread_id: str = "") -> bool:
         """
         回复指定消息，并在其线程中展示（reply_in_thread=True）。
-        用于同话题下的后续回复，使飞书 UI 自动形成线程视图。
+        用于话题/线程上下文的所有回复（含首条），使飞书 UI 自动形成线程视图。
         失败时返回 False（调用方可降级为 send_text）。
+
+        thread_id: 传入后，bot 回复的 message_id 也会注册进反向映射，
+                   确保后续 root_id 路由始终能找到正确话题上下文。
         """
         if not anchor_message_id:
             return False
@@ -561,6 +624,18 @@ class FeishuBot:
         if not resp.success():
             logger.warning(f"[飞书] reply_in_thread 失败(code={resp.code}): {resp.msg}")
             return False
+        # 注册 bot 回复的 message_id 到反向映射
+        # 飞书同一线程中所有消息共享同一 root_id（= anchor_message_id），
+        # 但保留 bot 消息 ID 方便未来扩展
+        if thread_id:
+            try:
+                bot_msg_id = getattr(getattr(resp, "data", None), "message_id", None)
+                if bot_msg_id:
+                    with _anchor_lock:
+                        _anchor_to_thread[bot_msg_id] = thread_id
+                    _persist_anchor(bot_msg_id, thread_id)
+            except Exception:
+                pass
         return True
 
     def _send_single(self, chat_id: str, text: str) -> bool:
