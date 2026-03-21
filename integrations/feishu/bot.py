@@ -5,6 +5,7 @@
 import json
 import logging
 import threading
+import time
 
 import lark_oapi as lark
 from lark_oapi.api.im.v1 import (
@@ -13,7 +14,7 @@ from lark_oapi.api.im.v1 import (
     CreateMessageRequestBody,
 )
 from pydantic_settings import BaseSettings
-from integrations.feishu.client import feishu_post, feishu_delete
+from integrations.feishu.client import feishu_post, feishu_delete, feishu_get
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +37,121 @@ _lark_client = lark.Client.builder() \
     .log_level(lark.LogLevel.WARNING) \
     .build()
 
+# --------------------------------------------------------------------------- #
+# 消息去重（防止 WebSocket 断线重连时重放同一消息）
+# --------------------------------------------------------------------------- #
+_seen_message_ids: dict[str, float] = {}
+_seen_lock = threading.Lock()
+_DEDUP_TTL = 120  # 2 分钟内相同 message_id 视为重复
+
+
+def _is_duplicate(message_id: str) -> bool:
+    """检查 message_id 是否已处理过，同时清理过期条目。"""
+    now = time.time()
+    with _seen_lock:
+        expired = [k for k, v in _seen_message_ids.items() if now - v > _DEDUP_TTL]
+        for k in expired:
+            del _seen_message_ids[k]
+        if message_id in _seen_message_ids:
+            return True
+        _seen_message_ids[message_id] = now
+        return False
+
+
+# --------------------------------------------------------------------------- #
+# 每 chat 串行锁（防止同一 chat 并发处理导致乱序回复）
+# --------------------------------------------------------------------------- #
+_chat_locks: dict[str, threading.Lock] = {}
+_chat_locks_mutex = threading.Lock()
+
+
+def _get_chat_lock(chat_id: str) -> threading.Lock:
+    with _chat_locks_mutex:
+        if chat_id not in _chat_locks:
+            _chat_locks[chat_id] = threading.Lock()
+        return _chat_locks[chat_id]
+
+
+# --------------------------------------------------------------------------- #
+# 消息类型中文标签
+# --------------------------------------------------------------------------- #
+_MSG_TYPE_LABELS: dict[str, str] = {
+    "image": "图片",
+    "file": "文件",
+    "audio": "语音",
+    "video": "视频",
+    "sticker": "表情包",
+    "media": "媒体",
+    "interactive": "卡片消息",
+    "merge_forward": "合并转发消息",
+    "location": "位置",
+    "hongbao": "红包",
+    "share_card": "名片",
+    "post": "富文本",
+    "system": "系统消息",
+}
+
+
+# --------------------------------------------------------------------------- #
+# 合并转发消息展开
+# --------------------------------------------------------------------------- #
+def _expand_merge_forward(content_str: str) -> str:
+    """
+    尝试展开合并转发消息的子消息文本。
+    content JSON 含 merge_forward_id，通过 IM API 获取子消息列表。
+    失败时返回简单描述。
+    """
+    try:
+        content = json.loads(content_str)
+        merge_forward_id = content.get("merge_forward_id", "")
+        if not merge_forward_id:
+            return "[合并转发消息，无法获取内容]"
+
+        # 获取转发消息的子消息列表
+        resp = feishu_get(
+            "/im/v1/messages",
+            params={
+                "container_id_type": "merge_forward_chat",
+                "container_id": merge_forward_id,
+                "page_size": 30,
+                "sort_type": "ByCreateTimeAsc",
+            },
+        )
+        items = resp.get("data", {}).get("items", [])
+        if not items:
+            return "[合并转发消息（无法读取内容，可能需要权限）]"
+
+        lines = [f"[合并转发消息，共 {len(items)} 条：]"]
+        for item in items:
+            sender_id = item.get("sender", {}).get("id", "?")
+            msg_type = item.get("msg_type", "text")
+            body_content = item.get("body", {}).get("content", "")
+            if msg_type == "text":
+                try:
+                    text = json.loads(body_content).get("text", body_content)
+                except Exception:
+                    text = body_content
+            elif msg_type == "image":
+                text = "[图片]"
+            elif msg_type in ("file", "audio", "video"):
+                text = f"[{_MSG_TYPE_LABELS.get(msg_type, msg_type)}]"
+            else:
+                text = f"[{msg_type}]"
+            lines.append(f"  · {sender_id}: {text[:200]}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.warning(f"[飞书] 展开合并转发消息失败: {e}")
+        return "[合并转发消息，展开失败，请告知具体内容]"
+
 
 # --------------------------------------------------------------------------- #
 # 纯函数：消息解析（无副作用，可单测）
 # --------------------------------------------------------------------------- #
 def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
     """
-    解析飞书消息事件，返回标准化 dict 或 None（非文本/空消息返回 None）。
+    解析飞书消息事件，返回标准化 dict 或 None（系统消息等返回 None）。
 
-    返回字段：text, user_id, chat_id, message_id, thread_id
+    返回字段：text, user_id, chat_id, message_id, thread_id, msg_type
     thread_id 规则：
       - 帖子内回复（root_id 非空）→ feishu:thread:{root_id}（独立会话）
       - 普通群聊/单聊 → feishu:{chat_id}
@@ -52,28 +159,146 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
     msg = data.event.message
     sender = data.event.sender
 
-    if msg.message_type != "text":
-        return None
-
-    try:
-        content = json.loads(msg.content)
-        text = content.get("text", "").strip()
-    except Exception:
-        return None
-
-    if not text:
-        return None
-
+    msg_type = msg.message_type or "text"
     chat_id = msg.chat_id or ""
     root_id = getattr(msg, "root_id", None) or ""
     thread_id = f"feishu:thread:{root_id}" if root_id else f"feishu:{chat_id}"
+    message_id = msg.message_id or ""
+    user_id = sender.sender_id.open_id or ""
 
+    # 系统消息直接忽略
+    if msg_type == "system":
+        return None
+
+    try:
+        content_str = msg.content or "{}"
+    except Exception:
+        content_str = "{}"
+
+    # ── 文本消息 ────────────────────────────────────────────────────────────
+    if msg_type == "text":
+        try:
+            text = json.loads(content_str).get("text", "").strip()
+        except Exception:
+            text = content_str.strip()
+        if not text:
+            return None
+        return {
+            "text": text,
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "thread_id": thread_id,
+            "msg_type": "text",
+        }
+
+    # ── 富文本消息（post）：提取纯文本 ────────────────────────────────────
+    if msg_type == "post":
+        try:
+            post_data = json.loads(content_str)
+            zh = post_data.get("zh_cn") or post_data.get("en_us") or {}
+            parts = []
+            for para in zh.get("content", []):
+                for el in para:
+                    if el.get("tag") in ("text", "md"):
+                        parts.append(el.get("text", ""))
+            text = " ".join(parts).strip() or "[富文本消息]"
+        except Exception:
+            text = "[富文本消息]"
+        return {
+            "text": text,
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "thread_id": thread_id,
+            "msg_type": "post",
+        }
+
+    # ── 合并转发消息 ──────────────────────────────────────────────────────
+    if msg_type == "merge_forward":
+        text = _expand_merge_forward(content_str)
+        return {
+            "text": text,
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "thread_id": thread_id,
+            "msg_type": "merge_forward",
+        }
+
+    # ── 图片消息：传递文件 key 供 AI 参考 ───────────────────────────────
+    if msg_type == "image":
+        try:
+            img_data = json.loads(content_str)
+            image_key = img_data.get("image_key", "")
+            text = f"[收到图片，image_key={image_key}，暂时还不能直接分析图片内容，请描述你想问什么]"
+        except Exception:
+            text = "[收到图片消息]"
+        return {
+            "text": text,
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "thread_id": thread_id,
+            "msg_type": "image",
+        }
+
+    # ── 文件/音频/视频：传递文件名 ─────────────────────────────────────
+    if msg_type in ("file", "audio", "video"):
+        try:
+            file_data = json.loads(content_str)
+            file_name = file_data.get("file_name", "") or file_data.get("file_key", "")
+            duration = file_data.get("duration", "")
+            label = _MSG_TYPE_LABELS.get(msg_type, msg_type)
+            info = f"文件名：{file_name}" if file_name else ""
+            if duration:
+                info += f"，时长：{duration}ms"
+            text = f"[收到{label}消息{('，' + info) if info else ''}，暂不支持处理，请发文字说明需求]"
+        except Exception:
+            label = _MSG_TYPE_LABELS.get(msg_type, msg_type)
+            text = f"[收到{label}消息，暂不支持处理]"
+        return {
+            "text": text,
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "thread_id": thread_id,
+            "msg_type": msg_type,
+        }
+
+    # ── 卡片消息（interactive）：提取文本 ───────────────────────────────
+    if msg_type == "interactive":
+        try:
+            card_data = json.loads(content_str)
+            # 卡片 body 中的文本块
+            elements = card_data.get("body", {}).get("elements", []) or card_data.get("elements", [])
+            texts = []
+            for el in elements:
+                if el.get("tag") == "plain_text":
+                    texts.append(el.get("content", ""))
+                elif el.get("tag") == "markdown":
+                    texts.append(el.get("content", ""))
+            text = " ".join(texts).strip() or "[卡片消息，无法提取文字内容]"
+        except Exception:
+            text = "[卡片消息]"
+        return {
+            "text": text,
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "thread_id": thread_id,
+            "msg_type": "interactive",
+        }
+
+    # ── 其他类型：友好提示 ───────────────────────────────────────────────
+    label = _MSG_TYPE_LABELS.get(msg_type, msg_type)
     return {
-        "text": text,
-        "user_id": sender.sender_id.open_id or "",
+        "text": f"[收到{label}，暂不支持处理，请发文字消息]",
+        "user_id": user_id,
         "chat_id": chat_id,
-        "message_id": msg.message_id or "",
+        "message_id": message_id,
         "thread_id": thread_id,
+        "msg_type": msg_type,
     }
 
 
@@ -109,7 +334,7 @@ def _handle_slash_command(text: str, thread_id: str, chat_id: str) -> str | None
 
 
 def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
-    """在线程中运行 agent，发送回复。"""
+    """在线程中运行 agent（已持有 chat lock），发送回复。"""
     from graph.agent import invoke
 
     processing_reaction_id = bot.add_reaction(parsed["message_id"], "Typing")
@@ -125,7 +350,6 @@ def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
         if sent:
             bot.add_reaction(parsed["message_id"], "OK")
         else:
-            # 消息发送失败，通知用户，不加 OK reaction
             bot.send_text(
                 chat_id=parsed["chat_id"],
                 text="⚠️ 回复生成成功但发送失败，请重试或查看服务日志。",
@@ -146,38 +370,51 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
     if not parsed:
         return
 
+    message_id = parsed["message_id"]
     text = parsed["text"]
     thread_id = parsed["thread_id"]
     chat_id = parsed["chat_id"]
+    msg_type = parsed.get("msg_type", "text")
 
-    logger.info(f"[飞书长连接] user={parsed['user_id']} chat={chat_id} thread={thread_id} msg={text[:80]}")
+    # ── 去重：防止断线重连时重放 ────────────────────────────────────────
+    if message_id and _is_duplicate(message_id):
+        logger.info(f"[飞书] 跳过重复消息 message_id={message_id}")
+        return
+
+    logger.info(f"[飞书长连接] user={parsed['user_id']} chat={chat_id} thread={thread_id} type={msg_type} msg={text[:80]}")
 
     bot = FeishuBot()
 
     # 注册 reply_fn（绑定到 thread_id，供工具回调使用）
     reply_fn_registry[thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
 
-    # ── 斜杠命令（优先处理）────────────────────────────────────────────
-    if text.startswith("/"):
+    # ── 斜杠命令（优先处理，不走 chat lock）──────────────────────────────
+    if text.startswith("/") and msg_type == "text":
         resp = _handle_slash_command(text, thread_id, chat_id)
         if resp is not None:
             bot.send_text(chat_id=chat_id, text=resp)
             return
 
-    # ── 问候快速路径（0ms，不走 LLM）────────────────────────────────
+    # ── 问候快速路径（0ms，不走 LLM）────────────────────────────────────
     _GREETINGS = {"你好", "hi", "hello", "嗨", "哈喽", "在吗", "在不在", "hey", "yo", "早", "早上好"}
-    if text.strip().lower() in _GREETINGS:
+    if text.strip().lower() in _GREETINGS and msg_type == "text":
         bot.send_text(chat_id=chat_id, text="你好！有什么可以帮你的？")
         return
 
-    # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────────
-    if session_manager.get(thread_id):
+    # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────────────
+    if session_manager.get(thread_id) and msg_type == "text":
         session_manager.relay_input(thread_id, text)
         bot.send_text(chat_id=chat_id, text="↩️ 已转发给 Claude")
         return
 
-    # ── 正常 Agent 流程 ───────────────────────────────────────────────
-    threading.Thread(target=_run_agent, args=(parsed, bot), daemon=True).start()
+    # ── 正常 Agent 流程（每 chat 串行，防乱序）────────────────────────────
+    chat_lock = _get_chat_lock(chat_id)
+
+    def _run_with_lock():
+        with chat_lock:
+            _run_agent(parsed, bot)
+
+    threading.Thread(target=_run_with_lock, daemon=True).start()
 
 
 # --------------------------------------------------------------------------- #
@@ -230,7 +467,37 @@ class FeishuBot:
             logger.warning(f"[飞书] 删除 reaction 失败: {e}")
 
     def _send_single(self, chat_id: str, text: str) -> bool:
-        """发送单条消息，返回是否成功。"""
+        """
+        发送单条消息（post 富文本格式，支持 Markdown 渲染）。
+        使用 tag=md 让飞书客户端渲染 Markdown：加粗/斜体/代码块/链接等。
+        """
+        content = json.dumps(
+            {"zh_cn": {"content": [[{"tag": "md", "text": text}]]}},
+            ensure_ascii=False,
+        )
+        request = (
+            CreateMessageRequest.builder()
+            .receive_id_type("chat_id")
+            .request_body(
+                CreateMessageRequestBody.builder()
+                .receive_id(chat_id)
+                .msg_type("post")
+                .content(content)
+                .build()
+            )
+            .build()
+        )
+        resp = _lark_client.im.v1.message.create(request)
+        if not resp.success():
+            logger.warning(
+                f"[飞书] post 格式发送失败(code={resp.code})，降级纯文本: {resp.msg}"
+            )
+            # 降级：用纯文本重试
+            return self._send_single_text(chat_id, text)
+        return True
+
+    def _send_single_text(self, chat_id: str, text: str) -> bool:
+        """纯文本降级发送（post 失败时使用）。"""
         request = (
             CreateMessageRequest.builder()
             .receive_id_type("chat_id")
@@ -245,9 +512,7 @@ class FeishuBot:
         )
         resp = _lark_client.im.v1.message.create(request)
         if not resp.success():
-            logger.error(
-                f"[飞书] 发消息失败: code={resp.code} msg={resp.msg}"
-            )
+            logger.error(f"[飞书] 发消息失败: code={resp.code} msg={resp.msg}")
             return False
         return True
 
@@ -328,7 +593,6 @@ class FeishuBot:
         try:
             wiki.append_to_page(page_token, content)
         except Exception:
-            # 缓存 token 可能已失效（页面被删除/移动），清缓存后重试一次
             logger.warning(f"[飞书Bot] 写入详情页失败，清缓存后重试: {page_token!r}")
             cfg_delete("AI_REPLY_DETAIL_PAGE")
             page_token = _get_page_token()

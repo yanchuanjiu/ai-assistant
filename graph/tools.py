@@ -1417,6 +1417,306 @@ def feishu_im_get_messages(
 
 
 # --------------------------------------------------------------------------- #
+# 飞书日历日程管理
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_calendar_event(
+    action: str,
+    calendar_id: str = "primary",
+    event_id: str = None,
+    summary: str = None,
+    description: str = None,
+    start_time: str = None,
+    end_time: str = None,
+    attendees: list = None,
+    vchat_type: str = None,
+    user_open_id: str = None,
+    query: str = None,
+    start_ts: str = None,
+    end_ts: str = None,
+    page_size: int = 20,
+    page_token: str = None,
+) -> str:
+    """
+    飞书日历日程管理（calendar/v4）。
+
+    action 可选：
+      create      — 创建日程（需 summary、start_time、end_time）
+                    时间格式：ISO 8601 含时区，如 "2026-03-21T10:00:00+08:00"
+                    attendees 格式：[{"type": "user", "id": "ou_xxx"}, ...]
+                    vchat_type："vc"（飞书视频会议）/ "no_meeting"（无）
+                    user_open_id：当前用户 open_id，日程才会出现在用户日历
+      get         — 获取日程详情（需 event_id）
+      list        — 列出日程（需 start_ts/end_ts，Unix 秒时间戳字符串）
+      update      — 更新日程（需 event_id，可更新 summary/description/start_time/end_time）
+      delete      — 删除日程（需 event_id）
+      search      — 搜索日程（需 query）
+      freebusy    — 忙闲查询（需 user_open_id + start_ts + end_ts）
+
+    calendar_id 默认 "primary"（主日历），通常无需修改。
+    需在飞书开放平台开通 calendar:calendar 权限。
+    """
+    try:
+        base = f"/calendar/v4/calendars/{calendar_id}"
+
+        if action == "create":
+            if not summary or not start_time or not end_time:
+                return "create 需要 summary、start_time、end_time"
+            body: dict = {
+                "summary": summary,
+                "start_time": {"datetime": start_time},
+                "end_time": {"datetime": end_time},
+            }
+            if description:
+                body["description"] = description
+            if vchat_type:
+                body["vchat"] = {"vc_type": vchat_type}
+            resp = feishu_post(f"{base}/events", json=body)
+            event = resp.get("data", {}).get("event", {})
+            ev_id = event.get("event_id", "")
+            # 添加参会人（含创建者自己）
+            all_attendees = list(attendees or [])
+            if user_open_id:
+                ids = [a.get("id") for a in all_attendees]
+                if user_open_id not in ids:
+                    all_attendees.append({"type": "user", "id": user_open_id})
+            if all_attendees and ev_id:
+                feishu_post(
+                    f"{base}/events/{ev_id}/attendees/batch_create",
+                    json={"attendees": all_attendees},
+                )
+            return str(event)
+
+        elif action == "get":
+            resp = feishu_get(f"{base}/events/{event_id}")
+            return str(resp.get("data", {}).get("event", resp))
+
+        elif action == "list":
+            params: dict = {"page_size": page_size}
+            if start_ts:
+                params["start_time"] = start_ts
+            if end_ts:
+                params["end_time"] = end_ts
+            if page_token:
+                params["page_token"] = page_token
+            resp = feishu_get(f"{base}/events/instance_view", params=params)
+            return str(resp.get("data", resp))
+
+        elif action == "update":
+            body = {}
+            if summary is not None:
+                body["summary"] = summary
+            if description is not None:
+                body["description"] = description
+            if start_time is not None:
+                body["start_time"] = {"datetime": start_time}
+            if end_time is not None:
+                body["end_time"] = {"datetime": end_time}
+            from integrations.feishu.client import feishu_post as _post
+            resp = _post(f"{base}/events/{event_id}", json=body)
+            return str(resp.get("data", resp))
+
+        elif action == "delete":
+            from integrations.feishu.client import feishu_delete as _del
+            _del(f"{base}/events/{event_id}")
+            return f"日程 {event_id} 已删除"
+
+        elif action == "search":
+            resp = feishu_post(f"{base}/events/search", json={
+                "query": query or "",
+                "page_size": page_size,
+            })
+            items = resp.get("data", {}).get("items", [])
+            if not items:
+                return f"未找到包含「{query}」的日程"
+            lines = [f"搜索「{query}」共 {len(items)} 条："]
+            for ev in items:
+                lines.append(f"- [{ev.get('summary', '无标题')}] {ev.get('start_time', {}).get('datetime', '')} → {ev.get('end_time', {}).get('datetime', '')}  id={ev.get('event_id', '')}")
+            return "\n".join(lines)
+
+        elif action == "freebusy":
+            if not user_open_id or not start_ts or not end_ts:
+                return "freebusy 需要 user_open_id、start_ts、end_ts"
+            resp = feishu_post("/calendar/v4/freebusy/query", json={
+                "time_min": start_ts,
+                "time_max": end_ts,
+                "user_id_list": [user_open_id],
+            })
+            return str(resp.get("data", resp))
+
+        else:
+            return f"未知 action：{action}。可选：create/get/list/update/delete/search/freebusy"
+    except Exception as e:
+        logger.error(f"[feishu_calendar_event] {e}")
+        return f"日历操作失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 飞书电子表格（Sheets）
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_spreadsheet(
+    action: str,
+    spreadsheet_token: str = None,
+    sheet_id: str = None,
+    title: str = None,
+    range_: str = None,
+    values: list = None,
+    folder_token: str = None,
+    page_size: int = 20,
+) -> str:
+    """
+    飞书电子表格操作（sheets API）。
+
+    action 可选：
+      create        — 创建新电子表格（需 title；folder_token 可选，指定存放目录）
+      get_meta      — 获取表格元信息（sheet 列表、title 等，需 spreadsheet_token）
+      read_values   — 读取单元格数据（需 spreadsheet_token + range_）
+                      range_ 格式："{sheet_id}!A1:D10" 或 "{sheet_id}!A:D"
+      write_values  — 写入/覆盖单元格（需 spreadsheet_token + range_ + values）
+                      values 格式：二维数组，如 [["姓名","分数"],["张三",90]]
+      append_values — 追加行数据（需 spreadsheet_token + range_ + values）
+                      自动追加到有数据的最后一行之后
+
+    spreadsheet_token 从表格 URL 提取：https://xxx.feishu.cn/sheets/{spreadsheet_token}
+    """
+    try:
+        if action == "create":
+            if not title:
+                return "create 需要提供 title"
+            body: dict = {"title": title}
+            if folder_token:
+                body["folder_token"] = folder_token
+            resp = feishu_post("/sheets/v3/spreadsheets", json=body)
+            sheet = resp.get("data", {}).get("spreadsheet", {})
+            return str(sheet)
+
+        elif action == "get_meta":
+            if not spreadsheet_token:
+                return "get_meta 需要提供 spreadsheet_token"
+            resp = feishu_get(f"/sheets/v3/spreadsheets/{spreadsheet_token}")
+            return str(resp.get("data", resp))
+
+        elif action == "read_values":
+            if not spreadsheet_token or not range_:
+                return "read_values 需要 spreadsheet_token 和 range_"
+            resp = feishu_get(
+                f"/sheets/v2/spreadsheets/{spreadsheet_token}/values/{range_}",
+                params={"valueRenderOption": "ToString", "dateTimeRenderOption": "FormattedString"},
+            )
+            return str(resp.get("data", resp))
+
+        elif action == "write_values":
+            if not spreadsheet_token or not range_ or values is None:
+                return "write_values 需要 spreadsheet_token、range_ 和 values"
+            resp = feishu_post(
+                f"/sheets/v2/spreadsheets/{spreadsheet_token}/values",
+                json={"valueRange": {"range": range_, "values": values}},
+            )
+            return str(resp.get("data", resp))
+
+        elif action == "append_values":
+            if not spreadsheet_token or not range_ or values is None:
+                return "append_values 需要 spreadsheet_token、range_ 和 values"
+            resp = feishu_post(
+                f"/sheets/v2/spreadsheets/{spreadsheet_token}/values_append",
+                json={"valueRange": {"range": range_, "values": values}},
+            )
+            return str(resp.get("data", resp))
+
+        else:
+            return f"未知 action：{action}。可选：create/get_meta/read_values/write_values/append_values"
+    except Exception as e:
+        logger.error(f"[feishu_spreadsheet] {e}")
+        return f"电子表格操作失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
+# 飞书群聊信息查询
+# --------------------------------------------------------------------------- #
+@tool
+def feishu_chat_info(
+    action: str,
+    chat_id: str = None,
+    page_size: int = 20,
+    page_token: str = None,
+    user_id: str = None,
+    user_id_type: str = "open_id",
+) -> str:
+    """
+    飞书群聊和用户信息查询。
+
+    action 可选：
+      list_chats   — 列出机器人所在的所有群聊（返回 chat_id/name/type）
+      get_chat     — 获取指定群信息（需 chat_id）
+      list_members — 列出群成员（需 chat_id）
+      get_user     — 查询用户信息（需 user_id；user_id_type: open_id/user_id/union_id）
+
+    使用场景：
+      - 想知道"帮我发给xxx群"时先用 list_chats 找到群 chat_id
+      - 需要群成员信息时用 list_members
+      - 看到 open_id 想知道是谁用 get_user
+    """
+    try:
+        if action == "list_chats":
+            params: dict = {"page_size": page_size}
+            if page_token:
+                params["page_token"] = page_token
+            resp = feishu_get("/im/v1/chats", params=params)
+            data = resp.get("data", {})
+            items = data.get("items", [])
+            if not items:
+                return "机器人当前不在任何群聊中"
+            lines = [f"机器人所在群聊（共 {len(items)} 个）："]
+            for c in items:
+                lines.append(f"- {c.get('name', '(无名)')}  [{c.get('chat_type', '')}]  chat_id={c.get('chat_id', '')}")
+            if data.get("has_more"):
+                lines.append(f"\n（还有更多，page_token={data.get('page_token')}）")
+            return "\n".join(lines)
+
+        elif action == "get_chat":
+            if not chat_id:
+                return "get_chat 需要提供 chat_id"
+            resp = feishu_get(f"/im/v1/chats/{chat_id}")
+            return str(resp.get("data", resp))
+
+        elif action == "list_members":
+            if not chat_id:
+                return "list_members 需要提供 chat_id"
+            params = {"page_size": page_size}
+            if page_token:
+                params["page_token"] = page_token
+            resp = feishu_get(f"/im/v1/chats/{chat_id}/members", params=params)
+            data = resp.get("data", {})
+            items = data.get("items", [])
+            if not items:
+                return "群成员列表为空"
+            lines = [f"群成员（共 {len(items)} 人）："]
+            for m in items:
+                lines.append(f"- {m.get('name', '?')}  open_id={m.get('member_id', '')}")
+            if data.get("has_more"):
+                lines.append(f"\n（还有更多，page_token={data.get('page_token')}）")
+            return "\n".join(lines)
+
+        elif action == "get_user":
+            if not user_id:
+                return "get_user 需要提供 user_id"
+            resp = feishu_get(
+                f"/contact/v3/users/{user_id}",
+                params={"user_id_type": user_id_type},
+            )
+            user = resp.get("data", {}).get("user", resp)
+            name = user.get("name", "?") if isinstance(user, dict) else str(user)
+            return str(user)
+
+        else:
+            return f"未知 action：{action}。可选：list_chats/get_chat/list_members/get_user"
+    except Exception as e:
+        logger.error(f"[feishu_chat_info] {e}")
+        return f"查询失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
 # 运行时配置管理（长期记忆存储，无需重启）
 # --------------------------------------------------------------------------- #
 @tool
@@ -1574,7 +1874,7 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_wiki_page,
         feishu_project_setup,
     ],
-    # 飞书高级工具（Bitable / Task / 搜索 / IM）——schema 较重，按需加载
+    # 飞书高级工具（Bitable / Task / 搜索 / IM / 日历 / 电子表格 / 群聊）——schema 较重，按需加载
     "feishu_advanced": [
         feishu_bitable_record,
         feishu_bitable_meta,
@@ -1582,6 +1882,9 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_task_tasklist,
         feishu_search_doc_wiki,
         feishu_im_get_messages,
+        feishu_calendar_event,
+        feishu_spreadsheet,
+        feishu_chat_info,
     ],
     # Claude Code 自迭代 + 自我改进
     "claude": [
@@ -1605,9 +1908,12 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "新建项目", "项目初始化", "建立项目", "创建项目", "项目结构",
     ],
     "feishu_advanced": [
-        "多维表格", "bitable", "表格", "任务", "task", "日程",
+        "多维表格", "bitable", "表格", "任务", "task",
         "全文搜索", "群聊", "消息记录", "im消息",
         "表格记录", "待办", "清单",
+        "日历", "日程", "calendar", "会议", "约会", "忙闲", "freebusy",
+        "电子表格", "sheet", "spreadsheet",
+        "群成员", "chat_id", "用户信息",
     ],
     "claude": [
         "迭代", "开发", "修复", "实现", "编写代码", "重构",

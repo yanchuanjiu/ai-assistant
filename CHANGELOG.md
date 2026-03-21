@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.9.0 - 2026-03-21
+
+### Added
+- **`integrations/feishu/bot.py`**：全面升级飞书消息处理能力
+  - **消息去重**：基于 message_id 的 2min TTL 去重，防止 WebSocket 断线重连时重放触发双响应
+  - **每 chat 串行锁**：同一 chat 同时只处理一条消息，防止快速连发导致乱序回复
+  - **非文本消息支持**：文本/富文本(post)/合并转发/图片/文件/音视频/卡片均有处理，不再静默丢弃
+  - **合并转发展开**：调用 IM API 获取子消息列表，将内容展开传给 AI
+  - **post 富文本发送**：改用 `msg_type=post` + `tag=md`，Markdown 在飞书客户端正确渲染（加粗/代码块/标题等）；post 失败自动降级纯文本
+- **`graph/tools.py`**：新增三类飞书工具
+  - **`feishu_calendar_event`**：日历日程 CRUD（create/get/list/update/delete/search/freebusy），需 `calendar:calendar` 权限
+  - **`feishu_spreadsheet`**：电子表格操作（create/get_meta/read_values/write_values/append_values）
+  - **`feishu_chat_info`**：群聊和用户信息（list_chats/get_chat/list_members/get_user）
+  - 更新 `CATEGORY_KEYWORDS["feishu_advanced"]`：新增日历/电子表格/群聊相关触发词
+
+### Fixed
+- 修复非文本消息（图片、文件、合并转发等）发送给机器人后完全沉默的问题
+- 修复 AI 回复中的 Markdown 格式（`##`、`**` 等）在飞书 IM 显示为原始符号的问题
+
+---
+
 ## v0.8.30 - 2026-03-21
 
 ### Fixed

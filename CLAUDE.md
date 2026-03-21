@@ -21,6 +21,12 @@
 ✅ SQLite 记忆    — data/memory.db（LangGraph checkpointer）/ data/meeting.db
 ✅ 定时任务        — 钉钉会议30min / 邮件60min / 上下文同步30min / 心跳30min / 每日迁移08:00
 ✅ 飞书知识库      — docx API via get_node（context page: FalZwGDOkiqpbQkeAjGc8jaznMd）
+✅ 飞书消息接收    — 文本/富文本/合并转发/图片/文件/卡片均有处理（非文本不再静默丢弃）
+✅ 飞书消息发送    — post 富文本格式（tag=md，Markdown 正常渲染）
+✅ 消息稳定性      — 消息去重（2min TTL）+ 每 chat 串行锁，防重复响应和乱序
+✅ 飞书日历        — feishu_calendar_event（需 calendar:calendar 权限）
+✅ 飞书电子表格    — feishu_spreadsheet（create/read/write/append）
+✅ 飞书群聊信息    — feishu_chat_info（list_chats/get_chat/list_members/get_user）
 ✅ 会议纪要闭环    — 钉钉轮询 → LLM 分析 → 飞书写入（自动 + 按需 + 每日富文本迁移）
 ✅ Claude Code    — tmux 会话（持久化），stream-json 实时推送 IM
 ✅ 进程管理        — supervised thread + 指数退避自动重启，崩溃写 logs/crash.log
