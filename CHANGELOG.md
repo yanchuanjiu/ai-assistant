@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.9.1 - 2026-03-21
+
+### Fixed
+- **131006 权限错误根因分析与降级修复（`integrations/feishu/knowledge.py`）**
+  - 根因确认：`wiki:wiki` 应用权限 ≠ wiki 空间成员权限；`FEISHU_USER_ACCESS_TOKEN` 从未写入 .env
+  - 新增 `_list_wiki_root_nodes_fallback()`：当 list_wiki_children 遇到 131006 时，读取 `FEISHU_WIKI_ROOT_NODES` 配置（逗号分隔的已知根节点 wiki token），通过 `get_node` API（tenant token 可用）返回节点信息
+  - 优化 131006 错误信息：改为三选一的具体行动指南（FEISHU_WIKI_ROOT_NODES / user token / 空间成员）
+  - 修复 `import os` 缺失（原文件未 import os）
+
+### Docs
+- **`CLAUDE.md`**：明确 wiki:wiki 权限 vs 空间成员权限的区别，新增 FEISHU_WIKI_ROOT_NODES 配置说明
+- **`workspace/MEMORY.md`**：更新 131006 根因分析和三选一解决方案，更新至 83 条交互统计
+- **`workspace/HEARTBEAT.md`**：新增飞书权限配置检查（每天一次，检测 .env 缺少 user token / root nodes 配置）
+
 ## v0.9.0 - 2026-03-21
 
 ### Added

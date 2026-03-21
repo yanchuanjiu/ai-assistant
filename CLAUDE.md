@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-21（v0.8.29）
+> 最后更新：2026-03-21（v0.9.1）
 
 ---
 
@@ -20,7 +20,8 @@
 ✅ 火山云 LLM     — ep-20260317143459-qtgqn，OpenAI-compatible
 ✅ SQLite 记忆    — data/memory.db（LangGraph checkpointer）/ data/meeting.db
 ✅ 定时任务        — 钉钉会议30min / 邮件60min / 上下文同步30min / 心跳30min / 每日迁移08:00
-✅ 飞书知识库      — docx API via get_node（context page: FalZwGDOkiqpbQkeAjGc8jaznMd）
+✅ 飞书知识库      — docx API via get_node（context page: LiLpwC7uWiMPi5kSPW2c45DIn8c）
+⚠️  飞书 wiki 空间 — list_wiki_children 131006 权限错误（需配置 FEISHU_WIKI_ROOT_NODES 或 user token）
 ✅ 飞书消息接收    — 文本/富文本/合并转发/图片/文件/卡片均有处理（非文本不再静默丢弃）
 ✅ 飞书消息发送    — post 富文本格式（tag=md，Markdown 正常渲染）
 ✅ 消息稳定性      — 消息去重（2min TTL）+ 每 chat 串行锁，防重复响应和乱序
@@ -54,16 +55,20 @@
 - **自迭代 CLI**：`claude` 命令，使用 OAuth session token
 - ⚠️ **关键**：wrapper script 中必须 `unset ANTHROPIC_API_KEY`，否则覆盖 OAuth session 导致 401
 
-### 3. 飞书知识库权限说明
+### 3. 飞书知识库权限说明（⚠️ 重要：两种权限不同）
 读写已有页面（tenant_access_token 可用）：
 1. `GET /wiki/v2/spaces/get_node?token=WIKI_TOKEN` → 获取 `obj_token`
 2. `/docx/v1/documents/{obj_token}/...` → docx API 直接读写
 3. 前提：飞书页面「文档权限 → 可管理应用」添加该应用
 
 创建新 wiki 节点需要 wiki 空间编辑权限（error 131006 = 无权限）：
-- ⚠️ **tenant_access_token 创建节点需 wiki 空间管理员授予应用编辑权限**
-- 首选：配置 `FEISHU_USER_ACCESS_TOKEN` / `FEISHU_USER_REFRESH_TOKEN`（user token 优先）
+- ⚠️ **wiki:wiki 应用权限 ≠ wiki 空间成员权限**：即使 wiki:wiki 应用权限已在飞书开放平台开通，`/wiki/v2/spaces/{space_id}/nodes` 仍会 131006，因为 **APP 需要被显式添加为 wiki 空间成员**（空间设置 → 成员管理）
+- 解决方案（三选一）：
+  1. `.env` 配置 `FEISHU_WIKI_ROOT_NODES=token1,token2,...`（已知项目根节点，最简单）
+  2. 配置 `FEISHU_USER_ACCESS_TOKEN` / `FEISHU_USER_REFRESH_TOKEN`（user token 优先，完整方案）
+  3. 在飞书知识库空间设置中将应用 `cli_a8fec6e8585d100d` 添加为成员
 - `knowledge.py` 的 `_wiki_get` / `_wiki_post` 自动 user token 优先、tenant token 降级
+- v0.9.1：131006 时若有 `FEISHU_WIKI_ROOT_NODES`，通过 `get_node` API（tenant token 可用）返回已知节点
 
 ### 4. Claude Code 子进程权限
 运行环境是 root，`--dangerously-skip-permissions` 被禁止。

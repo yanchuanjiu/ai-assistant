@@ -12,6 +12,7 @@
 
   docx API（/docx/v1/documents/...）只需文档级权限，tenant_access_token 可用。
 """
+import os
 import re
 import time
 import logging
@@ -218,6 +219,39 @@ _PROJECT_TEMPLATES: dict[str, str] = {
 }
 
 
+def _list_wiki_root_nodes_fallback() -> list[dict]:
+    """
+    当 wiki space API 返回 131006（空间权限不足）时，从 FEISHU_WIKI_ROOT_NODES 环境变量
+    读取已知根节点 wiki token 列表（逗号分隔），通过 get_node API（租户 token 可用）
+    返回节点信息，作为 list_wiki_children 的降级方案。
+
+    配置示例（.env）：
+      FEISHU_WIKI_ROOT_NODES=RrdkwG6qXxx,IzYrw4qEYyy,AbcDef123zzz
+    """
+    root_nodes_env = os.getenv("FEISHU_WIKI_ROOT_NODES", "").strip()
+    if not root_nodes_env:
+        return []
+    items = []
+    for wt in root_nodes_env.split(","):
+        wt = wt.strip()
+        if not wt:
+            continue
+        try:
+            node_resp = feishu_get("/wiki/v2/spaces/get_node", params={"token": wt})
+            node = node_resp.get("data", {}).get("node", {})
+            if node:
+                items.append({
+                    "node_token": node.get("node_token", wt),
+                    "title": node.get("title", wt),
+                    "has_child": node.get("has_child", False),
+                    "obj_token": node.get("obj_token", ""),
+                    "obj_type": node.get("obj_type", "docx"),
+                })
+        except Exception as ex:
+            logger.warning(f"[FeishuKnowledge] FEISHU_WIKI_ROOT_NODES fallback 获取节点失败 {wt!r}: {ex}")
+    return items
+
+
 class FeishuKnowledge:
     def __init__(self):
         cfg = KBSettings()
@@ -351,9 +385,21 @@ class FeishuKnowledge:
             except Exception as e:
                 detail = str(e)
                 if "131006" in detail:
+                    # 尝试 FEISHU_WIKI_ROOT_NODES 配置的已知根节点作为 fallback
+                    fallback = _list_wiki_root_nodes_fallback()
+                    if fallback:
+                        logger.info(
+                            f"[FeishuKnowledge] 131006 fallback: 使用 FEISHU_WIKI_ROOT_NODES"
+                            f" 配置的已知节点（{len(fallback)} 个）"
+                        )
+                        return fallback
                     raise RuntimeError(
-                        f"wiki 空间权限不足（error 131006）：应用需要被 wiki 空间管理员授予「读取」权限，"
-                        f"或在 .env 中配置 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN。"
+                        f"wiki 空间权限不足（error 131006）。\n"
+                        f"根因：应用 tenant_access_token 缺少 wiki 空间成员权限（与 wiki:wiki 应用权限不同）。\n"
+                        f"解决方案（三选一，按难度从低到高）：\n"
+                        f"  A. 在 .env 配置 FEISHU_WIKI_ROOT_NODES=token1,token2,token3（已知根节点的 wiki token，逗号分隔）\n"
+                        f"  B. 在 .env 配置 FEISHU_USER_ACCESS_TOKEN + FEISHU_USER_REFRESH_TOKEN（通过 OAuth 授权获取）\n"
+                        f"  C. 在飞书知识库空间设置中，将应用 cli_a8fec6e8585d100d 添加为空间成员\n"
                         f"原始错误: {e}"
                     ) from e
                 logger.warning(f"[FeishuKnowledge] 列出根节点失败: {e}，返回空列表")

@@ -10,6 +10,13 @@
 - 如果服务进程不在（`logs/service.pid` 对应进程已死），提醒用户
 - **已知稳定崩溃**：`admin-http` 线程因端口 8080 已占用会持续崩溃，这是已知问题，不需要每次都提醒（同一天内只提醒一次）
 
+## 优先级 1.2：飞书权限配置检查（每天一次）
+
+- 检查 .env 中是否有 `FEISHU_USER_ACCESS_TOKEN` 或 `FEISHU_WIKI_ROOT_NODES` 配置
+  - 命令：`grep -c "FEISHU_USER_ACCESS_TOKEN\|FEISHU_WIKI_ROOT_NODES" /root/ai-assistant/.env`
+  - 若返回 0，且当日 logs/app.log 中出现 131006 错误超过 2 次，提醒用户配置（同一天只提醒一次）
+  - 提醒内容：说明 wiki:wiki 应用权限 ≠ 空间成员权限，提供三选一解决方案（见 MEMORY.md 131006 注意事项）
+
 ## 优先级 1.5：代码生效检查（每次心跳）
 
 - 比较 `logs/service.pid` 对应进程的启动时间与最新 git commit 时间
