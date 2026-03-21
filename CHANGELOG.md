@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.27] - 2026-03-21
+## v0.8.27 - 2026-03-21
 
 ### Added
 - **`graph/parallel.py`**（新文件）：并发任务框架
@@ -454,3 +454,8 @@ nohup python main.py >> logs/app.log 2>&1 &
 - APScheduler 定时任务（邮件5min、上下文同步30min）
 - Claude Code CLI 自迭代工具（`--dangerously-skip-permissions`）
 - Shell 命令白名单执行工具
+- 实现多任务并行执行框架
+- 支持非阻塞工具调用
+- 引入任务优先级队列
+- 优化线程安全机制
+- 增加实时进度监控
