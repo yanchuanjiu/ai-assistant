@@ -37,7 +37,7 @@ def feishu_read_page(wiki_url_or_token: str) -> str:
     返回页面的纯文本内容。
 
     ⚠️ token 必须来自用户提供的 URL 或 feishu_wiki_page(list_children) 的返回结果，不能使用记忆中的旧 token。
-    返回"读取失败"时，先用 feishu_wiki_page(list_children) 重新发现页面。
+    返回权限错误时（含 131006/403），停止重试，告知用户配置权限。
     """
     try:
         kb = FeishuKnowledge()

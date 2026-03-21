@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.9.3 - 2026-03-21
+
+### Refactor
+- **提示词系统深度精简（减法优先，Opus 分析）**
+  - `prompts/system.md`：262行→62行（-76%），移除所有工具能力列表、API错误处理表、重复说明、多任务并发步骤等冗余内容
+  - 死循环根本修复：新增一句「权限不足/配置缺失/需人工操作：告知用户后停止，不要自主修复系统配置」
+  - `workspace/SOUL.md`：「先尝试解决」后加限定「但遇到权限不足或需要人工操作的障碍时，直接告知主人」
+  - `workspace/MEMORY_CORE.md`：移除「OAuth 是绕过方案」暗示，改为明确说明需管理员配置
+  - `graph/tools.py`：`feishu_read_page` docstring 移除「失败时先用 list_children 重新发现」重试指令
+
+### Root cause analysis
+- 死循环由5条指令合力触发：SOUL.md「先尝试」无停止条件 + system.md「不能声称未集成」+ system.md「主动组合工具」+ system.md「失败给备选方案」+ MEMORY_CORE.md「OAuth是绕过方案」
+- 修复策略：减法+最小加法，代码层 MAX_TOOL_ITERATIONS=5 作为兜底
+
 ## v0.9.2 - 2026-03-21
 
 ### Fixed
