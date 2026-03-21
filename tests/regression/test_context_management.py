@@ -263,3 +263,112 @@ class TestSelectTools:
             names = self._tool_names(result)
             missing = self.core_names - names
             assert not missing, f"消息'{content}'时 CORE_TOOLS 缺少: {missing}"
+
+
+# ── CTX-4x: 跨轮上下文连续性与指代消解────────────────────────────────────────
+class TestCrossRoundContextContinuity:
+    """验证跨轮对话中工具选择的连续性和指代词场景"""
+
+    @pytest.fixture(autouse=True)
+    def import_fn(self):
+        from graph.nodes import _select_tools, _trim_to_user_turns
+        from graph.tools import CORE_TOOLS
+        self.select = _select_tools
+        self.trim = _trim_to_user_turns
+        self.core_names = {t.name for t in CORE_TOOLS}
+
+    def _tool_names(self, tools):
+        return {t.name for t in tools}
+
+    def test_anaphora_keeps_feishu_wiki_active(self):
+        """上一轮用了飞书工具，下一轮指代追问 → 飞书工具因连续性仍激活
+        注：最后消息需≥25字符才会触发连续性扫描（否则快速路径只返回CORE_TOOLS）"""
+        prev_ai = AIMessage(
+            content="",
+            tool_calls=[{"id": "c1", "name": "feishu_read_page", "args": {}, "type": "tool_call"}]
+        )
+        msgs = [
+            HumanMessage(content="读取项目章程页面"),
+            prev_ai,
+            ToolMessage(content="项目章程内容...", tool_call_id="c1"),
+            # 消息≥25字符才触发连续性扫描，不含飞书关键词（纯连续性验证）
+            HumanMessage(content="好的，把最后那一节的内容帮我更新成最新版本吧，谢谢"),
+        ]
+        result = self.select(msgs)
+        names = self._tool_names(result)
+        # 上一轮调用了 feishu_read_page，应通过连续性保持飞书工具
+        assert "feishu_read_page" in names or "feishu_append_to_page" in names, \
+            "指代消解场景：上一轮飞书操作后，飞书工具应保持激活"
+
+    def test_bitable_continuity_in_followup(self):
+        """上一轮调用了 feishu_bitable_record，下一轮追问（≥25字符）→ bitable 工具仍保持"""
+        prev_ai = AIMessage(
+            content="",
+            tool_calls=[{"id": "c2", "name": "feishu_bitable_record", "args": {}, "type": "tool_call"}]
+        )
+        msgs = [
+            HumanMessage(content="查看多维表格中的任务数据"),
+            prev_ai,
+            ToolMessage(content="找到3条记录", tool_call_id="c2"),
+            # ≥25字符触发连续性，不含bitable关键词（纯连续性验证）
+            HumanMessage(content="好的，根据刚才的结果再帮我加一条同类型的新记录进去"),
+        ]
+        result = self.select(msgs)
+        names = self._tool_names(result)
+        assert "feishu_bitable_record" in names, \
+            "bitable 工具连续性：上一轮已调用，下一轮（≥25字符）应保持"
+
+    def test_trim_preserves_current_round_tool_result(self):
+        """3轮对话，当前轮工具结果不被截断"""
+        long_content = "当前轮详细工具结果" * 40  # ~320 字符
+        msgs = [
+            HumanMessage(content="第1轮"),
+            AIMessage(content="回复1"),
+            HumanMessage(content="第2轮"),
+            AIMessage(content="回复2"),
+            HumanMessage(content="第3轮查询"),
+            AIMessage(content="", tool_calls=[{
+                "id": "c3", "name": "feishu_read_page", "args": {}, "type": "tool_call"
+            }]),
+            ToolMessage(content=long_content, tool_call_id="c3"),
+        ]
+        result = self.trim(msgs)
+        tool_msgs = [m for m in result if isinstance(m, ToolMessage)]
+        assert len(tool_msgs) == 1
+        assert tool_msgs[0].content == long_content, "当前轮 ToolMessage 不应被截断"
+
+    def test_multi_turn_trim_only_keeps_last_two_human(self):
+        """4轮对话 → 只保留最后2轮用户消息"""
+        msgs = [
+            HumanMessage(content="第1轮"),
+            AIMessage(content="A"),
+            HumanMessage(content="第2轮"),
+            AIMessage(content="B"),
+            HumanMessage(content="第3轮"),
+            AIMessage(content="C"),
+            HumanMessage(content="第4轮"),
+            AIMessage(content="D"),
+        ]
+        result = self.trim(msgs)
+        human_msgs = [m for m in result if isinstance(m, HumanMessage)]
+        assert len(human_msgs) == 2
+        assert human_msgs[-1].content == "第4轮"
+        assert human_msgs[0].content == "第3轮"
+
+    def test_claude_continuity_after_self_iteration(self):
+        """上一轮触发了 trigger_self_iteration → claude 工具保持激活（≥25字符触发连续性）"""
+        prev_ai = AIMessage(
+            content="",
+            tool_calls=[{"id": "c4", "name": "trigger_self_iteration", "args": {}, "type": "tool_call"}]
+        )
+        msgs = [
+            HumanMessage(content="帮我迭代这个功能"),
+            prev_ai,
+            ToolMessage(content="自我迭代已启动...", tool_call_id="c4"),
+            # ≥25字符才触发连续性，不含 claude/迭代 关键词
+            HumanMessage(content="任务执行进度如何了，现在处于什么阶段，可以让我看看吗"),
+        ]
+        result = self.select(msgs)
+        names = self._tool_names(result)
+        assert "list_claude_sessions" in names or "get_claude_session_output" in names, \
+            "claude 工具连续性：触发自迭代后，会话管理工具应保持激活"

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.25] - 2026-03-21
+
+### Added
+- **`tests/regression/test_volcengine_parser.py`**（18用例）：火山云文本格式工具调用解析器 `_extract_text_tool_calls` 全场景覆盖 — 单/多工具调用、双Begin变体、格式损坏安全降级、parameters/arguments字段兼容
+- **`tests/regression/test_error_tracker.py`**（25用例）：error_tracker 全路径 — `detect_error_in_response` 关键词检测与误报过滤、`record_error` 计数递增、`get_fix_status` 状态读取、GitHub Issue 创建（mock subprocess）、自我改进报告不触发误报、并发安全
+- **`tests/regression/test_tool_invocation.py`**（31用例）：核心工具调用路径（mock API）— `agent_config` get/set/delete/list（临时 SQLite）、`get_service_status` crash.log解析、`run_command`/`python_execute` 执行与超时、`list/kill_claude_sessions` tmux mock、Bitable placeholder guard、`get_recent_chat_context` thread_id 解析
+- **`tests/regression/test_concurrency.py`**（6用例）：并发安全 — SQLite meeting.db 并发 INSERT 唯一性、config_store 并发读写一致性、error_tracker 并发记录无竞态
+- **`tests/regression/test_context_management.py`** 追加 CTX-4x（5用例）：跨轮上下文连续性 — 飞书/bitable/claude 工具连续性保持、指代消解场景、多轮 trim 正确性
+- **`tests/regression/run_all.py`**：新增 volcengine / tracker / tools / concurrency 四个可选 suite
+
+---
+
 ## [0.8.24] - 2026-03-21
 
 ### Changed

@@ -9,7 +9,11 @@
   python tests/regression/run_all.py e2e       # 只跑端到端流水线
   python tests/regression/run_all.py error     # 只跑历史 bug 修复场景
   python tests/regression/run_all.py context   # 只跑上下文管理逻辑
-  python tests/regression/run_all.py bot       # 只跑 Bot 层行为
+  python tests/regression/run_all.py bot         # 只跑 Bot 层行为
+  python tests/regression/run_all.py volcengine # 只跑火山云解析器
+  python tests/regression/run_all.py tracker    # 只跑 error_tracker
+  python tests/regression/run_all.py tools      # 只跑工具调用路径
+  python tests/regression/run_all.py concurrency # 只跑并发安全
 
 退出码：
   0 — 全部通过
@@ -26,12 +30,16 @@ if ROOT not in sys.path:
 import subprocess
 
 SUITE_MAP = {
-    "feishu":   "tests/regression/test_feishu_wiki.py",
-    "dingtalk": "tests/regression/test_dingtalk_mcp.py",
-    "e2e":      "tests/regression/test_e2e_pipeline.py",
-    "error":    "tests/regression/test_error_scenarios.py",
-    "context":  "tests/regression/test_context_management.py",
-    "bot":      "tests/regression/test_bot_behavior.py",
+    "feishu":      "tests/regression/test_feishu_wiki.py",
+    "dingtalk":    "tests/regression/test_dingtalk_mcp.py",
+    "e2e":         "tests/regression/test_e2e_pipeline.py",
+    "error":       "tests/regression/test_error_scenarios.py",
+    "context":     "tests/regression/test_context_management.py",
+    "bot":         "tests/regression/test_bot_behavior.py",
+    "volcengine":  "tests/regression/test_volcengine_parser.py",
+    "tracker":     "tests/regression/test_error_tracker.py",
+    "tools":       "tests/regression/test_tool_invocation.py",
+    "concurrency": "tests/regression/test_concurrency.py",
 }
 
 def main():
