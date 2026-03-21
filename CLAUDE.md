@@ -37,6 +37,7 @@
 ✅ Workspace 体系 — workspace/{SOUL/USER/MEMORY/HEARTBEAT/SKILLS_*}.md 动态注入 system prompt
 ✅ 自我改进        — trigger_self_improvement，分析日志 → 优化 → 推送报告
 ✅ 单轮上下文      — MAX_USER_TURNS=2，历史 ToolMessage 截断至 100 字符
+✅ 迭代保护        — MAX_TOOL_ITERATIONS=5，超限或检测到需用户交互时强制终止
 ✅ 问候快速路径    — 纯问候词直接回复，不走 LLM
 ✅ 钉钉 MCP       — 文档12个 + AI 表格21个工具，关键词"钉钉"触发
 

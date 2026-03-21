@@ -214,6 +214,17 @@ _LLM_LOG_PATH = "logs/llm.jsonl"
 MAX_USER_TURNS = 2
 # 历史工具结果内容限制：非当前轮的 ToolMessage 内容截断至此长度，防止旧任务结果污染新任务上下文
 HISTORY_TOOL_CONTENT_LIMIT = 300
+# 每轮最大工具调用迭代次数（防止死循环）
+MAX_TOOL_ITERATIONS = 5
+
+# 需要用户手动交互的信号词（出现则提前终止，避免无效重试）
+_USER_INTERACTION_SIGNALS = [
+    "EOF when reading a line",
+    "PASTE_YOUR_CODE_HERE",
+    "请在此处粘贴",
+    "请访问以下URL获取code",
+    "请粘贴获取到的code",
+]
 
 
 def _trim_to_user_turns(messages: list) -> list:
@@ -352,10 +363,75 @@ def _log_llm_call(thread_id: str, messages: list, response, latency_ms: float, t
 
 
 # --------------------------------------------------------------------------- #
+# 迭代保护
+# --------------------------------------------------------------------------- #
+def _count_tool_iterations(messages: list) -> int:
+    """统计当前轮（最后一条 HumanMessage 之后）agent 已发起的工具调用次数。"""
+    human_indices = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
+    start = human_indices[-1] + 1 if human_indices else 0
+    return sum(
+        1 for m in messages[start:]
+        if isinstance(m, AIMessage) and getattr(m, "tool_calls", None)
+    )
+
+
+def _check_user_interaction_needed(messages: list) -> str | None:
+    """
+    检查最近的工具结果是否包含"需要用户手动操作"的信号。
+    返回 None 表示正常；返回字符串表示需要终止并告知用户的原因描述。
+    """
+    # 收集最近 3 条 ToolMessage
+    recent_tool_msgs = [
+        m for m in messages[-10:]
+        if isinstance(m, ToolMessage)
+    ][-3:]
+
+    if not recent_tool_msgs:
+        return None
+
+    last_content = recent_tool_msgs[-1].content if isinstance(recent_tool_msgs[-1].content, str) else ""
+
+    # 检测交互式操作信号
+    for signal in _USER_INTERACTION_SIGNALS:
+        if signal in last_content:
+            return f"需要用户手动操作（检测到：{signal}）"
+
+    # 检测重复失败：最近 3 条工具结果高度相似（内容前 100 字符完全相同）
+    if len(recent_tool_msgs) >= 3:
+        previews = [
+            (m.content if isinstance(m.content, str) else "")[:100]
+            for m in recent_tool_msgs
+        ]
+        if previews[0] == previews[1] == previews[2]:
+            return "工具连续返回相同结果（可能陷入循环）"
+
+    return None
+
+
+# --------------------------------------------------------------------------- #
 # 节点
 # --------------------------------------------------------------------------- #
 def agent_node(state: AgentState) -> dict:
     thread_id = f"{state.get('platform', '?')}:{state.get('chat_id', '?')}"
+
+    # ── 迭代保护：超限或检测到需要用户交互，直接终止 ──────────────────────────
+    iterations = _count_tool_iterations(state["messages"])
+    if iterations >= MAX_TOOL_ITERATIONS:
+        logger.warning(f"[IterGuard] 达到最大迭代次数 {MAX_TOOL_ITERATIONS}，强制终止 thread={thread_id}")
+        return {"messages": [AIMessage(content=(
+            f"⚠️ 已尝试 {iterations} 次工具调用，超过上限（{MAX_TOOL_ITERATIONS} 次），自动终止。\n"
+            "可能遇到了无法自动解决的问题，请告诉我您希望如何继续，或者提供更多信息。"
+        ))]}
+
+    interaction_reason = _check_user_interaction_needed(state["messages"])
+    if interaction_reason:
+        logger.warning(f"[IterGuard] 检测到需要用户交互，终止自动重试 thread={thread_id} reason={interaction_reason}")
+        return {"messages": [AIMessage(content=(
+            f"⚠️ 当前操作需要您手动完成（{interaction_reason}），无法继续自动执行。\n"
+            "请按照之前的提示完成手动步骤后，再告诉我结果，我会继续协助。"
+        ))]}
+    # ─────────────────────────────────────────────────────────────────────────
+
     # 截断历史：只取最近 MAX_USER_TURNS 轮用户消息，控制 token 消耗
     trimmed = _trim_to_user_turns(state["messages"])
     messages = [SystemMessage(content=_build_system_prompt(trimmed))] + trimmed

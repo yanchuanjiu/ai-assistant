@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.2 - 2026-03-21
+
+### Fixed
+- **Agent 死循环防护（`graph/nodes.py`）**
+  - 新增 `MAX_TOOL_ITERATIONS = 5`：每轮对话最多 5 次工具调用迭代，超限直接终止并告知用户
+  - 新增 `_count_tool_iterations()`：统计当前轮（最后一条 HumanMessage 之后）已发起的 AIMessage tool_calls 次数
+  - 新增 `_check_user_interaction_needed()`：检测工具结果中的"需要用户手动操作"信号（如 OAuth URL、EOF 交互错误、连续3次相同失败）→ 提前终止并提示用户手动处理
+  - 根因：17:38–18:01 的 23 分钟死循环源于 OAuth user_access_token 获取流程需要浏览器交互，agent 无法获取 code 却不断重试（20+ 次 LLM 调用）
+
 ## v0.9.1 - 2026-03-21
 
 ### Fixed
