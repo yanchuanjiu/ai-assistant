@@ -402,3 +402,9 @@ python tests/regression/run_all.py e2e       # 端到端流水线（11用例）
 | [CHANGELOG.md](CHANGELOG.md) | 版本迭代记录 |
 
 MIT License · 个人非商用
+## v0.8.23 - 2026-03-21
+- 优化并发处理能力，支持多任务并行执行
+- 实现非阻塞工具调用
+- 引入任务优先级队列
+- 增强线程安全机制
+- 添加实时进度监控
