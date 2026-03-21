@@ -380,14 +380,32 @@ def _check_user_interaction_needed(messages: list) -> str | None:
         if signal in last_content:
             return f"需要用户手动操作（检测到：{signal}）"
 
-    # 检测重复失败：最近 3 条工具结果高度相似（内容前 100 字符完全相同）
+    # 检测重复工具调用：最近 2 条 AIMessage 调用了完全相同的工具（名称+参数）
+    # 优先用此方式检测循环，不依赖工具返回值（避免成功结果也触发误报）
+    recent_ai_with_tools = [
+        m for m in current_turn_msgs
+        if isinstance(m, AIMessage) and getattr(m, "tool_calls", None)
+    ][-2:]
+    if len(recent_ai_with_tools) >= 2:
+        def _tc_key(msg):
+            return json.dumps(
+                [{"name": tc.get("name"), "args": tc.get("args")} for tc in msg.tool_calls],
+                sort_keys=True, ensure_ascii=False,
+            )
+        if _tc_key(recent_ai_with_tools[0]) == _tc_key(recent_ai_with_tools[1]):
+            return "重复调用相同工具（可能陷入循环）"
+
+    # 兜底检测：最近 3 条工具结果高度相似且含错误关键词（内容前 100 字符完全相同）
+    error_keywords = ("失败", "错误", "error", "Error", "failed", "exception", "Exception", "超时", "timeout")
     if len(recent_tool_msgs) >= 3:
         previews = [
             (m.content if isinstance(m.content, str) else "")[:100]
             for m in recent_tool_msgs
         ]
         if previews[0] == previews[1] == previews[2]:
-            return "工具连续返回相同结果（可能陷入循环）"
+            last = previews[-1].lower()
+            if any(kw.lower() in last for kw in error_keywords):
+                return "工具连续返回相同错误（可能陷入循环）"
 
     return None
 
