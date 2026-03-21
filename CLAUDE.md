@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-21（v0.8.27）
+> 最后更新：2026-03-21（v0.8.29）
 
 ---
 
@@ -48,12 +48,16 @@
 - **自迭代 CLI**：`claude` 命令，使用 OAuth session token
 - ⚠️ **关键**：wrapper script 中必须 `unset ANTHROPIC_API_KEY`，否则覆盖 OAuth session 导致 401
 
-### 3. 飞书知识库权限绕过
-`/wiki/v2/spaces` 系列 API **不支持 tenant_access_token**。
-绕过方案：
-1. `GET /wiki/v2/spaces/get_node?token=WIKI_TOKEN` → 获取 `obj_token`（tenant token 可用）
-2. `/docx/v1/documents/{obj_token}/...` → docx API 直接读写（tenant token 可用）
+### 3. 飞书知识库权限说明
+读写已有页面（tenant_access_token 可用）：
+1. `GET /wiki/v2/spaces/get_node?token=WIKI_TOKEN` → 获取 `obj_token`
+2. `/docx/v1/documents/{obj_token}/...` → docx API 直接读写
 3. 前提：飞书页面「文档权限 → 可管理应用」添加该应用
+
+创建新 wiki 节点需要 wiki 空间编辑权限（error 131006 = 无权限）：
+- ⚠️ **tenant_access_token 创建节点需 wiki 空间管理员授予应用编辑权限**
+- 首选：配置 `FEISHU_USER_ACCESS_TOKEN` / `FEISHU_USER_REFRESH_TOKEN`（user token 优先）
+- `knowledge.py` 的 `_wiki_get` / `_wiki_post` 自动 user token 优先、tenant token 降级
 
 ### 4. Claude Code 子进程权限
 运行环境是 root，`--dangerously-skip-permissions` 被禁止。

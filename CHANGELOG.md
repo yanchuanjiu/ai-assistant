@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.8.29 - 2026-03-21
+
+### Fixed
+- **`integrations/feishu/knowledge.py`**：修复飞书 wiki space API 400 错误（error 131006：应用缺少空间编辑权限）
+  - 新增 `_wiki_get` / `_wiki_post` 辅助方法：user_access_token 优先，未配置/401/403 自动降级 tenant_access_token
+  - `list_wiki_children` 改用 `_wiki_get`（支持有 user token 时正常列出根节点和子节点）
+  - `create_wiki_child_page` 方案A/B 改用 `_wiki_post`；检测到 131006 时跳过方案B直接抛出明确错误信息，避免创建孤立 docx
+  - 方案B `move_docs_to_wiki` 也捕获 131006 并附带 doc_id 提示已创建的独立文档
+- **`integrations/feishu/client.py`**：新增 `_raise_with_body` 辅助函数；`feishu_get` / `feishu_post` / `feishu_delete` / `feishu_get_user` / `feishu_post_user` 统一在错误响应中包含 body（原先 `move_docs_to_wiki` 400 错误无法看到具体错误码）
+
+### Root Cause
+飞书 wiki space 级 API（`POST/GET /wiki/v2/spaces/{id}/nodes`、`move_docs_to_wiki`）要求 tenant 应用在 wiki 空间有编辑权限（error 131006）。
+原代码方案A失败后无条件降级方案B，但方案B的 `move_docs_to_wiki` 同样需要空间权限，导致循环失败；
+且 400 响应体无法被看到。
+
+### 解决路径（运行时）
+1. **有 user_access_token**（`.env` 配置 `FEISHU_USER_ACCESS_TOKEN` 或 `FEISHU_USER_REFRESH_TOKEN`）→ 自动使用 user token，无需额外授权
+2. **无 user token**：需 wiki 空间管理员在「空间设置 → 成员管理」添加应用并授予「编辑」权限
+
+---
+
 ## v0.8.28 - 2026-03-21
 
 ### Fixed

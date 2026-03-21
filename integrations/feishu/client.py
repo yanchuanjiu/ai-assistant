@@ -121,7 +121,7 @@ def feishu_get_user(path: str, params: dict = None) -> dict:
         params=params,
         timeout=15,
     )
-    resp.raise_for_status()
+    _raise_with_body(resp)
     return resp.json()
 
 
@@ -134,8 +134,23 @@ def feishu_post_user(path: str, json: dict = None) -> dict:
         json=json,
         timeout=15,
     )
-    resp.raise_for_status()
+    _raise_with_body(resp)
     return resp.json()
+
+
+def _raise_with_body(resp: httpx.Response) -> None:
+    """Raise HTTPStatusError with response body included in the message."""
+    if resp.is_success:
+        return
+    try:
+        body = resp.json()
+    except Exception:
+        body = resp.text
+    raise httpx.HTTPStatusError(
+        f"Client error '{resp.status_code} {resp.reason_phrase}' for url '{resp.url}' | body={body}",
+        request=resp.request,
+        response=resp,
+    )
 
 
 def feishu_get(path: str, params: dict = None) -> dict:
@@ -146,7 +161,7 @@ def feishu_get(path: str, params: dict = None) -> dict:
         params=params,
         timeout=15,
     )
-    resp.raise_for_status()
+    _raise_with_body(resp)
     return resp.json()
 
 
@@ -159,7 +174,7 @@ def feishu_delete(path: str, json: dict = None) -> dict:
         json=json,
         timeout=15,
     )
-    resp.raise_for_status()
+    _raise_with_body(resp)
     return resp.json()
 
 
@@ -172,5 +187,5 @@ def feishu_post(path: str, json: dict = None, data: dict = None) -> dict:
         data=data,
         timeout=15,
     )
-    resp.raise_for_status()
+    _raise_with_body(resp)
     return resp.json()

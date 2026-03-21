@@ -2,12 +2,15 @@
 飞书知识库（Wiki）操作：
 - 解析 wiki URL/token → obj_token（get_node API）
 - 读取 / 追加 / 覆盖页面内容（docx API）
-- 列出/创建子页面（全程 tenant_access_token，无需 user OAuth）
+- 列出/创建子页面
 
 权限说明：
-  tenant_access_token 无法直接 create wiki nodes，
-  但可以：① docx API 创建文档  ② move_docs_to_wiki 移入 wiki 作为子页面
-  前提：在飞书页面的"文档权限"里给应用授予查看/编辑权限。
+  wiki space API（/wiki/v2/spaces/{space_id}/nodes）需要 tenant 有空间编辑权限（error 131006）。
+  解决方案优先级：
+    1. user_access_token（若 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN 已配置）
+    2. tenant_access_token + wiki 空间管理员手动授权应用编辑权限
+
+  docx API（/docx/v1/documents/...）只需文档级权限，tenant_access_token 可用。
 """
 import re
 import time
@@ -278,6 +281,39 @@ class FeishuKnowledge:
         return f"https://open.feishu.cn/docx/{obj_token}"
 
     # ------------------------------------------------------------------ #
+    # wiki space API 专用：user token 优先，tenant token 降级
+    # ------------------------------------------------------------------ #
+    def _wiki_get(self, path: str, params: dict = None) -> dict:
+        """GET wiki space API：先用 user_access_token，失败/未配置则用 tenant_access_token。"""
+        from integrations.feishu.client import feishu_get_user, feishu_get
+        try:
+            return feishu_get_user(path, params)
+        except RuntimeError:
+            # user token 未配置
+            return feishu_get(path, params)
+        except Exception as e:
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            if status in (401, 403):
+                logger.warning(f"[wiki] user token GET 失败({status})，降级 tenant token: {e}")
+                return feishu_get(path, params)
+            raise
+
+    def _wiki_post(self, path: str, json: dict = None) -> dict:
+        """POST wiki space API：先用 user_access_token，失败/未配置则用 tenant_access_token。"""
+        from integrations.feishu.client import feishu_post_user, feishu_post
+        try:
+            return feishu_post_user(path, json)
+        except RuntimeError:
+            # user token 未配置
+            return feishu_post(path, json)
+        except Exception as e:
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            if status in (401, 403):
+                logger.warning(f"[wiki] user token POST 失败({status})，降级 tenant token: {e}")
+                return feishu_post(path, json)
+            raise
+
+    # ------------------------------------------------------------------ #
     # 子页面：列出 / 查找 / 创建
     # ------------------------------------------------------------------ #
     def _is_space_level_token(self, token: str) -> bool:
@@ -305,7 +341,7 @@ class FeishuKnowledge:
                 f"[FeishuKnowledge] list_wiki_children: 列出空间根节点（space_id={self.space_id}）"
             )
             try:
-                resp = feishu_get(
+                resp = self._wiki_get(
                     f"/wiki/v2/spaces/{self.space_id}/nodes",
                     params={"page_size": 50},
                 )
@@ -317,7 +353,7 @@ class FeishuKnowledge:
                 return []
         else:
             try:
-                resp = feishu_get(
+                resp = self._wiki_get(
                     f"/wiki/v2/spaces/{self.space_id}/nodes",
                     params={"parent_node_token": parent_wiki_token, "page_size": 50},
                 )
@@ -338,7 +374,8 @@ class FeishuKnowledge:
         方案 A（首选）：POST /wiki/v2/spaces/{space_id}/nodes 直接创建 wiki 节点
         方案 B（备选）：POST /docx/v1/documents → move_docs_to_wiki → 轮询任务
 
-        全程 tenant_access_token，无需 user OAuth。
+        优先使用 user_access_token（若已配置），否则使用 tenant_access_token。
+        tenant_access_token 需要 wiki 空间管理员授予应用编辑权限（error 131006）。
         """
         if self._is_space_level_token(parent_wiki_token):
             logger.info(
@@ -357,7 +394,7 @@ class FeishuKnowledge:
             # space 级标识 → 创建在 wiki 空间根目录，不传 parent_node_token
             if not self._is_space_level_token(parent_wiki_token):
                 payload["parent_node_token"] = parent_wiki_token
-            resp = feishu_post(
+            resp = self._wiki_post(
                 f"/wiki/v2/spaces/{self.space_id}/nodes",
                 json=payload,
             )
@@ -368,13 +405,14 @@ class FeishuKnowledge:
                 return node_token
             logger.warning(f"[FeishuKnowledge] 方案A 响应未含 node_token: {resp}")
         except Exception as e:
-            # 尝试提取 400 响应体以便调试
             detail = str(e)
-            if hasattr(e, "response") and e.response is not None:
-                try:
-                    detail = f"{e} | 响应体: {e.response.json()}"
-                except Exception:
-                    pass
+            # 检测 131006（wiki 空间权限不足）→ 直接报错，无需降级到方案B（方案B同样需要空间权限）
+            if "131006" in detail:
+                raise RuntimeError(
+                    f"wiki 空间权限不足（error 131006）：应用需要被 wiki 空间管理员授予「编辑」权限，"
+                    f"或在 .env 中配置 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN。"
+                    f"原始错误: {detail}"
+                ) from e
             logger.warning(f"[FeishuKnowledge] 方案A 失败，降级到方案B: {detail}")
 
         # 方案 B（降级）：创建 docx 后 move_docs_to_wiki
@@ -386,10 +424,21 @@ class FeishuKnowledge:
         move_payload: dict = {"obj_type": "docx", "obj_token": doc_id}
         if not self._is_space_level_token(parent_wiki_token):
             move_payload["parent_wiki_token"] = parent_wiki_token
-        move_resp = feishu_post(
-            f"/wiki/v2/spaces/{self.space_id}/nodes/move_docs_to_wiki",
-            json=move_payload,
-        )
+        try:
+            move_resp = self._wiki_post(
+                f"/wiki/v2/spaces/{self.space_id}/nodes/move_docs_to_wiki",
+                json=move_payload,
+            )
+        except Exception as e:
+            detail = str(e)
+            if "131006" in detail:
+                raise RuntimeError(
+                    f"wiki 空间权限不足（error 131006）：move_docs_to_wiki 需要应用有空间编辑权限，"
+                    f"或配置 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN。"
+                    f"已创建的独立文档 doc_id={doc_id} 可通过 /docx/{doc_id} 访问，"
+                    f"但未移入 wiki 空间。"
+                ) from e
+            raise
         move_data = move_resp.get("data", {})
         logger.info(f"[FeishuKnowledge] 方案B move_docs_to_wiki 响应: {move_data}")
 
