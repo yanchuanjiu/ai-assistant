@@ -1885,7 +1885,7 @@ def feishu_oauth_setup(action: str, code: str = "") -> str:
         return (
             f"请在浏览器中打开以下链接，用飞书账号登录授权：\n\n{url}\n\n"
             f"登录后会跳转到飞书文档页面，请从浏览器地址栏复制 URL 中的 code=xxx 参数值，"
-            f"然后调用：feishu_oauth_setup(action=\"exchange_code\", code=\"粘贴code值\")"
+            f"然后调用：feishu_oauth_setup(action=\"exchange_code\", code=\"<从地址栏复制的code>\")"
         )
 
     if action == "exchange_code":

@@ -10297,3 +10297,52 @@ secret:lUDYzijc1e68d3ADHMGutXjUsd
 2026-03-21 19:20:33,976 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
 2026-03-21 19:20:34,212 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': 'fa7516e8-2517-11f1-a262-3a24657c5738'}
 2026-03-21 19:20:35,530 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...
+2026-03-21 19:21:45,188 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b type=text msg=你试试访问现在的文档空间里有几个知识库？ GenAI相关的知识库里第一层有哪些内容
+2026-03-21 19:21:46,677 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 19:21:46,678 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 19:21:46,854 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 202 Accepted"
+2026-03-21 19:21:47,060 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/9fb650425850b04df45fb371976f244bf11d16dc49bb684f3b67f123335e71fa?key=ecdd20a8a4a35b53b665cde02446b337 "HTTP/1.1 200 OK"
+2026-03-21 19:21:47,065 [INFO] integrations.mcp.client: [MCP] dingtalk_docs 已加载 15 个工具: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file']
+2026-03-21 19:21:47,292 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 19:21:47,293 [INFO] mcp.client.streamable_http: Negotiated protocol version: 2025-06-18
+2026-03-21 19:21:47,497 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 202 Accepted"
+2026-03-21 19:21:47,714 [INFO] httpx: HTTP Request: POST https://mcp-gw.dingtalk.com/server/ab7f4bcab560d75627962dbcae9b8f2d9662f5e32d7c4a88d3ba760d383eedc2?key=4ce8e5e9af635da1fc16fc6e942da6e7 "HTTP/1.1 200 OK"
+2026-03-21 19:21:47,717 [INFO] integrations.mcp.client: [MCP] dingtalk_table 已加载 21 个工具: ['delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 19:21:47,717 [INFO] graph.tools: [tools] 钉钉 MCP 工具已注册: ['create_document', 'list_document_blocks', 'insert_document_block', 'delete_document_block', 'update_document_block', 'get_document_content', 'update_document', 'search_documents', 'create_folder', 'list_nodes', 'get_document_info', 'create_file', 'get_file_upload_info', 'commit_uploaded_file', 'download_file', 'delete_table', 'create_table', 'update_table', 'create_base', 'delete_field', 'update_field', 'list_bases', 'search_bases', 'get_base', 'delete_records', 'update_records', 'update_base', 'delete_base', 'create_records', 'query_records', 'search_templates', 'get_tables', 'get_fields', 'create_fields', 'prepare_attachment_upload', 'export_data']
+2026-03-21 19:21:47,718 [INFO] graph.tools: [tools] 会议纪要流水线工具已注册到 dingtalk_mcp 分类
+2026-03-21 19:21:48,160 [INFO] graph.nodes: LLM 链：火山云(ep-20260317143459-qtgqn) → OpenRouter(anthropic/claude-sonnet-4-5)
+2026-03-21 19:21:48,333 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal "HTTP/1.1 200 OK"
+2026-03-21 19:21:48,863 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54d3ba448530b2c352806870f23/reactions "HTTP/1.1 200 OK"
+2026-03-21 19:21:48,909 [WARNING] graph.nodes: [IterGuard] 检测到需要用户交互，终止自动重试 thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b reason=需要用户手动操作（检测到：请在此处粘贴）
+2026-03-21 19:21:50,124 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54d3ba448530b2c352806870f23/reactions/mlDS3Vr-3MTr6zFk69rVORL-MPvN6CKnjAJ__nJMda4ZRhQ0NNPpAXvv6Wru6Mud "HTTP/1.1 200 OK"
+2026-03-21 19:21:50,546 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54d3ba448530b2c352806870f23/reactions "HTTP/1.1 200 OK"
+2026-03-21 19:22:26,412 [INFO] integrations.feishu.bot: [飞书长连接] user=ou_23b7df9a63a8a444be4998f3448ecf82 chat=oc_d2b5bb8b3ee37fdc61aebaa9d988192b thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b type=text msg=我已经在后台修复了权限问，不要提示我再进行手工操作
+2026-03-21 19:22:26,853 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54d3b9d0dca4b3f06326253e261/reactions "HTTP/1.1 200 OK"
+2026-03-21 19:22:26,893 [WARNING] graph.nodes: [IterGuard] 检测到需要用户交互，终止自动重试 thread=feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b reason=需要用户手动操作（检测到：请在此处粘贴）
+2026-03-21 19:22:27,982 [INFO] httpx: HTTP Request: DELETE https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54d3b9d0dca4b3f06326253e261/reactions/vvFaVpTMkoPgE7lMnCDhEasdb3h4DfQRGyeHoKaKqvfDn5jEWGjN4vHScgq5N3pf "HTTP/1.1 200 OK"
+2026-03-21 19:22:28,396 [INFO] httpx: HTTP Request: POST https://open.feishu.cn/open-apis/im/v1/messages/om_x100b54d3b9d0dca4b3f06326253e261/reactions "HTTP/1.1 200 OK"
+2026-03-21 19:23:56,789 [INFO] main: 收到信号 15，准备关闭…
+2026-03-21 19:23:56,789 [INFO] apscheduler.scheduler: Scheduler has been shut down
+2026-03-21 19:23:56,789 [INFO] main: AI 助理已退出
+2026-03-21 19:23:57,906 [INFO] main: PID 208367 写入 /root/ai-assistant/logs/service.pid
+2026-03-21 19:23:57,907 [INFO] main: [feishu-ws] 启动
+2026-03-21 19:23:57,907 [INFO] main: [dingtalk-stream] 启动
+2026-03-21 19:23:57,908 [INFO] main: [admin-http] 启动
+2026-03-21 19:23:57,916 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 19:23:57,916 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 19:23:57,916 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 19:23:57,916 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 19:23:57,923 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-21 19:23:57,923 [INFO] apscheduler.scheduler: Added job "poll_dingtalk_meetings" to job store "default"
+2026-03-21 19:23:57,923 [INFO] apscheduler.scheduler: Added job "poll_email" to job store "default"
+2026-03-21 19:23:57,923 [INFO] apscheduler.scheduler: Added job "sync_context" to job store "default"
+2026-03-21 19:23:57,923 [INFO] apscheduler.scheduler: Added job "heartbeat" to job store "default"
+2026-03-21 19:23:57,924 [INFO] apscheduler.scheduler: Added job "daily_meeting_migration" to job store "default"
+2026-03-21 19:23:57,924 [INFO] apscheduler.scheduler: Scheduler started
+2026-03-21 19:23:57,924 [INFO] scheduler: Scheduler 已启动（每日迁移 08:00 触发）
+2026-03-21 19:23:57,924 [INFO] main: AI 助理启动完成（无 HTTP 层）
+2026-03-21 19:23:58,007 [INFO] admin.server: [admin] 配置管理界面启动：http://0.0.0.0:8080
+2026-03-21 19:23:58,299 [INFO] integrations.dingtalk.bot: [钉钉] 流模式启动中...
+2026-03-21 19:23:58,301 [INFO] dingtalk_stream.client: open connection, url=https://api.dingtalk.com/v1.0/gateway/connections/open
+2026-03-21 19:23:58,575 [INFO] dingtalk_stream.client: endpoint is {'endpoint': 'wss://wss-open-connection-union.dingtalk.com:443/connect', 'ticket': '7442ea38-2518-11f1-9a9d-3aff18bb39f5'}
+2026-03-21 19:23:59,847 [INFO] integrations.feishu.bot: [飞书] 长连接启动中...

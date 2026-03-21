@@ -380,11 +380,12 @@ def _check_user_interaction_needed(messages: list) -> str | None:
     检查最近的工具结果是否包含"需要用户手动操作"的信号。
     返回 None 表示正常；返回字符串表示需要终止并告知用户的原因描述。
     """
-    # 收集最近 3 条 ToolMessage
-    recent_tool_msgs = [
-        m for m in messages[-10:]
-        if isinstance(m, ToolMessage)
-    ][-3:]
+    # 只检查当前轮（最后一条 HumanMessage 之后）的 ToolMessage
+    human_indices = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
+    start = human_indices[-1] + 1 if human_indices else 0
+    current_turn_msgs = messages[start:]
+
+    recent_tool_msgs = [m for m in current_turn_msgs if isinstance(m, ToolMessage)][-3:]
 
     if not recent_tool_msgs:
         return None
