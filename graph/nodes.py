@@ -90,9 +90,15 @@ tools_by_name = {t.name: t for t in ALL_TOOLS}
 
 # 火山云 Ark 有时以文本形式返回工具调用，格式为：
 # <|FunctionCallBegin|>[...] 或 <|FunctionCallBeginBegin|>[...]（双 Begin 变体）
-# 兼容单/双 Begin 和 End 的所有变体
+# 也可能缺少 Begin 标记，只有 End 标记：[...]<|FunctionCallEnd|>
+# 兼容单/双 Begin/End 的所有变体，以及缺少 Begin 标记的情况
 _FUNC_CALL_RE = re.compile(
     r"<\|FunctionCallBegin(?:Begin)?\|>(.*?)(?:<\|FunctionCallEnd(?:End)?\|>|$)",
+    re.DOTALL,
+)
+# 缺少 Begin 标记的变体：JSON 数组直接跟 End 标记
+_FUNC_CALL_NO_BEGIN_RE = re.compile(
+    r"(\[.*?\])\s*<\|FunctionCallEnd(?:End)?\|>",
     re.DOTALL,
 )
 
@@ -100,6 +106,9 @@ _FUNC_CALL_RE = re.compile(
 def _extract_text_tool_calls(content: str) -> list[dict] | None:
     """将火山云文本格式的工具调用解析为 LangChain tool_calls 列表。"""
     match = _FUNC_CALL_RE.search(content)
+    if not match:
+        # 尝试缺少 Begin 标记的变体
+        match = _FUNC_CALL_NO_BEGIN_RE.search(content)
     if not match:
         return None
     try:

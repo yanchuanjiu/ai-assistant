@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.26] - 2026-03-21
+
+### Fixed
+- **`graph/nodes.py`**：修复火山云 Ark 缺少 `<|FunctionCallBegin|>` 标记时工具调用解析失败问题 — 新增 `_FUNC_CALL_NO_BEGIN_RE` 正则作为 fallback，兼容 `[{...}]<|FunctionCallEnd|>` 格式，避免用户收到"工具调用格式异常"错误
+
+---
+
 ## [0.8.25] - 2026-03-21
 
 ### Added
