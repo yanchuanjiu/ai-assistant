@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.0.2 - 2026-03-21
+
+### Added
+- **Excel 导入功能**：新增 `excel_import` 工具，支持完整导入流程
+  - `search`：搜索飞书云盘中的 Excel 文件（需 user_access_token，按文件名关键词筛选 .xlsx/.xls/.csv）
+  - `parse`：下载并解析 Excel 文件，支持合并单元格自动展开（openpyxl），返回 session_key
+    - `file_source=feishu_im:{message_id}:{file_key}` — 对话中直接上传的文件
+    - `file_source=feishu_drive:{file_token}` — 飞书云盘文件
+  - `preview`：分页预览解析结果（session 2小时有效）
+  - `import_to_sheet`：批量写入飞书电子表格（首批 write_values，后续 values_append，每批自适应 5000 单元格限制）
+  - `import_to_bitable`：批量创建多维表格记录（每批 500 条，表头行可配置）
+  - 新增 `integrations/excel/parser.py`：下载/解析/预览/session 管理独立模块
+- **飞书文件消息增强**：上传 .xlsx/.xls 文件时，bot 自动提示可用的 `file_source` 字符串，Agent 可直接调用 `excel_import(parse)`
+- **依赖**：新增 `openpyxl>=3.1.0`
+
 ## v1.0.1 - 2026-03-21
 
 ### Fixed / Tracked

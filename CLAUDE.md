@@ -43,6 +43,7 @@
 ✅ 多话题并行      — #话题名 / 新话题：xxx 前缀隔离上下文，不同话题并行处理；/topics 查看列表
 ✅ 线程化回复      — 所有话题回复（含首条）均 reply_in_thread（飞书）/ MarkdownCard（钉钉，无过期）
 ✅ 飞书线程路由    — root_id 反向映射 + SQLite 持久化，回复已有线程自动路由到正确话题上下文
+✅ Excel 导入      — excel_import 工具：搜索/解析/预览/写入电子表格或多维表格；支持合并单元格、对话上传文件
 
 ⚠️  163 IMAP     — 需在 163 网页版重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```

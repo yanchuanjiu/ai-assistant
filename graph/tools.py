@@ -2016,6 +2016,245 @@ def feishu_oauth_setup(action: str, code: str = "") -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Excel 导入
+# --------------------------------------------------------------------------- #
+@tool
+def excel_import(
+    action: str,
+    file_source: str = None,
+    session_key: str = None,
+    query: str = None,
+    sheet_index: int = 0,
+    spreadsheet_token: str = None,
+    sheet_range: str = None,
+    app_token: str = None,
+    table_id: str = None,
+    header_row: int = 0,
+    page_size: int = 20,
+) -> str:
+    """
+    Excel 文件导入工具。支持搜索、解析、预览、写入飞书电子表格或多维表格。
+
+    action 可选：
+      search            — 搜索飞书云盘中的 Excel 文件（需 query，如文件名关键词）
+                          需要 FEISHU_USER_ACCESS_TOKEN 已配置。
+      parse             — 下载并解析 Excel 文件（需 file_source），返回预览和 session_key
+                          file_source 格式：
+                            feishu_im:{message_id}:{file_key}   ← 对话中上传的文件
+                            feishu_drive:{file_token}            ← 飞书云盘文件
+      preview           — 查看已解析数据详情（需 session_key）
+      import_to_sheet   — 将数据写入飞书电子表格（需 session_key + spreadsheet_token + sheet_range）
+                          sheet_range：起始单元格，格式 "{sheet_id}!A1"
+                          sheet_index：使用 Excel 第几个工作表（0-based，默认 0）
+      import_to_bitable — 将数据写入飞书多维表格（需 session_key + app_token + table_id）
+                          header_row：用第几行作为字段名（0-based，默认 0）
+                          sheet_index：使用 Excel 第几个工作表（0-based，默认 0）
+
+    典型流程（对话上传文件）：
+      1. 用户上传 .xlsx 文件 → bot 提示 file_source
+      2. excel_import(action=parse, file_source=feishu_im:{message_id}:{file_key})
+      3. excel_import(action=preview, session_key=xxx)  ← 可选，确认数据
+      4. excel_import(action=import_to_sheet, session_key=xxx, spreadsheet_token=xxx, sheet_range="xxx!A1")
+         或
+         excel_import(action=import_to_bitable, session_key=xxx, app_token=xxx, table_id=xxx)
+
+    典型流程（从云盘搜索）：
+      1. excel_import(action=search, query="文件名关键词")
+      2. 用返回的 file_token 执行 parse：file_source=feishu_drive:{file_token}
+      3. 后续同上
+    """
+    from integrations.excel.parser import (
+        download_feishu_im_file,
+        download_feishu_drive_file,
+        parse_excel_bytes,
+        preview_excel,
+        save_session,
+        load_session,
+    )
+
+    try:
+        # ── search ──────────────────────────────────────────────────────────
+        if action == "search":
+            if not query:
+                return "search 需要提供 query（文件名关键词）"
+            try:
+                from integrations.feishu.client import feishu_post_user
+                body: dict = {"search_key": query, "count": page_size}
+                resp = feishu_post_user("/drive/v1/files/search", json=body)
+                data = resp.get("data", resp)
+                files = data.get("files", [])
+                if not files:
+                    return f"未找到包含「{query}」的文件。"
+                excel_files = [
+                    f for f in files
+                    if f.get("name", "").lower().endswith((".xlsx", ".xls", ".csv"))
+                ]
+                if not excel_files:
+                    return (
+                        f"未找到 Excel 文件（.xlsx/.xls/.csv）。"
+                        f"搜索到 {len(files)} 个文件，但均非 Excel 格式。"
+                    )
+                lines = [f"找到 {len(excel_files)} 个 Excel 文件："]
+                for f in excel_files:
+                    name = f.get("name", "未知")
+                    token = f.get("token", "")
+                    url = f.get("url", "")
+                    lines.append(f"- {name}  file_token={token}  {url}")
+                return "\n".join(lines)
+            except RuntimeError as e:
+                return f"搜索需要 user_access_token：{e}"
+
+        # ── parse ────────────────────────────────────────────────────────────
+        elif action == "parse":
+            if not file_source:
+                return (
+                    "parse 需要提供 file_source，格式：\n"
+                    "  feishu_im:{message_id}:{file_key}  ← 对话中上传的文件\n"
+                    "  feishu_drive:{file_token}           ← 飞书云盘文件"
+                )
+            if file_source.startswith("feishu_im:"):
+                rest = file_source[len("feishu_im:"):]
+                # message_id 格式 om_xxx，file_key 格式 file_xxx
+                # 以最后一个 ':' 分割防止 message_id 含冒号
+                sep = rest.rfind(":")
+                if sep < 0:
+                    return "feishu_im 格式错误，应为 feishu_im:{message_id}:{file_key}"
+                message_id = rest[:sep]
+                file_key = rest[sep + 1:]
+                file_bytes = download_feishu_im_file(message_id, file_key)
+                file_name = f"uploaded_{file_key[-8:]}.xlsx"
+            elif file_source.startswith("feishu_drive:"):
+                file_token = file_source[len("feishu_drive:"):]
+                file_bytes = download_feishu_drive_file(file_token)
+                file_name = f"drive_{file_token[-8:]}.xlsx"
+            else:
+                return f"不支持的 file_source 格式：{file_source}"
+
+            parsed = parse_excel_bytes(file_bytes, file_name)
+            key = save_session(parsed)
+            preview = preview_excel(parsed)
+            return (
+                f"✅ 解析成功！session_key={key}\n\n"
+                f"{preview}\n\n"
+                f"可用 preview(session_key={key}) 查看更多行，"
+                f"或直接调用 import_to_sheet / import_to_bitable 导入。"
+            )
+
+        # ── preview ──────────────────────────────────────────────────────────
+        elif action == "preview":
+            if not session_key:
+                return "preview 需要提供 session_key"
+            parsed = load_session(session_key)
+            if not parsed:
+                return f"session_key={session_key} 不存在或已过期（2小时），请重新 parse。"
+            return preview_excel(parsed, max_rows=10)
+
+        # ── import_to_sheet ──────────────────────────────────────────────────
+        elif action == "import_to_sheet":
+            if not session_key or not spreadsheet_token or not sheet_range:
+                return "import_to_sheet 需要 session_key、spreadsheet_token 和 sheet_range"
+            parsed = load_session(session_key)
+            if not parsed:
+                return f"session_key={session_key} 不存在，请重新 parse。"
+            sheets = parsed["sheets"]
+            if sheet_index >= len(sheets):
+                return f"sheet_index={sheet_index} 超出范围（共 {len(sheets)} 个工作表：{[s['name'] for s in sheets]}）"
+            rows = sheets[sheet_index]["rows"]
+            if not rows:
+                return "工作表为空，无数据导入。"
+
+            # 补齐每行到相同列数，None → None（飞书接受 null）
+            max_cols = max(len(r) for r in rows)
+            normalized = [r + [None] * (max_cols - len(r)) for r in rows]
+
+            BATCH = 5000 // max(max_cols, 1)  # 每批最多 5000 个单元格
+            BATCH = max(BATCH, 1)
+
+            # 第一批用 write_values（覆盖起始位置）
+            resp = feishu_post(
+                f"/sheets/v2/spreadsheets/{spreadsheet_token}/values",
+                json={"valueRange": {"range": sheet_range, "values": normalized[:BATCH]}},
+            )
+            written = min(BATCH, len(normalized))
+
+            # 后续批次追加
+            for i in range(BATCH, len(normalized), BATCH):
+                batch = normalized[i: i + BATCH]
+                feishu_post(
+                    f"/sheets/v2/spreadsheets/{spreadsheet_token}/values_append",
+                    json={"valueRange": {"range": sheet_range, "values": batch}},
+                )
+                written += len(batch)
+
+            return (
+                f"✅ 已将工作表「{sheets[sheet_index]['name']}」"
+                f"的 {written} 行数据写入飞书电子表格。"
+            )
+
+        # ── import_to_bitable ─────────────────────────────────────────────────
+        elif action == "import_to_bitable":
+            if not session_key or not app_token or not table_id:
+                return "import_to_bitable 需要 session_key、app_token 和 table_id"
+            parsed = load_session(session_key)
+            if not parsed:
+                return f"session_key={session_key} 不存在，请重新 parse。"
+            sheets = parsed["sheets"]
+            if sheet_index >= len(sheets):
+                return f"sheet_index={sheet_index} 超出范围（共 {len(sheets)} 个工作表）"
+            rows = sheets[sheet_index]["rows"]
+            if not rows:
+                return "工作表为空，无数据导入。"
+            if header_row >= len(rows):
+                return f"header_row={header_row} 超出范围（共 {len(rows)} 行）"
+
+            headers = [
+                str(h) if h is not None else f"列{i + 1}"
+                for i, h in enumerate(rows[header_row])
+            ]
+            data_rows = rows[header_row + 1:]
+            if not data_rows:
+                return "表头之后无数据行。"
+
+            records = []
+            for row in data_rows:
+                fields: dict = {}
+                for j, header in enumerate(headers):
+                    val = row[j] if j < len(row) else None
+                    if val is not None and val != "":
+                        fields[header] = str(val)
+                if fields:
+                    records.append({"fields": fields})
+
+            if not records:
+                return "无有效数据行（所有行均为空）。"
+
+            BATCH = 500
+            created = 0
+            for i in range(0, len(records), BATCH):
+                batch = records[i: i + BATCH]
+                resp = feishu_post(
+                    f"/bitable/v1/apps/{app_token}/tables/{table_id}/records/batch_create",
+                    json={"records": batch},
+                )
+                created += len(resp.get("data", {}).get("records", batch))
+
+            return (
+                f"✅ 已将工作表「{sheets[sheet_index]['name']}」"
+                f"的 {created} 条记录写入多维表格（共 {len(records)} 行数据）。"
+            )
+
+        else:
+            return (
+                f"未知 action：{action}。"
+                "可选：search / parse / preview / import_to_sheet / import_to_bitable"
+            )
+
+    except Exception as e:
+        logger.error(f"[excel_import] {e}")
+        return f"操作失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
 # 工具分类（渐进式披露）
 # --------------------------------------------------------------------------- #
 
@@ -2045,7 +2284,7 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_project_setup,
         feishu_oauth_setup,
     ],
-    # 飞书高级工具（Bitable / Task / 搜索 / IM / 日历 / 电子表格 / 群聊）——schema 较重，按需加载
+    # 飞书高级工具（Bitable / Task / 搜索 / IM / 日历 / 电子表格 / 群聊 / Excel导入）——schema 较重，按需加载
     "feishu_advanced": [
         feishu_bitable_record,
         feishu_bitable_meta,
@@ -2056,6 +2295,7 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_calendar_event,
         feishu_spreadsheet,
         feishu_chat_info,
+        excel_import,
     ],
     # Claude Code 自迭代 + 自我改进
     "claude": [
@@ -2086,6 +2326,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "日历", "日程", "calendar", "会议", "约会", "忙闲", "freebusy",
         "电子表格", "sheet", "spreadsheet",
         "群成员", "chat_id", "用户信息",
+        "excel", "xlsx", "xls", "导入", "excel导入", "表格导入", "上传文件", "解析excel",
     ],
     "claude": [
         "迭代", "开发", "修复", "实现", "编写代码", "重构",

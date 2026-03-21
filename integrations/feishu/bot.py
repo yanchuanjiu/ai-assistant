@@ -315,12 +315,21 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
         try:
             file_data = json.loads(content_str)
             file_name = file_data.get("file_name", "") or file_data.get("file_key", "")
+            file_key = file_data.get("file_key", "")
             duration = file_data.get("duration", "")
             label = _MSG_TYPE_LABELS.get(msg_type, msg_type)
-            info = f"文件名：{file_name}" if file_name else ""
-            if duration:
-                info += f"，时长：{duration}ms"
-            text = f"[收到{label}消息{('，' + info) if info else ''}，暂不支持处理，请发文字说明需求]"
+            # Excel 文件：提供可直接用于 excel_import 工具的 file_source
+            if msg_type == "file" and file_name.lower().endswith((".xlsx", ".xls")):
+                text = (
+                    f"[收到 Excel 文件：{file_name}，"
+                    f"可使用 excel_import 工具导入。"
+                    f"file_source=feishu_im:{message_id}:{file_key}]"
+                )
+            else:
+                info = f"文件名：{file_name}" if file_name else ""
+                if duration:
+                    info += f"，时长：{duration}ms"
+                text = f"[收到{label}消息{('，' + info) if info else ''}，暂不支持处理，请发文字说明需求]"
         except Exception:
             label = _MSG_TYPE_LABELS.get(msg_type, msg_type)
             text = f"[收到{label}消息，暂不支持处理]"
