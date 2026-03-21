@@ -396,7 +396,7 @@ def _check_user_interaction_needed(messages: list) -> str | None:
 # 节点
 # --------------------------------------------------------------------------- #
 def agent_node(state: AgentState) -> dict:
-    thread_id = f"{state.get('platform', '?')}:{state.get('chat_id', '?')}"
+    thread_id = state.get('thread_id') or f"{state.get('platform', '?')}:{state.get('chat_id', '?')}"
 
     # ── 迭代保护：超限或检测到需要用户交互，直接终止 ──────────────────────────
     iterations = _count_tool_iterations(state["messages"])
@@ -452,7 +452,7 @@ def tools_node(state: AgentState) -> dict:
     from integrations.claude_code.session import reply_fn_registry
     from graph.parallel import run_tools_parallel
 
-    thread_id = f"{state['platform']}:{state['chat_id']}"
+    thread_id = state.get('thread_id') or f"{state['platform']}:{state['chat_id']}"
     send_fn = reply_fn_registry.get(thread_id)
     # 为当前线程设置工具上下文（单工具 / 串行路径使用）
     set_tool_ctx(thread_id, send_fn)

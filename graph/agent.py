@@ -54,16 +54,21 @@ def clear_history(thread_id: str) -> bool:
         return False
 
 
-def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
+def invoke(message: str, platform: str, user_id: str, chat_id: str,
+           thread_id: str | None = None) -> str:
     """
     外部调用入口：传入用户消息，返回 AI 回复文本。
     消息发送由调用方（bot handler）负责。
+
+    thread_id：可选，覆盖默认的 platform:chat_id。
+                多话题场景传入话题专属 thread_id（含 #topic# 分隔符）以隔离对话历史。
     """
     import time
     import threading
     from integrations.logging.interaction_logger import log_interaction
 
-    thread_id = f"{platform}:{chat_id}"
+    if thread_id is None:
+        thread_id = f"{platform}:{chat_id}"
 
     # 按来源确定优先级（用户实时消息 > 定时调度任务）
     priority = (
@@ -82,6 +87,7 @@ def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
         "platform": platform,
         "user_id": user_id,
         "chat_id": chat_id,
+        "thread_id": thread_id,
         "intent": None,
         "skill_result": None,
         "error": None,

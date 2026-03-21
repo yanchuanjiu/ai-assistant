@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.9.8 - 2026-03-21
+
+### Added
+- **多话题并行对话**：同一 IM 聊天窗口支持 `#话题名` 前缀隔离对话上下文，不同话题并行处理
+  - 新增 `integrations/topic_manager.py`：话题注册、thread_id 生成、列表格式化、欢迎消息
+  - 话题 thread_id 格式：`{platform}:{chat_id}#topic#{safe_name}`，通过 SQLite checkpointer 自然隔离历史
+  - 锁机制从 **per-chat** 改为 **per-thread**：同一聊天不同话题可真正并行执行 Agent
+  - 新增 `/topics` 斜杠命令：飞书和钉钉均支持，列出活跃话题（7天TTL）
+  - 话题切换（`#话题名` 无消息体）：提示已切换并展示话题列表，不触发 Agent
+  - 问候快速路径更新：在欢迎消息中说明多话题用法
+- **性能优化**：锁粒度降低后，多话题场景下不同话题的响应互不阻塞
+- **工具兼容**：`get_recent_chat_context` 正确处理话题 thread_id（提取真实 chat_id）
+- **`AgentState` 扩展**：新增 `thread_id` 字段，供 `agent_node` 和 `tools_node` 使用，避免从 platform:chat_id 重建导致话题信息丢失
+
 ## v0.9.7 - 2026-03-21
 
 ### Changed

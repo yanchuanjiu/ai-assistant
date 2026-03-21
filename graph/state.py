@@ -13,7 +13,11 @@ class AgentState(TypedDict):
 
     # 发送者 & 会话信息
     user_id: str
-    chat_id: str
+    chat_id: str  # 真实 IM chat_id（用于 API 调用）
+
+    # 话题专属 thread_id（覆盖默认的 platform:chat_id）
+    # 格式：{platform}:{chat_id}#topic#{safe_name}（有话题时）或 {platform}:{chat_id}（无话题）
+    thread_id: Optional[str]
 
     # 意图分类结果
     intent: Optional[str]   # meeting | knowledge | dev | general | sync

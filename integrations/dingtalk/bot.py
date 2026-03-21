@@ -50,7 +50,7 @@ def _parse_dingtalk_message(incoming: dingtalk_stream.ChatbotMessage) -> dict | 
     }
 
 
-def _handle_slash_command(text: str, thread_id: str) -> str | None:
+def _handle_slash_command(text: str, thread_id: str, chat_id: str = "") -> str | None:
     """
     处理斜杠命令。返回响应文本，如果不是已知命令则返回 None。
 
@@ -58,6 +58,7 @@ def _handle_slash_command(text: str, thread_id: str) -> str | None:
       /status — 查看服务状态
       /clear  — 清空当前会话历史
       /stop   — 停止当前 Claude Code 会话
+      /topics — 查看所有活跃话题
     """
     parts = text.strip().split()
     cmd = parts[0].lower() if parts else ""
@@ -78,6 +79,10 @@ def _handle_slash_command(text: str, thread_id: str) -> str | None:
             return "✅ Claude 会话已停止"
         return "当前没有运行中的 Claude 会话"
 
+    elif cmd == "/topics":
+        from integrations.topic_manager import format_topics
+        return format_topics(chat_id or thread_id)
+
     return None
 
 
@@ -96,6 +101,7 @@ class _BotHandler(_ChatbotHandlerBase):
 
         text = parsed["text"]
         thread_id = parsed["thread_id"]
+        chat_id = parsed["chat_id"]
         user_id = parsed["user_id"]
 
         logger.info(f"[钉钉流模式] user={user_id} msg={text[:80]}")
@@ -107,21 +113,40 @@ class _BotHandler(_ChatbotHandlerBase):
 
         # ── 斜杠命令（优先处理）────────────────────────────────────────
         if text.startswith("/"):
-            resp = _handle_slash_command(text, thread_id)
+            resp = _handle_slash_command(text, thread_id, chat_id)
             if resp is not None:
                 self.reply_text(resp, incoming)
                 return AckMessage.STATUS_OK, "OK"
 
+        # ── 话题解析：#话题名 前缀 → 隔离对话上下文 ──────────────────
+        from integrations.topic_manager import (
+            extract_topic, make_topic_thread_id, register_topic, WELCOME_MESSAGE,
+        )
+        topic_name, cleaned_text = extract_topic(text)
+        if topic_name:
+            thread_id = make_topic_thread_id("dingtalk", chat_id, topic_name)
+            text = cleaned_text
+            parsed["text"] = text
+            parsed["thread_id"] = thread_id
+            register_topic(chat_id, topic_name, thread_id, preview=text[:60])
+            reply_fn_registry[thread_id] = lambda t, _uid=user_id: dt_bot.send_text(user_id=_uid, text=t)
+
         # ── 问候快速路径（0ms，不走 LLM）────────────────────────────
         _GREETINGS = {"你好", "hi", "hello", "嗨", "哈喽", "在吗", "在不在", "hey", "yo", "早", "早上好"}
-        if text.strip().lower() in _GREETINGS:
-            self.reply_text("你好！有什么可以帮你的？", incoming)
+        if text.strip().lower() in _GREETINGS and not topic_name:
+            self.reply_text(WELCOME_MESSAGE, incoming)
             return AckMessage.STATUS_OK, "OK"
 
         # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────
         if session_manager.get(thread_id):
             session_manager.relay_input(thread_id, text)
             self.reply_text("↩️ 已转发给 Claude", incoming)
+            return AckMessage.STATUS_OK, "OK"
+
+        # 话题消息但内容为空：只切换话题，不触发 Agent
+        if topic_name and not text:
+            from integrations.topic_manager import format_topics
+            self.reply_text(f"已切换到话题 #{topic_name}\n\n{format_topics(chat_id)}", incoming)
             return AckMessage.STATUS_OK, "OK"
 
         # ── 正常 Agent 流程 ───────────────────────────────────────────
@@ -135,7 +160,8 @@ class _BotHandler(_ChatbotHandlerBase):
                     message=text,
                     platform="dingtalk",
                     user_id=user_id,
-                    chat_id=parsed["chat_id"],
+                    chat_id=chat_id,
+                    thread_id=thread_id,
                 )
                 dt_bot.send_text(user_id=user_id, text=reply)
             except Exception as e:

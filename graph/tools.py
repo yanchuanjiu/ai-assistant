@@ -1791,7 +1791,9 @@ def get_recent_chat_context(limit: int = 3) -> str:
     parts = thread_id.split(":", 1)
     if len(parts) != 2:
         return f"无法解析会话 ID: {thread_id}"
-    platform, chat_id = parts[0], parts[1]
+    platform, rest = parts[0], parts[1]
+    # 话题 thread_id 格式：{platform}:{chat_id}#topic#{name}，提取真实 chat_id
+    chat_id = rest.split("#topic#")[0]
 
     try:
         if platform == "feishu":

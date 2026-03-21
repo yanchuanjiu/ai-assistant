@@ -59,17 +59,18 @@ def _is_duplicate(message_id: str) -> bool:
 
 
 # --------------------------------------------------------------------------- #
-# 每 chat 串行锁（防止同一 chat 并发处理导致乱序回复）
+# 每话题串行锁（防止同一话题并发处理导致乱序；不同话题可并行）
 # --------------------------------------------------------------------------- #
-_chat_locks: dict[str, threading.Lock] = {}
-_chat_locks_mutex = threading.Lock()
+_topic_locks: dict[str, threading.Lock] = {}
+_topic_locks_mutex = threading.Lock()
 
 
-def _get_chat_lock(chat_id: str) -> threading.Lock:
-    with _chat_locks_mutex:
-        if chat_id not in _chat_locks:
-            _chat_locks[chat_id] = threading.Lock()
-        return _chat_locks[chat_id]
+def _get_topic_lock(thread_id: str) -> threading.Lock:
+    """按 thread_id（含话题前缀）加锁，不同话题可并行处理。"""
+    with _topic_locks_mutex:
+        if thread_id not in _topic_locks:
+            _topic_locks[thread_id] = threading.Lock()
+        return _topic_locks[thread_id]
 
 
 # --------------------------------------------------------------------------- #
@@ -310,6 +311,7 @@ def _handle_slash_command(text: str, thread_id: str, chat_id: str) -> str | None
       /status — 查看服务状态
       /clear  — 清空当前会话历史
       /stop   — 停止当前 Claude Code 会话
+      /topics — 查看所有活跃话题
     """
     parts = text.strip().split()
     cmd = parts[0].lower() if parts else ""
@@ -330,11 +332,15 @@ def _handle_slash_command(text: str, thread_id: str, chat_id: str) -> str | None
             return "✅ Claude 会话已停止"
         return "当前没有运行中的 Claude 会话"
 
+    elif cmd == "/topics":
+        from integrations.topic_manager import format_topics
+        return format_topics(chat_id)
+
     return None
 
 
 def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
-    """在线程中运行 agent（已持有 chat lock），发送回复。"""
+    """在线程中运行 agent（已持有话题锁），发送回复。"""
     from graph.agent import invoke
 
     processing_reaction_id = bot.add_reaction(parsed["message_id"], "Typing")
@@ -344,6 +350,7 @@ def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
             platform="feishu",
             user_id=parsed["user_id"],
             chat_id=parsed["chat_id"],
+            thread_id=parsed["thread_id"],
         )
         sent = bot.send_text(chat_id=parsed["chat_id"], text=reply)
         bot.remove_reaction(parsed["message_id"], processing_reaction_id)
@@ -395,10 +402,24 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
             bot.send_text(chat_id=chat_id, text=resp)
             return
 
+    # ── 话题解析：#话题名 前缀 → 隔离对话上下文 ──────────────────────────
+    from integrations.topic_manager import (
+        extract_topic, make_topic_thread_id, register_topic, WELCOME_MESSAGE,
+    )
+    topic_name, cleaned_text = extract_topic(text)
+    if topic_name:
+        thread_id = make_topic_thread_id("feishu", chat_id, topic_name)
+        text = cleaned_text  # 去掉前缀后的实际消息
+        parsed["text"] = text
+        parsed["thread_id"] = thread_id
+        register_topic(chat_id, topic_name, thread_id, preview=text[:60])
+        # 重新注册 reply_fn（绑定到话题 thread_id）
+        reply_fn_registry[thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
+
     # ── 问候快速路径（0ms，不走 LLM）────────────────────────────────────
     _GREETINGS = {"你好", "hi", "hello", "嗨", "哈喽", "在吗", "在不在", "hey", "yo", "早", "早上好"}
-    if text.strip().lower() in _GREETINGS and msg_type == "text":
-        bot.send_text(chat_id=chat_id, text="你好！有什么可以帮你的？")
+    if text.strip().lower() in _GREETINGS and msg_type == "text" and not topic_name:
+        bot.send_text(chat_id=chat_id, text=WELCOME_MESSAGE)
         return
 
     # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────────────
@@ -407,11 +428,17 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
         bot.send_text(chat_id=chat_id, text="↩️ 已转发给 Claude")
         return
 
-    # ── 正常 Agent 流程（每 chat 串行，防乱序）────────────────────────────
-    chat_lock = _get_chat_lock(chat_id)
+    # 话题消息但内容为空：只切换话题，不触发 Agent
+    if topic_name and not text:
+        from integrations.topic_manager import format_topics
+        bot.send_text(chat_id=chat_id, text=f"已切换到话题 **#{topic_name}**\n\n{format_topics(chat_id)}")
+        return
+
+    # ── 正常 Agent 流程（每话题串行，不同话题可并行）────────────────────────
+    topic_lock = _get_topic_lock(thread_id)
 
     def _run_with_lock():
-        with chat_lock:
+        with topic_lock:
             _run_agent(parsed, bot)
 
     threading.Thread(target=_run_with_lock, daemon=True).start()
