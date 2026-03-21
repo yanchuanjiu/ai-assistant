@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.5 - 2026-03-22
+
+### Fixed
+- **飞书话题上下文管理优化**：修复用户在主聊天窗口和飞书话题窗口混合回复时机器人回复位置错误、上下文丢失的问题
+  - **Bug 1（回复位置错误）**：用户在话题窗口回复时（root_id 非空），`is_threaded` 仍为 False，机器人把回复发到主聊天窗口而非话题窗口。修复：`is_threaded = thread_id != default OR bool(root_id)`，用 `root_id` 作为 `reply_in_thread` 锚点
+  - **Bug 2（孤立会话）**：用户回复机器人通过 `send_text` 发出的消息时，因 bot 消息 ID 未注册到 `_anchor_to_thread`，lookup 失败后创建完全孤立的 `feishu:thread:{root_id}` 新会话，对话历史全部丢失。修复两点：①`send_text` 返回消息 ID 并在 `_run_agent` 中注册；② 未知 `root_id` 回退到 `feishu:{chat_id}` 而非孤立新会话
+  - `_parse_feishu_message` 返回 dict 新增 `root_id` 字段，供 `_run_agent` 精确定位回复线程
+  - `_send_single` / `_send_single_text` / `send_text` 返回值从 `bool` 改为 `str | None`（消息 ID），向下兼容（truthy/falsy 语义不变）
+
 ## v1.0.4 - 2026-03-21
 
 ### Fixed

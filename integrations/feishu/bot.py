@@ -214,10 +214,12 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
     """
     解析飞书消息事件，返回标准化 dict 或 None（系统消息等返回 None）。
 
-    返回字段：text, user_id, chat_id, message_id, thread_id, msg_type
+    返回字段：text, user_id, chat_id, message_id, thread_id, root_id, msg_type
     thread_id 规则：
-      - 帖子内回复（root_id 非空）→ feishu:thread:{root_id}（独立会话）
+      - 帖子内回复（root_id 非空）→ 从反向映射查找已知话题 thread_id
+      - 反向映射未命中（未知线程）→ feishu:{chat_id}（回退到主聊天上下文，避免孤立会话）
       - 普通群聊/单聊 → feishu:{chat_id}
+    root_id 字段：原始 root_id，供 _run_agent 用于精确线程回复定位。
     """
     msg = data.event.message
     sender = data.event.sender
@@ -227,7 +229,8 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
     root_id = getattr(msg, "root_id", None) or ""
     if root_id:
         # 优先从反向映射查找已知话题 thread_id（重启后也有效，已从 SQLite 恢复）
-        thread_id = _anchor_to_thread.get(root_id) or f"feishu:thread:{root_id}"
+        # 未命中时回退到 feishu:{chat_id}（比创建孤立新会话更好：保留对话历史）
+        thread_id = _anchor_to_thread.get(root_id) or f"feishu:{chat_id}"
     else:
         thread_id = f"feishu:{chat_id}"
     message_id = msg.message_id or ""
@@ -256,6 +259,7 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
             "chat_id": chat_id,
             "message_id": message_id,
             "thread_id": thread_id,
+            "root_id": root_id,
             "msg_type": "text",
         }
 
@@ -278,6 +282,7 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
             "chat_id": chat_id,
             "message_id": message_id,
             "thread_id": thread_id,
+            "root_id": root_id,
             "msg_type": "post",
         }
 
@@ -290,6 +295,7 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
             "chat_id": chat_id,
             "message_id": message_id,
             "thread_id": thread_id,
+            "root_id": root_id,
             "msg_type": "merge_forward",
         }
 
@@ -307,6 +313,7 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
             "chat_id": chat_id,
             "message_id": message_id,
             "thread_id": thread_id,
+            "root_id": root_id,
             "msg_type": "image",
         }
 
@@ -339,6 +346,7 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
             "chat_id": chat_id,
             "message_id": message_id,
             "thread_id": thread_id,
+            "root_id": root_id,
             "msg_type": msg_type,
         }
 
@@ -363,6 +371,7 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
             "chat_id": chat_id,
             "message_id": message_id,
             "thread_id": thread_id,
+            "root_id": root_id,
             "msg_type": "interactive",
         }
 
@@ -374,6 +383,7 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
         "chat_id": chat_id,
         "message_id": message_id,
         "thread_id": thread_id,
+        "root_id": root_id,
         "msg_type": msg_type,
     }
 
@@ -427,16 +437,28 @@ def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
             chat_id=parsed["chat_id"],
             thread_id=parsed["thread_id"],
         )
-        # ── 话题/线程上下文：所有回复（含首条）均 reply_in_thread ──────────
-        # 默认上下文（feishu:{chat_id}）不线程化，保持普通发送
-        anchor = _get_anchor(parsed["thread_id"])
+        # ── 回复定位策略 ───────────────────────────────────────────────────
+        # root_id 非空 = 用户在飞书话题/线程窗口回复，需把机器人回复打到同一线程
+        # root_id 为空 = 普通主聊天消息，走 send_text 保持原有行为
+        root_id = parsed.get("root_id", "")
+        # 优先用 root_id 作为回复锚点（确保落入同一话题窗口）；否则用注册的首条锚点
+        anchor = root_id or _get_anchor(parsed["thread_id"])
         default_thread_id = f"feishu:{parsed['chat_id']}"
-        is_threaded = parsed["thread_id"] != default_thread_id
+        # 满足以下任一条件时走 reply_in_thread：
+        # 1. 话题前缀消息（thread_id != default）
+        # 2. 用户从飞书话题/线程窗口回复（root_id 非空）
+        is_threaded = parsed["thread_id"] != default_thread_id or bool(root_id)
         sent = False
         if anchor and is_threaded:
             sent = bot.reply_in_thread(anchor, reply, thread_id=parsed["thread_id"])
         if not sent:
-            sent = bot.send_text(chat_id=parsed["chat_id"], text=reply)
+            bot_msg_id = bot.send_text(chat_id=parsed["chat_id"], text=reply)
+            sent = bool(bot_msg_id)
+            # 注册机器人消息 ID：让用户后续回复该消息时能找到正确上下文
+            if bot_msg_id and isinstance(bot_msg_id, str) and bot_msg_id not in ("True", "sent"):
+                with _anchor_lock:
+                    _anchor_to_thread[bot_msg_id] = parsed["thread_id"]
+                _persist_anchor(bot_msg_id, parsed["thread_id"])
         bot.remove_reaction(parsed["message_id"], processing_reaction_id)
         if sent:
             bot.add_reaction(parsed["message_id"], "OK")
@@ -647,10 +669,10 @@ class FeishuBot:
                 pass
         return True
 
-    def _send_single(self, chat_id: str, text: str) -> bool:
+    def _send_single(self, chat_id: str, text: str) -> str | None:
         """
         发送单条消息（post 富文本格式，支持 Markdown 渲染）。
-        使用 tag=md 让飞书客户端渲染 Markdown：加粗/斜体/代码块/链接等。
+        返回消息 message_id（成功）或 None（失败）。
         """
         content = json.dumps(
             {"zh_cn": {"content": [[{"tag": "md", "text": text}]]}},
@@ -675,10 +697,13 @@ class FeishuBot:
             )
             # 降级：用纯文本重试
             return self._send_single_text(chat_id, text)
-        return True
+        try:
+            return resp.data.message_id or "sent"
+        except Exception:
+            return "sent"
 
-    def _send_single_text(self, chat_id: str, text: str) -> bool:
-        """纯文本降级发送（post 失败时使用）。"""
+    def _send_single_text(self, chat_id: str, text: str) -> str | None:
+        """纯文本降级发送（post 失败时使用）。返回 message_id 或 None。"""
         request = (
             CreateMessageRequest.builder()
             .receive_id_type("chat_id")
@@ -694,14 +719,17 @@ class FeishuBot:
         resp = _lark_client.im.v1.message.create(request)
         if not resp.success():
             logger.error(f"[飞书] 发消息失败: code={resp.code} msg={resp.msg}")
-            return False
-        return True
+            return None
+        try:
+            return resp.data.message_id or "sent"
+        except Exception:
+            return "sent"
 
-    def send_text(self, chat_id: str, text: str) -> bool:
-        """发送文本消息，超长时自动存飞书并发摘要+链接。返回是否全部成功。"""
+    def send_text(self, chat_id: str, text: str) -> str | None:
+        """发送文本消息，超长时自动存飞书并发摘要+链接。返回 message_id（成功）或 None（失败）。"""
         if not chat_id:
             logger.warning("[飞书] chat_id 为空，跳过发送")
-            return False
+            return None
 
         # IM 回复字符上限：超出时存飞书+发摘要
         _IM_LIMIT = 800
@@ -736,12 +764,13 @@ class FeishuBot:
         if current.strip():
             chunks.append(current.rstrip())
 
-        success = True
+        first_id: str | None = None
         for i, chunk in enumerate(chunks):
             prefix = f"（{i+1}/{len(chunks)}）\n" if len(chunks) > 1 else ""
-            if not self._send_single(chat_id, prefix + chunk):
-                success = False
-        return success
+            msg_id = self._send_single(chat_id, prefix + chunk)
+            if msg_id and first_id is None:
+                first_id = msg_id
+        return first_id
 
     def _save_to_feishu_wiki(self, text: str) -> str:
         """
