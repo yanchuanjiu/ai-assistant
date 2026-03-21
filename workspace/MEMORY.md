@@ -34,6 +34,8 @@ _2026-03-21（基于 100 条交互日志分析，v0.9.5 自我改进）_
 - **代码生效需重启**：每次 commit 后必须重启服务，否则 Python 内存中仍运行旧代码
 - **parent_wiki_token 不能传 space_id**：飞书空间ID（纯数字如 `7618158120166034630`）不是有效的 wiki token
 
+- **⚠️ 钉钉纪要回答未回复到原问题（BUG-001，未解决）**：用户在钉钉中提问 → Agent 分析会议纪要后以新消息回复，未 thread 至原始提问消息。相关代码：`integrations/dingtalk/bot.py` 响应发送逻辑。待心跳任务分析根因后更新此条。录入：2026-03-21
+
 - **⚠️ 131006 权限错误（核心问题，v0.9.5 修复根因）** — 截至2026-03-21已出现 10+ 次，跨越多天：
   - **根因A（确认）**：`FEISHU_USER_ACCESS_TOKEN` / `FEISHU_USER_REFRESH_TOKEN` **从未配置到 .env**（grep 返回 0 结果）
   - **根因B（确认）**：飞书 wiki SPACE 成员权限 ≠ 应用 wiki:wiki 权限。即使 wiki:wiki 应用权限已开通，调用 `/wiki/v2/spaces/{space_id}/nodes` 仍需要 APP 被显式添加为空间成员

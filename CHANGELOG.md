@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.1 - 2026-03-21
+
+### Fixed / Tracked
+- **BUG-001 录入**：钉钉纪要回答未回复到原问题 — 在 `workspace/HEARTBEAT.md` 新增"待处理 Bug"节（优先级 1.8），描述现象、复现路径、相关代码；在 `workspace/MEMORY.md` "已知注意事项"预埋 `⚠️ 未解决` 标记。心跳任务下次执行时 Claude 将接收并分析根因，记录处理结果。
+
 ## v0.9.10 - 2026-03-21
 
 ### Added / Fixed
