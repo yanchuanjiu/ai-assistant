@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-21（v0.8.24）
+> 最后更新：2026-03-21（v0.8.27）
 
 ---
 
@@ -25,7 +25,8 @@
 ✅ Claude Code    — tmux 会话（持久化），stream-json 实时推送 IM
 ✅ 进程管理        — supervised thread + 指数退避自动重启，崩溃写 logs/crash.log
 ✅ Admin 界面      — http://localhost:8080（Web 配置管理，无需重启）
-✅ 渐进式工具披露  — CORE_TOOLS（7个）+ 按关键词动态注入，节省 ~87% token
+✅ 渐进式工具披露  — CORE_TOOLS（9个）+ 按关键词动态注入，节省 ~87% token
+✅ 并发任务框架    — graph/parallel.py：工具并行执行 + 优先级队列（URGENT/NORMAL/LOW）+ TaskMonitor
 ✅ Workspace 体系 — workspace/{SOUL/USER/MEMORY/HEARTBEAT/SKILLS_*}.md 动态注入 system prompt
 ✅ 自我改进        — trigger_self_improvement，分析日志 → 优化 → 推送报告
 ✅ 单轮上下文      — MAX_USER_TURNS=2，历史 ToolMessage 截断至 100 字符

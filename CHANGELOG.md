@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.27] - 2026-03-21
+
+### Added
+- **`graph/parallel.py`**（新文件）：并发任务框架
+  - `TaskMonitor`：线程安全任务状态追踪（pending → running → done/failed），支持近期任务查询和统计摘要
+  - `AgentTaskQueue`：优先级任务队列（URGENT=0 用户消息 / HIGH=1 / NORMAL=2 调度任务 / LOW=3 维护任务），内置 4 worker ThreadPoolExecutor + 独立 dispatcher 线程
+  - `run_tools_parallel()`：并行执行同一轮 LLM 下发的多个工具调用；含副作用工具（`_SERIAL_TOOLS`）自动降级为串行，保持原始顺序返回
+
+### Changed
+- **`graph/nodes.py`** `tools_node`：改用 `run_tools_parallel()` 替代串行循环，多工具调用并发执行（最多 6 worker），单工具调用保持同步快速路径
+- **`graph/agent.py`** `invoke()`：接入 `task_monitor` 追踪每次调用生命周期；按平台自动设置优先级（用户消息=URGENT，scheduler=NORMAL）；新增 `get_concurrent_status()` 函数供工具/Admin查询实时状态
+- **`graph/tools.py`**：新增 `query_task_status` 工具（加入 CORE_TOOLS），支持按需查询正在执行的任务、队列大小、近期任务历史
+- **`scheduler.py`** `poll_email` / `heartbeat`：调度任务改为通过 `AgentTaskQueue` 提交（NORMAL / LOW 优先级），不再阻塞 APScheduler 线程，且不与用户实时消息竞争
+
+---
+
 ## [0.8.26] - 2026-03-21
 
 ### Fixed

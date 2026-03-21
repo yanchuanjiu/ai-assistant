@@ -11,6 +11,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.sqlite import SqliteSaver
 from graph.state import AgentState
 from graph.nodes import agent_node, tools_node, should_continue
+from graph.parallel import task_monitor, Priority
 
 os.makedirs("data", exist_ok=True)
 
@@ -62,7 +63,20 @@ def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
     import threading
     from integrations.logging.interaction_logger import log_interaction
 
-    config = {"configurable": {"thread_id": f"{platform}:{chat_id}"}}
+    thread_id = f"{platform}:{chat_id}"
+
+    # 按来源确定优先级（用户实时消息 > 定时调度任务）
+    priority = (
+        Priority.URGENT if platform not in ("heartbeat", "scheduler")
+        else Priority.NORMAL
+    )
+
+    # 向任务监控注册本次调用
+    task_id = f"{thread_id[:20]}@{int(time.time())}"
+    task_monitor.register(task_id, f"invoke {platform}:{chat_id} — {message[:40]}", priority)
+    task_monitor.mark_running(task_id)
+
+    config = {"configurable": {"thread_id": thread_id}}
     state = {
         "messages": [HumanMessage(content=message)],
         "platform": platform,
@@ -74,11 +88,17 @@ def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
     }
 
     t0 = time.monotonic()
-    result = graph.invoke(state, config=config)
+    try:
+        result = graph.invoke(state, config=config)
+    except Exception as e:
+        task_monitor.mark_done(task_id, error=str(e)[:200])
+        raise
     latency_ms = (time.monotonic() - t0) * 1000
 
     last = result["messages"][-1]
     response_text = last.content if isinstance(last.content, str) else str(last.content)
+
+    task_monitor.mark_done(task_id)
 
     # 收集本次调用的工具列表（去重保序）
     tools_used = []
@@ -99,7 +119,6 @@ def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
     )
 
     # 回复含错误/异常关键词时，后台触发自动修复
-    thread_id = f"{platform}:{chat_id}"
     threading.Thread(
         target=_maybe_auto_fix,
         args=(response_text, thread_id, platform, chat_id, message),
@@ -107,6 +126,27 @@ def invoke(message: str, platform: str, user_id: str, chat_id: str) -> str:
     ).start()
 
     return response_text
+
+
+def get_concurrent_status() -> dict:
+    """
+    返回当前并发任务状态快照，供工具 / Admin 界面查询。
+
+    示例输出：
+    {
+        "running": [{"id": "abc123", "desc": "invoke feishu:oc_xxx — 帮我查...", ...}],
+        "summary": {"running": 1, "done": 5, "failed": 0, "pending": 2},
+        "recent": [...]
+    }
+    """
+    from graph.parallel import get_task_queue
+    queue_status = get_task_queue().status()
+    return {
+        "queue_size": queue_status["queue_size"],
+        "running":    queue_status["running"],
+        "summary":    queue_status["summary"],
+        "recent":     task_monitor.get_recent(limit=10),
+    }
 
 
 def _maybe_auto_fix(response_text: str, thread_id: str, platform: str, chat_id: str, user_message: str):

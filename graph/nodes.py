@@ -390,25 +390,15 @@ def agent_node(state: AgentState) -> dict:
 
 def tools_node(state: AgentState) -> dict:
     from integrations.claude_code.session import reply_fn_registry
+    from graph.parallel import run_tools_parallel
 
-    # 注入当前会话上下文，供 trigger_self_iteration 等工具使用
     thread_id = f"{state['platform']}:{state['chat_id']}"
     send_fn = reply_fn_registry.get(thread_id)
+    # 为当前线程设置工具上下文（单工具 / 串行路径使用）
     set_tool_ctx(thread_id, send_fn)
 
-    last_msg = state["messages"][-1]
-    tool_messages = []
-    for call in last_msg.tool_calls:
-        tool = tools_by_name.get(call["name"])
-        if tool is None:
-            result = f"未找到工具：{call['name']}"
-        else:
-            try:
-                result = tool.invoke(call["args"])
-            except Exception as e:
-                result = f"工具执行出错：{e}"
-                logger.error(f"Tool {call['name']} 失败: {e}")
-        tool_messages.append(ToolMessage(content=str(result), tool_call_id=call["id"]))
+    calls = state["messages"][-1].tool_calls
+    tool_messages = run_tools_parallel(calls, thread_id, send_fn, tools_by_name)
     return {"messages": tool_messages}
 
 

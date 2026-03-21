@@ -135,6 +135,7 @@ def _build_email_prompt(mail: dict) -> str:
 def poll_email():
     from integrations.email.imap_client import IMAPPoller
     from graph.agent import invoke
+    from graph.parallel import get_task_queue, Priority
 
     logger.info("[Scheduler] 开始轮询邮件...")
     poller = IMAPPoller()
@@ -147,23 +148,33 @@ def poll_email():
     if not emails:
         return
 
+    queue = get_task_queue()
     processed = 0
     for mail in emails:
+        subject = mail.get("subject", "（无主题）")
         try:
             prompt = _build_email_prompt(mail)
-            result = invoke(
-                message=prompt,
-                platform="scheduler",
-                user_id="scheduler",
-                chat_id="email_poll",
+
+            def _process_mail(p=prompt, s=subject):
+                result = invoke(
+                    message=p,
+                    platform="scheduler",
+                    user_id="scheduler",
+                    chat_id="email_poll",
+                )
+                logger.info(f"[Scheduler] 邮件处理完毕: {s} → {result[:100]}")
+
+            queue.submit(
+                _process_mail,
+                priority=Priority.NORMAL,
+                description=f"邮件轮询: {subject[:40]}",
             )
-            logger.info(f"[Scheduler] 邮件处理完毕: {mail.get('subject', '')} → {result[:100]}")
             processed += 1
         except Exception as e:
-            logger.error(f"[Scheduler] 处理邮件失败 ({mail.get('subject', '')}): {e}")
+            logger.error(f"[Scheduler] 提交邮件处理失败 ({subject}): {e}")
 
     if processed:
-        logger.info(f"[Scheduler] 本轮处理 {processed} 封邮件")
+        logger.info(f"[Scheduler] 本轮提交 {processed} 封邮件到任务队列")
 
 
 # --------------------------------------------------------------------------- #
@@ -204,6 +215,7 @@ def heartbeat():
 
     如果 Agent 回复 HEARTBEAT_OK，静默完成；有实质内容则发送给 Owner。
     每次使用独立 thread_id，避免上下文无限增长（workspace 文件是跨会话记忆）。
+    通过优先级队列提交，避免与用户实时消息竞争 worker。
     """
     # 优先读 config_store（IM 对话中 agent_config 设置，无需重启），fallback 到 .env
     from integrations.storage.config_store import get as config_get
@@ -238,27 +250,33 @@ def heartbeat():
         f"## 心跳任务清单\n\n{heartbeat_md}"
     )
 
-    try:
-        from graph.agent import invoke
-        # 每次心跳用独立 thread_id（时间戳），避免历史上下文堆积
-        unique_chat_id = f"heartbeat_{int(time.time())}"
-        result = invoke(
-            message=prompt,
-            platform="heartbeat",
-            user_id="scheduler",
-            chat_id=unique_chat_id,
-        )
+    from graph.parallel import get_task_queue, Priority
 
-        result_stripped = (result or "").strip()
-        if result_stripped and result_stripped != "HEARTBEAT_OK":
-            from integrations.feishu.bot import bot as feishu_bot
-            feishu_bot.send_text(chat_id=owner_chat_id, text=f"🔔 心跳提醒\n\n{result_stripped}")
-            logger.info(f"[Heartbeat] 主动发送消息给 owner: {result_stripped[:80]}")
-        else:
-            logger.debug("[Heartbeat] 无需主动响应")
+    def _run_heartbeat(p=prompt, chat_id=owner_chat_id):
+        try:
+            from graph.agent import invoke
+            unique_chat_id = f"heartbeat_{int(time.time())}"
+            result = invoke(
+                message=p,
+                platform="heartbeat",
+                user_id="scheduler",
+                chat_id=unique_chat_id,
+            )
+            result_stripped = (result or "").strip()
+            if result_stripped and result_stripped != "HEARTBEAT_OK":
+                from integrations.feishu.bot import bot as feishu_bot
+                feishu_bot.send_text(chat_id=chat_id, text=f"🔔 心跳提醒\n\n{result_stripped}")
+                logger.info(f"[Heartbeat] 主动发送消息给 owner: {result_stripped[:80]}")
+            else:
+                logger.debug("[Heartbeat] 无需主动响应")
+        except Exception as e:
+            logger.error(f"[Heartbeat] 执行失败: {e}")
 
-    except Exception as e:
-        logger.error(f"[Heartbeat] 执行失败: {e}")
+    get_task_queue().submit(
+        _run_heartbeat,
+        priority=Priority.LOW,
+        description="心跳检查",
+    )
 
 
 # --------------------------------------------------------------------------- #

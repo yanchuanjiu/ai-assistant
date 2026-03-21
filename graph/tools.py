@@ -1512,6 +1512,38 @@ def get_recent_chat_context(limit: int = 3) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# 并发任务状态查询
+# --------------------------------------------------------------------------- #
+@tool
+def query_task_status(limit: int = 10) -> str:
+    """
+    查询当前并发任务执行状态，包括正在运行的任务、等待队列大小和近期任务历史。
+
+    Args:
+        limit: 返回的近期任务条数，默认 10 条（最大 20 条）
+
+    返回 JSON 格式，包含：
+    - running: 当前正在执行的任务列表
+    - queue_size: 等待队列中的任务数量
+    - summary: 各状态任务数统计（pending/running/done/failed）
+    - recent: 最近 N 条任务记录（包含状态、优先级、耗时等）
+    """
+    import json
+    from graph.agent import get_concurrent_status
+    status = get_concurrent_status()
+    status["recent"] = status.get("recent", [])[:min(limit, 20)]
+
+    # 为 recent 列表计算可读耗时
+    for t in status["recent"]:
+        if t.get("started_at") and t.get("finished_at"):
+            t["elapsed_ms"] = round((t["finished_at"] - t["started_at"]) * 1000)
+        elif t.get("started_at"):
+            t["elapsed_ms"] = round((time.time() - t["started_at"]) * 1000)
+
+    return json.dumps(status, ensure_ascii=False, indent=2, default=str)
+
+
+# --------------------------------------------------------------------------- #
 # 工具分类（渐进式披露）
 # --------------------------------------------------------------------------- #
 
@@ -1525,6 +1557,7 @@ CORE_TOOLS = [
     get_service_status,
     agent_config,
     get_recent_chat_context,
+    query_task_status,
 ]
 
 # 按需加载的分类工具
