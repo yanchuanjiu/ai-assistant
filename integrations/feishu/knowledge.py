@@ -293,21 +293,28 @@ class FeishuKnowledge:
             return True
         return False
 
-    def list_wiki_children(self, parent_wiki_token: str) -> list[dict]:
+    def list_wiki_children(self, parent_wiki_token: str = "") -> list[dict]:
         """列出指定 wiki 节点的直属子页面。返回节点列表（含 title / node_token / has_child）。
 
-        parent_wiki_token 必须是 wiki node token（如 FalZwGDOkiqpbQkeAjGc8jaznMd），
-        不能是 space_id 数字或 space_XXX 格式。如果传入 space 级标识，
-        将改为列出 wiki 空间根节点（不带 parent_node_token 参数）。
+        parent_wiki_token 为空或 space 级标识时，列出知识库空间根节点（第一层文档）。
+        parent_wiki_token 为 wiki node token 时，列出该节点的子页面。
         """
-        if self._is_space_level_token(parent_wiki_token):
-            # 飞书 GET /wiki/v2/spaces/{space_id}/nodes 不支持不传 parent_node_token（返回400）
-            # 根目录无法列举，直接返回空列表，让调用方走创建分支
+        if not parent_wiki_token or self._is_space_level_token(parent_wiki_token):
+            # 列出知识库空间根节点：不传 parent_node_token
             logger.info(
-                f"[FeishuKnowledge] list_wiki_children: 收到 space 级标识 {parent_wiki_token!r}，"
-                f"跳过列表（API不支持根目录查询），返回空列表"
+                f"[FeishuKnowledge] list_wiki_children: 列出空间根节点（space_id={self.space_id}）"
             )
-            return []
+            try:
+                resp = feishu_get(
+                    f"/wiki/v2/spaces/{self.space_id}/nodes",
+                    params={"page_size": 50},
+                )
+                items = resp.get("data", {}).get("items", [])
+                logger.info(f"[FeishuKnowledge] 空间根节点数量: {len(items)}")
+                return items
+            except Exception as e:
+                logger.warning(f"[FeishuKnowledge] 列出根节点失败: {e}，返回空列表")
+                return []
         else:
             try:
                 resp = feishu_get(

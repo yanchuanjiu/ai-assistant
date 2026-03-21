@@ -849,8 +849,10 @@ def feishu_wiki_page(
     飞书知识库子页面管理（全程 tenant_access_token，无需 user OAuth）。
 
     action 可选：
-      list_children   — 列出 parent_wiki_token 下的子页面
-                        （需 parent_wiki_token）
+      list_children   — 列出子页面
+                        parent_wiki_token 为空 → 列出知识库空间根节点（第一层文档）
+                        parent_wiki_token 有值 → 列出该节点的子页面
+                        ✅ 浏览用户文档结构时，先不传 parent_wiki_token 从根节点开始
                         ✅ 读写前不确定 token 时，先调此接口发现有效 token
       find_or_create  — 查找或创建命名子页面，返回 wiki node_token
                         （需 title + parent_wiki_token；cache_key 可选，用于加速后续查找）
@@ -875,12 +877,12 @@ def feishu_wiki_page(
             parent_wiki_token = parse_wiki_token(parent_wiki_token.split("#")[0].strip())
 
         if action == "list_children":
-            if not parent_wiki_token:
-                return "list_children 需要提供 parent_wiki_token"
             items = kb.list_wiki_children(parent_wiki_token)
             if not items:
-                return f"{parent_wiki_token} 下暂无子页面"
-            lines = [f"共 {len(items)} 个子页面："]
+                scope = parent_wiki_token or "空间根节点"
+                return f"{scope} 下暂无子页面"
+            scope = parent_wiki_token or "空间根节点"
+            lines = [f"{scope} 共 {len(items)} 个子页面："]
             for it in items:
                 child_hint = "（有子页）" if it.get("has_child") else ""
                 lines.append(f"  - {it['title']}{child_hint}  token={it['node_token']}")

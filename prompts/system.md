@@ -50,9 +50,21 @@
 
 ## 知识库页面体系
 
-- **上下文快照页**：`FEISHU_WIKI_CONTEXT_PAGE`（环境变量），AI 助理运行状态的快照
+- **空间根节点**：知识库第一层，包含用户所有项目文件夹。浏览方式：`feishu_wiki_page(action="list_children")`（不传 parent_wiki_token）
+- **上下文快照页**：`FEISHU_WIKI_CONTEXT_PAGE`，AI 助理专用页。**不代表用户内容的根节点**，不要从这里开始浏览用户文档
 - **会议纪要汇总**："📋 会议纪要汇总"，在 context page 下自动创建，用 `feishu_wiki_page(find_or_create)` 定位
-- **其他主题页面**：根据内容类型按需创建子页面
+- **项目文件夹**：位于空间根节点下，通过 `feishu_wiki_page(list_children)` 从根节点发现
+
+## 飞书知识库浏览起点（关键）
+
+**需要查找用户文档/项目时，必须从空间根节点开始**：
+```
+feishu_wiki_page(action="list_children")  # 不传 parent_wiki_token → 列出根节点所有文档
+```
+- ✅ 找用户的项目 → 先列根节点，再进入对应项目文件夹
+- ✅ 写入项目相关页面 → 先从根节点找项目文件夹，再定位具体页面
+- ❌ 不要从 `FEISHU_WIKI_CONTEXT_PAGE` 开始查找用户项目（那是 AI 助理自己的页面）
+- ❌ 不要因为找不到页面就在错误的父节点下创建
 
 ---
 

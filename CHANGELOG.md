@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.28 - 2026-03-21
+
+### Fixed
+- **`integrations/feishu/knowledge.py`** `list_wiki_children`：修复空间根节点无法列举的问题 — 原代码对 space 级标识直接返回空列表，导致 LLM 无法浏览知识库第一层文档；现在不传或传 space 级标识时，调用 Feishu API 不带 `parent_node_token` 来列出根节点
+- **`graph/tools.py`** `feishu_wiki_page`：`list_children` 不再要求必须传 parent_wiki_token；不传时默认从空间根节点开始，方便 LLM 探索用户文档结构
+- **`prompts/system.md`**：新增"飞书知识库浏览起点"章节，明确规定从空间根节点（不传 parent）开始浏览用户文档，禁止从 `FEISHU_WIKI_CONTEXT_PAGE`（AI 专用页）开始
+
+### 根因分析
+用户反馈飞书操作从"首页"而非"空间根节点"开始，导致错误创建页面。根因：`feishu_wiki_page(list_children)` 要求必须传 parent_wiki_token，LLM 找不到合适入口时默认用 FEISHU_WIKI_CONTEXT_PAGE 作起点，该页面只是 AI 助理自己的快照页，看不到用户的项目目录。
+
+---
+
 ## v0.8.27 - 2026-03-21
 
 ### Added
