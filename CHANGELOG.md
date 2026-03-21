@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.9.9 - 2026-03-21
+
+### Added
+- **飞书 / 钉钉 同话题回复线程化**：同一 `thread_id` 下的后续回复自动使用「回复原文」方式，利用 IM 线程实现上下文视觉隔离
+  - **飞书**：新增 `_thread_anchor` 注册表（thread_id → 首条 message_id），调用 `ReplyMessageRequest` 的 `reply_in_thread=True` API；超长消息降级为普通发送
+  - **钉钉**：新增 `_thread_anchor` 注册表（thread_id → 首条 incoming 对象），通过 `session_webhook` 回复到原消息线程；webhook 过期后自动清除并降级为 `send_text`
+  - 对话首条消息仍正常发送，后续回复自动附线程；话题切换时（`#话题名`）单独维护话题维度的锚点
+
 ## v0.9.8 - 2026-03-21
 
 ### Added

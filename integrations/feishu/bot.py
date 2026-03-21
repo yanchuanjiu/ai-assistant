@@ -12,6 +12,8 @@ from lark_oapi.api.im.v1 import (
     P2ImMessageReceiveV1,
     CreateMessageRequest,
     CreateMessageRequestBody,
+    ReplyMessageRequest,
+    ReplyMessageRequestBody,
 )
 from pydantic_settings import BaseSettings
 from integrations.feishu.client import feishu_post, feishu_delete, feishu_get
@@ -43,6 +45,13 @@ _lark_client = lark.Client.builder() \
 _seen_message_ids: dict[str, float] = {}
 _seen_lock = threading.Lock()
 _DEDUP_TTL = 120  # 2 分钟内相同 message_id 视为重复
+
+# --------------------------------------------------------------------------- #
+# 话题锚点（thread reply）：记录每个 thread_id 的第一条消息 ID
+# 后续回复使用 reply_in_thread 模式，利用飞书线程隔离上下文
+# --------------------------------------------------------------------------- #
+_thread_anchor: dict[str, str] = {}  # thread_id → first message_id
+_anchor_lock = threading.Lock()
 
 
 def _is_duplicate(message_id: str) -> bool:
@@ -352,7 +361,15 @@ def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
             chat_id=parsed["chat_id"],
             thread_id=parsed["thread_id"],
         )
-        sent = bot.send_text(chat_id=parsed["chat_id"], text=reply)
+        # ── 优先使用 reply_in_thread（利用飞书线程隔离上下文）──────────────
+        anchor = _get_anchor(parsed["thread_id"])
+        sent = False
+        if anchor and anchor != parsed["message_id"]:
+            # 非首条消息：回复到锚点线程
+            sent = bot.reply_in_thread(anchor, reply)
+        if not sent:
+            # 首条消息 / reply_in_thread 失败 / 超长消息：回退到普通发送
+            sent = bot.send_text(chat_id=parsed["chat_id"], text=reply)
         bot.remove_reaction(parsed["message_id"], processing_reaction_id)
         if sent:
             bot.add_reaction(parsed["message_id"], "OK")
@@ -392,6 +409,9 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
 
     bot = FeishuBot()
 
+    # ── 登记线程锚点：首条消息的 message_id 作为后续 reply_in_thread 基准 ──
+    _set_anchor(thread_id, message_id)
+
     # 注册 reply_fn（绑定到 thread_id，供工具回调使用）
     reply_fn_registry[thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
 
@@ -413,6 +433,8 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
         parsed["text"] = text
         parsed["thread_id"] = thread_id
         register_topic(chat_id, topic_name, thread_id, preview=text[:60])
+        # 话题首条消息也登记锚点（话题 thread_id 维度）
+        _set_anchor(thread_id, message_id)
         # 重新注册 reply_fn（绑定到话题 thread_id）
         reply_fn_registry[thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
 
@@ -469,6 +491,20 @@ def start_feishu_longconn():
 # --------------------------------------------------------------------------- #
 # 发消息（REST API）
 # --------------------------------------------------------------------------- #
+def _get_anchor(thread_id: str) -> str | None:
+    """返回 thread_id 对应的锚点消息 ID（线程首消息），无则返回 None。"""
+    return _thread_anchor.get(thread_id)
+
+
+def _set_anchor(thread_id: str, message_id: str) -> None:
+    """登记 thread_id 的锚点（仅首次有效）。"""
+    if not message_id:
+        return
+    with _anchor_lock:
+        if thread_id not in _thread_anchor:
+            _thread_anchor[thread_id] = message_id
+
+
 class FeishuBot:
     def add_reaction(self, message_id: str, emoji_type: str) -> str:
         """给消息加 emoji reaction，返回 reaction_id（删除时用）。"""
@@ -492,6 +528,40 @@ class FeishuBot:
             feishu_delete(f"/im/v1/messages/{message_id}/reactions/{reaction_id}")
         except Exception as e:
             logger.warning(f"[飞书] 删除 reaction 失败: {e}")
+
+    def reply_in_thread(self, anchor_message_id: str, text: str) -> bool:
+        """
+        回复指定消息，并在其线程中展示（reply_in_thread=True）。
+        用于同话题下的后续回复，使飞书 UI 自动形成线程视图。
+        失败时返回 False（调用方可降级为 send_text）。
+        """
+        if not anchor_message_id:
+            return False
+        # 超长消息降级走 send_text 的存 wiki 逻辑：这里只做 ≤800 字符的快路径
+        _IM_LIMIT = 800
+        if len(text) > _IM_LIMIT:
+            return False  # 让调用方降级到 send_text
+        content = json.dumps(
+            {"zh_cn": {"content": [[{"tag": "md", "text": text}]]}},
+            ensure_ascii=False,
+        )
+        request = (
+            ReplyMessageRequest.builder()
+            .message_id(anchor_message_id)
+            .request_body(
+                ReplyMessageRequestBody.builder()
+                .msg_type("post")
+                .content(content)
+                .reply_in_thread(True)
+                .build()
+            )
+            .build()
+        )
+        resp = _lark_client.im.v1.message.reply(request)
+        if not resp.success():
+            logger.warning(f"[飞书] reply_in_thread 失败(code={resp.code}): {resp.msg}")
+            return False
+        return True
 
     def _send_single(self, chat_id: str, text: str) -> bool:
         """

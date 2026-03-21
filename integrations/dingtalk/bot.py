@@ -4,7 +4,9 @@
 """
 import logging
 import threading
+import time
 
+import requests
 import dingtalk_stream
 from dingtalk_stream import AckMessage
 from dingtalk_stream.chatbot import ChatbotHandler as _ChatbotHandlerBase
@@ -23,6 +25,57 @@ class DingTalkBotSettings(BaseSettings):
 
 
 _cfg = DingTalkBotSettings()
+
+# --------------------------------------------------------------------------- #
+# 话题锚点（thread reply）：存储每个 thread_id 的首条 incoming 对象
+# reply_text 通过 session_webhook 回复，使钉钉 UI 形成线程视图
+# --------------------------------------------------------------------------- #
+_thread_anchor: dict[str, dingtalk_stream.ChatbotMessage] = {}  # thread_id → incoming
+_anchor_lock = threading.Lock()
+
+
+def _set_anchor(thread_id: str, incoming: dingtalk_stream.ChatbotMessage) -> None:
+    """登记 thread_id 的锚点 incoming（仅首次有效，webhook 有效期内）。"""
+    if not incoming or not incoming.session_webhook:
+        return
+    with _anchor_lock:
+        if thread_id not in _thread_anchor:
+            _thread_anchor[thread_id] = incoming
+
+
+def _get_anchor(thread_id: str) -> dingtalk_stream.ChatbotMessage | None:
+    """返回锚点 incoming，若 webhook 已过期则清除并返回 None。"""
+    incoming = _thread_anchor.get(thread_id)
+    if not incoming:
+        return None
+    # session_webhook_expired_time 单位为毫秒
+    if incoming.session_webhook_expired_time and time.time() * 1000 > incoming.session_webhook_expired_time:
+        with _anchor_lock:
+            _thread_anchor.pop(thread_id, None)
+        return None
+    return incoming
+
+
+def _reply_via_webhook(incoming: dingtalk_stream.ChatbotMessage, text: str) -> bool:
+    """通过钉钉 session_webhook 回复到原消息线程，返回是否成功。"""
+    if not incoming or not incoming.session_webhook:
+        return False
+    try:
+        resp = requests.post(
+            incoming.session_webhook,
+            headers={"Content-Type": "application/json"},
+            json={
+                "msgtype": "text",
+                "text": {"content": text},
+                "at": {"atUserIds": [incoming.sender_staff_id]},
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        logger.warning(f"[钉钉] webhook 回复失败: {e}")
+        return False
 
 
 # --------------------------------------------------------------------------- #
@@ -108,6 +161,9 @@ class _BotHandler(_ChatbotHandlerBase):
 
         dt_bot = DingTalkBot()
 
+        # ── 登记线程锚点（首条消息）──────────────────────────────────
+        _set_anchor(thread_id, incoming)
+
         # 注册 reply_fn
         reply_fn_registry[thread_id] = lambda t, _uid=user_id: dt_bot.send_text(user_id=_uid, text=t)
 
@@ -129,6 +185,8 @@ class _BotHandler(_ChatbotHandlerBase):
             parsed["text"] = text
             parsed["thread_id"] = thread_id
             register_topic(chat_id, topic_name, thread_id, preview=text[:60])
+            # 话题首条消息也登记锚点
+            _set_anchor(thread_id, incoming)
             reply_fn_registry[thread_id] = lambda t, _uid=user_id: dt_bot.send_text(user_id=_uid, text=t)
 
         # ── 问候快速路径（0ms，不走 LLM）────────────────────────────
@@ -153,6 +211,9 @@ class _BotHandler(_ChatbotHandlerBase):
         # 先回复"处理中"避免钉钉超时重试（5秒限制）
         self.reply_text("处理中，请稍候...", incoming)
 
+        _anchor = _get_anchor(thread_id)  # 捕获当前锚点（闭包）
+        _is_first = (_anchor and _anchor.session_webhook == incoming.session_webhook)
+
         def run():
             try:
                 from graph.agent import invoke
@@ -163,7 +224,13 @@ class _BotHandler(_ChatbotHandlerBase):
                     chat_id=chat_id,
                     thread_id=thread_id,
                 )
-                dt_bot.send_text(user_id=user_id, text=reply)
+                # 优先通过 webhook 回复到原消息线程（非首条消息时）
+                anchor = _get_anchor(thread_id)
+                sent = False
+                if anchor and not _is_first:
+                    sent = _reply_via_webhook(anchor, reply)
+                if not sent:
+                    dt_bot.send_text(user_id=user_id, text=reply)
             except Exception as e:
                 logger.error(f"[钉钉] Agent 处理失败: {e}")
                 dt_bot.send_text(user_id=user_id, text=f"处理出错：{e}")
