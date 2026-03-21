@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-21（v0.9.4）
+> 最后更新：2026-03-21（v0.9.5）
 
 ---
 
@@ -21,7 +21,7 @@
 ✅ SQLite 记忆    — data/memory.db（LangGraph checkpointer）/ data/meeting.db
 ✅ 定时任务        — 钉钉会议30min / 邮件60min / 上下文同步30min / 心跳30min / 每日迁移08:00
 ✅ 飞书知识库      — docx API via get_node（context page: LiLpwC7uWiMPi5kSPW2c45DIn8c）
-✅ 飞书 wiki 空间 — user_access_token 已配置，131006 权限错误已修复
+✅ 飞书 wiki 空间 — user_access_token 已配置，131006 权限错误处理已修复（响应码检查）
 ✅ 飞书消息接收    — 文本/富文本/合并转发/图片/文件/卡片均有处理（非文本不再静默丢弃）
 ✅ 飞书消息发送    — post 富文本格式（tag=md，Markdown 正常渲染）
 ✅ 消息稳定性      — 消息去重（2min TTL）+ 每 chat 串行锁，防重复响应和乱序

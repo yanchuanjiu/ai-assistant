@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.9.5 - 2026-03-21
+
+### Fixed
+- **飞书 wiki 根节点查询返回空列表（131006 被静默忽略）**
+  - 根因：飞书 API 有时以 HTTP 200 响应返回 `{"code": 131006, ...}`，旧代码只检测 HTTP 4xx/5xx 异常，131006 未被捕获 → `items=[]` 静默返回
+  - 修复：`FeishuKnowledge.list_wiki_children` 和 `create_wiki_child_page` 在每次 `_wiki_get`/`_wiki_post` 后主动检查 `resp.get("code", 0)`，非 0 时抛出 RuntimeError，确保 131006 正确触发 fallback 流程
+  - 影响：之前空间根节点遍历返回空列表 → 现在正确报错并走 `FEISHU_WIKI_ROOT_NODES` 降级或提示用户配置
+
 ## v0.9.4 - 2026-03-21
 
 ### Fixed

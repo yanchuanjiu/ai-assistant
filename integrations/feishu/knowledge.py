@@ -379,6 +379,10 @@ class FeishuKnowledge:
                     f"/wiki/v2/spaces/{self.space_id}/nodes",
                     params={"page_size": 50},
                 )
+                # 飞书 API 有时以 HTTP 200 返回业务错误码，需主动检查
+                resp_code = resp.get("code", 0)
+                if resp_code != 0:
+                    raise RuntimeError(f"code={resp_code} msg={resp.get('msg', '')}")
                 items = resp.get("data", {}).get("items", [])
                 logger.info(f"[FeishuKnowledge] 空间根节点数量: {len(items)}")
                 return items
@@ -410,6 +414,10 @@ class FeishuKnowledge:
                     f"/wiki/v2/spaces/{self.space_id}/nodes",
                     params={"parent_node_token": parent_wiki_token, "page_size": 50},
                 )
+                # 飞书 API 有时以 HTTP 200 返回业务错误码，需主动检查
+                resp_code = resp.get("code", 0)
+                if resp_code != 0:
+                    raise RuntimeError(f"code={resp_code} msg={resp.get('msg', '')}")
             except Exception as e:
                 detail = str(e)
                 if "131006" in detail:
@@ -458,6 +466,10 @@ class FeishuKnowledge:
                 f"/wiki/v2/spaces/{self.space_id}/nodes",
                 json=payload,
             )
+            # 飞书 API 有时以 HTTP 200 返回业务错误码，需主动检查
+            resp_code = resp.get("code", 0)
+            if resp_code != 0:
+                raise RuntimeError(f"code={resp_code} msg={resp.get('msg', '')}")
             node = resp.get("data", {}).get("node", {})
             node_token = node.get("node_token", "")
             if node_token:
