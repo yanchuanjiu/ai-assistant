@@ -13,8 +13,10 @@ API 端点：
 import json
 import logging
 import os
+import time
+import httpx
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, parse_qs
 
 from integrations.storage import config_store
 
@@ -365,6 +367,10 @@ class AdminHandler(BaseHTTPRequestHandler):
             self._send_html(_HTML)
             return
 
+        if path == "/feishu/oauth/callback":
+            self._handle_feishu_oauth_callback(parsed)
+            return
+
         if path == "/api/config":
             self._send_json(200, config_store.list_all())
             return
@@ -379,6 +385,84 @@ class AdminHandler(BaseHTTPRequestHandler):
             return
 
         self._send_json(404, {"error": "not found"})
+
+    def _handle_feishu_oauth_callback(self, parsed):
+        """处理飞书 OAuth 回调，自动交换 code → token 并写入 .env。"""
+        params = parse_qs(parsed.query)
+        code = params.get("code", [None])[0]
+        error = params.get("error", [None])[0]
+
+        if error or not code:
+            self._send_html(f"<h2>授权失败</h2><p>error={error}</p>", status=400)
+            return
+
+        app_id = os.getenv("FEISHU_APP_ID", "")
+        app_secret = os.getenv("FEISHU_APP_SECRET", "")
+        redirect_uri = f"http://101.47.13.243:8080/feishu/oauth/callback"
+
+        try:
+            resp = httpx.post(
+                "https://open.feishu.cn/open-apis/authen/v1/oidc/access_token",
+                json={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "app_id": app_id,
+                    "app_secret": app_secret,
+                    "redirect_uri": redirect_uri,
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json().get("data", resp.json())
+            access_token = data.get("access_token", "")
+            refresh_token = data.get("refresh_token", "")
+            expires_in = data.get("expires_in", 7200)
+
+            if not access_token:
+                self._send_html(f"<h2>换取 token 失败</h2><pre>{resp.text}</pre>", status=500)
+                return
+
+            expires_at = int(time.time() + expires_in)
+            # 写入 os.environ（运行时立即生效）
+            os.environ["FEISHU_USER_ACCESS_TOKEN"] = access_token
+            os.environ["FEISHU_USER_REFRESH_TOKEN"] = refresh_token
+            os.environ["FEISHU_USER_TOKEN_EXPIRES_AT"] = str(expires_at)
+
+            # 写回 .env 文件（持久化）
+            import re
+            env_path = ".env"
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+
+                def _replace_or_append(text, key, value):
+                    pattern = rf"^{key}=.*$"
+                    repl = f"{key}={value}"
+                    if re.search(pattern, text, re.MULTILINE):
+                        return re.sub(pattern, repl, text, flags=re.MULTILINE)
+                    return text + f"\n{key}={value}"
+
+                content = _replace_or_append(content, "FEISHU_USER_ACCESS_TOKEN", access_token)
+                content = _replace_or_append(content, "FEISHU_USER_REFRESH_TOKEN", refresh_token)
+                content = _replace_or_append(content, "FEISHU_USER_TOKEN_EXPIRES_AT", expires_at)
+                with open(env_path, "w", encoding="utf-8") as f:
+                    f.write(content)
+            except Exception as e:
+                logger.warning(f"[oauth_callback] 写 .env 失败: {e}")
+
+            has_refresh = f"refresh_token: {refresh_token[:20]}..." if refresh_token else "⚠️ 未获得 refresh_token"
+            html = (
+                "<h2 style='color:green'>✅ 飞书授权成功！</h2>"
+                f"<p>access_token 已写入（有效期 {expires_in//60} 分钟）</p>"
+                f"<p>{has_refresh}</p>"
+                "<p>Token 已写入 .env，服务立即生效，无需重启。</p>"
+                "<p>可关闭此页面。</p>"
+            )
+            self._send_html(html)
+            logger.info("[oauth_callback] 飞书 user token 已更新")
+
+        except Exception as e:
+            self._send_html(f"<h2>❌ 请求失败</h2><pre>{e}</pre>", status=500)
 
     def do_POST(self):
         parsed = urlparse(self.path)

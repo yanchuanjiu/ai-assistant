@@ -91,14 +91,20 @@ def get_user_access_token() -> str:
         raise RuntimeError("FEISHU_USER_REFRESH_TOKEN 未配置，无法获取 user access token。"
                            "请在 .env 中设置 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN。")
 
+    # 先获取 app_access_token，再用旧版接口刷新 user token
+    # （/authen/v1/refresh_access_token 需要 app_access_token 作为 Bearer）
+    app_resp = httpx.post(
+        f"{FEISHU_BASE}/auth/v3/app_access_token/internal",
+        json={"app_id": _settings.feishu_app_id, "app_secret": _settings.feishu_app_secret},
+        timeout=10,
+    )
+    app_resp.raise_for_status()
+    app_token = app_resp.json()["app_access_token"]
+
     resp = httpx.post(
-        f"{FEISHU_BASE}/authen/v1/oidc/refresh_access_token",
-        json={
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-            "app_id": _settings.feishu_app_id,
-            "app_secret": _settings.feishu_app_secret,
-        },
+        f"{FEISHU_BASE}/authen/v1/refresh_access_token",
+        headers={"Authorization": f"Bearer {app_token}"},
+        json={"grant_type": "refresh_token", "refresh_token": refresh_token},
         timeout=10,
     )
     resp.raise_for_status()

@@ -1892,15 +1892,19 @@ def feishu_oauth_setup(action: str, code: str = "") -> str:
         if not code:
             return "❌ 请提供 code 参数，示例：feishu_oauth_setup(action=\"exchange_code\", code=\"xxx\")"
         try:
+            # 先获取 app_access_token
+            app_resp = httpx.post(
+                f"{FEISHU_BASE}/auth/v3/app_access_token/internal",
+                json={"app_id": app_id, "app_secret": app_secret},
+                timeout=10,
+            )
+            app_resp.raise_for_status()
+            app_token = app_resp.json()["app_access_token"]
+
             resp = httpx.post(
-                f"{FEISHU_BASE}/authen/v1/oidc/access_token",
-                json={
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "app_id": app_id,
-                    "app_secret": app_secret,
-                    "redirect_uri": _FEISHU_OAUTH_REDIRECT_URI,
-                },
+                f"{FEISHU_BASE}/authen/v1/access_token",
+                headers={"Authorization": f"Bearer {app_token}"},
+                json={"grant_type": "authorization_code", "code": code},
                 timeout=15,
             )
             resp.raise_for_status()
