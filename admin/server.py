@@ -500,12 +500,16 @@ class AdminHandler(BaseHTTPRequestHandler):
 
 
 def start_admin_server(port: int = None):
-    """启动 Admin HTTP 服务，阻塞运行。"""
+    """启动 Admin HTTP 服务，阻塞运行。端口已占用时跳过（另一实例已在运行）。"""
     import socket
     port = port or int(os.getenv("ADMIN_PORT", "8080"))
-    # 允许端口复用，避免重启时 "Address already in use" 崩溃
     HTTPServer.allow_reuse_address = True
-    server = HTTPServer(("0.0.0.0", port), AdminHandler)
-    server.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        server = HTTPServer(("0.0.0.0", port), AdminHandler)
+    except OSError as e:
+        if e.errno == 98:  # Address already in use
+            logger.info(f"[admin] 端口 {port} 已被占用，跳过启动（另一实例已在运行）")
+            return
+        raise
     logger.info(f"[admin] 配置管理界面启动：http://0.0.0.0:{port}")
     server.serve_forever()

@@ -1,7 +1,7 @@
 # MEMORY.md — 长期记忆
 
 _这是我的精华记忆，由心跳任务定期提炼和维护。原始日志在 `logs/interactions.jsonl`。_
-_2026-03-21（基于 100 条交互日志分析，v0.9.5 自我改进）_
+_2026-03-21（基于 149 条交互日志分析，v1.0.4 自我改进）_
 
 ## 用户行为模式
 
@@ -48,10 +48,15 @@ _2026-03-21（基于 100 条交互日志分析，v0.9.5 自我改进）_
     - C. 在飞书知识库空间设置中将应用 `cli_a8fec6e8585d100d` 添加为空间成员
   - ⚠️ **重要**：不要告诉用户"权限已开通就够了"，wiki:wiki 应用权限和空间成员权限是两个不同的事情
 
-- **响应延迟极高（⚠️ 未解决）**：83条交互中98%超过8秒，p50=113s，p95=659s，max=2975s。根因：主飞书线程平均 input token 67K（max 203K），494次调用累积大量上下文
-- **token 消耗极重（⚠️ 未解决）**：主飞书线程 `feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b` 调用 494 次，avg input 67K，max 203K，HISTORY_TOOL_CONTENT_LIMIT=300 仍不足
-- **admin-http 端口冲突（已知稳定问题）**：8080 端口重复占用，截至2026-03-21共17次。不影响主服务
-- **错误响应率**：100条交互中26条包含"失败/错误/出错"（26%），主要为飞书 wiki 空间权限错误（131006 被静默忽略，v0.9.5 已修复）
+- **响应延迟极高（⚠️ 未解决）**：149条交互中90%超过8秒，p50=84s，p95=499s，max=2975s。根因：主飞书线程 `feishu:oc_d2b5bb8b3ee37fdc61aebaa9d988192b` 累积 124 次 LLM 调用，max input 33K tokens
+- **token 消耗极重（⚠️ 未解决）**：主飞书线程 124次调用，总 input token 2.4M，max单次 33K。heartbeat 线程 max 36K（系统 prompt 过重）
+- **admin-http 端口冲突（✅ v1.0.4 已修复）**：HTTPServer 已改为端口占用时跳过而非崩溃，不再写入 crash.log
+- **错误响应率**：149条交互中28条包含"失败/错误/出错"（18.8%），含飞书 wiki 权限错误和响应延迟相关问题
+
+- **⚠️ 飞书 OAuth refresh_token 未自动续期（v1.0.4 修复）**：
+  - **根因1（关键）**：旧接口 `/authen/v1/refresh_access_token` 在 refresh_token 失效时返回 HTTP 200 + `{"code": 999xxx}`，`raise_for_status()` 无法捕获，导致 `data["access_token"]` KeyError 静默失败
+  - **根因2**：从未保存 `refresh_expires_in`（30天），refresh_token 过期时没有提前预警
+  - **v1.0.4 修复**：1) 检查响应 code != 0 时抛出清晰 RuntimeError；2) 优先使用 OIDC 接口 `/authen/v1/oidc/refresh_access_token`，失败降级旧接口；3) 保存 `FEISHU_USER_REFRESH_EXPIRES_AT` 到 .env；4) heartbeat 增加 refresh_token 到期预警
 
 ## 改进历史
 
@@ -60,3 +65,4 @@ _2026-03-21（基于 100 条交互日志分析，v0.9.5 自我改进）_
 - 2026-03-21（v0.8.28）：飞书操作起点修复（从空间根节点开始）；纠正率14.5%
 - 2026-03-21（v0.9.1）：基于83条交互，131006权限错误根因全面分析；新增 FEISHU_WIKI_ROOT_NODES 降级方案；纠正率18.1%（15/83）
 - 2026-03-21（v0.9.5）：基于100条交互，发现 131006 在 HTTP 200 响应中被静默忽略（根节点返回空列表）；修复 list_wiki_children / create_wiki_child_page 的响应码检查；纠正率18%（18/100）
+- 2026-03-21（v1.0.4）：基于149条交互，修复飞书 OAuth refresh_token 未自动续期（根因：HTTP 200 错误码未检测 + 旧接口）；修复 admin-http 端口冲突 crash；纠正率12.8%（19/149）

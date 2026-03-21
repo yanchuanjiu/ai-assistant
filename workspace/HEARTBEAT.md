@@ -17,6 +17,13 @@
   - 若返回 0，且当日 logs/app.log 中出现 131006 错误超过 2 次，提醒用户配置（同一天只提醒一次）
   - 提醒内容：说明 wiki:wiki 应用权限 ≠ 空间成员权限，提供三选一解决方案（见 MEMORY.md 131006 注意事项）
 
+- **⚠️ OAuth refresh_token 到期预警（每次心跳）**：
+  - 读取 `.env` 中 `FEISHU_USER_REFRESH_EXPIRES_AT`（Unix timestamp）
+  - 命令：`python3 -c "import os,time; v=float(os.popen('grep FEISHU_USER_REFRESH_EXPIRES_AT /root/ai-assistant/.env | cut -d= -f2').read().strip() or 0); print(f'剩余 {int((v-time.time())/86400)} 天' if v>0 else '未设置')"`
+  - 若剩余天数 ≤ 3 天：立即提醒用户重新 OAuth 授权（调用 feishu_oauth_setup(action="get_auth_url")）
+  - 若剩余天数 ≤ 7 天：在心跳汇报中提示即将到期
+  - 若 `FEISHU_USER_REFRESH_EXPIRES_AT` 未设置但 `FEISHU_USER_REFRESH_TOKEN` 存在：提示 refresh_token 到期时间未知，建议重新授权以获得30天有效期追踪
+
 ## 优先级 1.5：代码生效检查（每次心跳）
 
 - 比较 `logs/service.pid` 对应进程的启动时间与最新 git commit 时间

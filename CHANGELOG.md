@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.0.4 - 2026-03-21
+
+### Fixed
+- **飞书 OAuth refresh_token 自动续期修复（根本原因）**：
+  - 旧接口返回 HTTP 200 + `code != 0` 时 `raise_for_status()` 无法捕获，KeyError 静默失败
+  - 修复：响应 `code != 0` 时抛出明确 RuntimeError；优先使用 OIDC 接口 `/authen/v1/oidc/refresh_access_token`，失败降级旧接口
+  - 新增 `FEISHU_USER_REFRESH_EXPIRES_AT` 持久化 refresh_token 到期时间（30天）
+  - `exchange_code` 切换到 `/authen/v1/oidc/access_token` 以获取 OIDC token
+- **admin-http 端口冲突停止写 crash.log**：端口被占时 gracefully return，不再循环崩溃
+
+### Updated
+- `workspace/MEMORY.md`：更新延迟数据（p50=84s），记录 OAuth 修复根因，纠正率12.8%
+- `workspace/HEARTBEAT.md`：新增 refresh_token 到期预警（≤7天提示，≤3天立即警告）
+
 ## v1.0.2 - 2026-03-21
 
 ### Added

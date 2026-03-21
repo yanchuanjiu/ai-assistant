@@ -1908,6 +1908,13 @@ def feishu_oauth_setup(action: str, code: str = "") -> str:
 
         # token 已过期，尝试用 refresh_token 续期
         if refresh_token:
+            # 检查 refresh_token 本身是否已过期
+            refresh_expires_at = float(os.getenv("FEISHU_USER_REFRESH_EXPIRES_AT", "0"))
+            if refresh_expires_at > 0 and now > refresh_expires_at:
+                return (
+                    "⚠️ token 状态：refresh_token 已过期（30天有效期到期）\n"
+                    "需要重新授权，请调用 feishu_oauth_setup(action=\"get_auth_url\")。"
+                )
             try:
                 app_resp = httpx.post(
                     f"{FEISHU_BASE}/auth/v3/app_access_token/internal",
@@ -1917,30 +1924,61 @@ def feishu_oauth_setup(action: str, code: str = "") -> str:
                 app_resp.raise_for_status()
                 app_token = app_resp.json()["app_access_token"]
 
-                resp = httpx.post(
+                new_token = ""
+                new_refresh = refresh_token
+                new_expires_in = 7200
+                new_refresh_expires_at = 0
+
+                for endpoint in [
+                    f"{FEISHU_BASE}/authen/v1/oidc/refresh_access_token",
                     f"{FEISHU_BASE}/authen/v1/refresh_access_token",
-                    headers={"Authorization": f"Bearer {app_token}"},
-                    json={"grant_type": "refresh_token", "refresh_token": refresh_token},
-                    timeout=10,
-                )
-                resp.raise_for_status()
-                data = resp.json().get("data", resp.json())
-                new_token = data.get("access_token", "")
-                new_refresh = data.get("refresh_token", refresh_token)
-                new_expires_in = data.get("expires_in", 7200)
-                new_expires_at = now + new_expires_in
+                ]:
+                    try:
+                        resp = httpx.post(
+                            endpoint,
+                            headers={"Authorization": f"Bearer {app_token}"},
+                            json={"grant_type": "refresh_token", "refresh_token": refresh_token},
+                            timeout=10,
+                        )
+                        resp.raise_for_status()
+                        resp_json = resp.json()
+                        biz_code = resp_json.get("code", 0)
+                        if biz_code != 0:
+                            continue
+                        data = resp_json.get("data", resp_json)
+                        tok = data.get("access_token", "")
+                        if not tok:
+                            continue
+                        new_token = tok
+                        new_refresh = data.get("refresh_token", refresh_token)
+                        new_expires_in = data.get("expires_in", 7200)
+                        refresh_expires_in = data.get("refresh_expires_in", 0)
+                        if refresh_expires_in > 0:
+                            new_refresh_expires_at = now + refresh_expires_in
+                        break
+                    except Exception:
+                        continue
 
                 if new_token:
+                    new_expires_at = now + new_expires_in
                     os.environ["FEISHU_USER_ACCESS_TOKEN"] = new_token
                     os.environ["FEISHU_USER_REFRESH_TOKEN"] = new_refresh
                     os.environ["FEISHU_USER_TOKEN_EXPIRES_AT"] = str(int(new_expires_at))
+                    if new_refresh_expires_at > 0:
+                        os.environ["FEISHU_USER_REFRESH_EXPIRES_AT"] = str(int(new_refresh_expires_at))
                     _user_token_cache["token"] = new_token
                     _user_token_cache["expires_at"] = new_expires_at
-                    _update_env_user_token(new_token, new_refresh, new_expires_at)
+                    _update_env_user_token(new_token, new_refresh, new_expires_at, new_refresh_expires_at)
+                    refresh_days = int(new_refresh_expires_at - now) // 86400 if new_refresh_expires_at > 0 else "未知"
                     return (
-                        f"✅ token 状态：已自动续期（新有效期约 {new_expires_in // 60} 分钟）\n"
+                        f"✅ token 状态：已自动续期（新有效期约 {new_expires_in // 60} 分钟，"
+                        f"refresh_token 剩余 {refresh_days} 天）\n"
                         "用户已登录，无需重新授权。续期后可立即使用。"
                     )
+                return (
+                    "⚠️ token 已过期，自动续期失败（两个接口均无法获取新 token）\n"
+                    "需要重新授权，请调用 feishu_oauth_setup(action=\"get_auth_url\")。"
+                )
             except Exception as e:
                 return (
                     f"⚠️ token 已过期，自动续期失败：{e}\n"
@@ -1980,29 +2018,55 @@ def feishu_oauth_setup(action: str, code: str = "") -> str:
             app_resp.raise_for_status()
             app_token = app_resp.json()["app_access_token"]
 
-            resp = httpx.post(
+            # 优先用 OIDC 接口换取 token（支持 refresh_token 30天自动续期）
+            new_token = ""
+            new_refresh = ""
+            expires_in = 7200
+            refresh_expires_in = 0
+            for endpoint in [
+                f"{FEISHU_BASE}/authen/v1/oidc/access_token",
                 f"{FEISHU_BASE}/authen/v1/access_token",
-                headers={"Authorization": f"Bearer {app_token}"},
-                json={"grant_type": "authorization_code", "code": code},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            data = resp.json().get("data", resp.json())
-            new_token = data.get("access_token", "")
-            new_refresh = data.get("refresh_token", "")
-            expires_in = data.get("expires_in", 7200)
+            ]:
+                try:
+                    resp = httpx.post(
+                        endpoint,
+                        headers={"Authorization": f"Bearer {app_token}"},
+                        json={"grant_type": "authorization_code", "code": code},
+                        timeout=15,
+                    )
+                    resp.raise_for_status()
+                    resp_json = resp.json()
+                    biz_code = resp_json.get("code", 0)
+                    if biz_code != 0:
+                        continue
+                    data = resp_json.get("data", resp_json)
+                    tok = data.get("access_token", "")
+                    if not tok:
+                        continue
+                    new_token = tok
+                    new_refresh = data.get("refresh_token", "")
+                    expires_in = data.get("expires_in", 7200)
+                    refresh_expires_in = data.get("refresh_expires_in", 0)
+                    break
+                except Exception:
+                    continue
+
             if not new_token:
                 return f"❌ 换取 token 失败，飞书返回：{resp.json()}"
 
             new_expires_at = time.time() + expires_in
+            new_refresh_expires_at = time.time() + refresh_expires_in if refresh_expires_in > 0 else 0
             os.environ["FEISHU_USER_ACCESS_TOKEN"] = new_token
             os.environ["FEISHU_USER_REFRESH_TOKEN"] = new_refresh
             os.environ["FEISHU_USER_TOKEN_EXPIRES_AT"] = str(int(new_expires_at))
+            if new_refresh_expires_at > 0:
+                os.environ["FEISHU_USER_REFRESH_EXPIRES_AT"] = str(int(new_refresh_expires_at))
             _user_token_cache["token"] = new_token
             _user_token_cache["expires_at"] = new_expires_at
-            _update_env_user_token(new_token, new_refresh, new_expires_at)
+            _update_env_user_token(new_token, new_refresh, new_expires_at, new_refresh_expires_at)
 
-            has_refresh = "✅ refresh_token 已写入，后续自动续期" if new_refresh else "⚠️ 未获得 refresh_token"
+            refresh_days = refresh_expires_in // 86400 if refresh_expires_in > 0 else "未知"
+            has_refresh = f"✅ refresh_token 已写入，有效期 {refresh_days} 天，后续自动续期" if new_refresh else "⚠️ 未获得 refresh_token"
             return (
                 f"✅ OAuth 授权成功！\n"
                 f"- access_token 已写入 .env（有效期约 {expires_in // 60} 分钟）\n"
