@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-22（v1.0.13）
+> 最后更新：2026-03-22（v1.0.16）
 
 ---
 
@@ -49,6 +49,7 @@
 ✅ 飞书 wiki user token 续期    — threading.Lock 防并发竞争；UserTokenNotConfiguredError 专用异常，区分"未配置"和"续期失败"，修复 131006 复现根因（v1.0.10）
 ✅ 话题路由 BUG-002 修复        — quote-reply(parent_id) fallback；会议纪要表格→列表项渲染修复；feishu_advanced 去除"会议"重复关键词（v1.0.11）
 ✅ 飞书工具全层重构（v1.0.13）  — feishu_call 统一入口（token 过期自动刷新+重试一次）；v2 刷新端点；@feishu_tool 装饰器；WikiPermissionError/UserTokenExpiredError 精确异常；obj_type 路由；write 返回链接；移除 check_status；关键词去重（会议归 dingtalk_mcp）
+✅ 飞书 wiki 节点删除（v1.0.16）— feishu_wiki_delete 工具：DELETE /wiki/v2/nodes/{node_token}，user token，@feishu_tool 统一错误处理
 
 ⚠️  163 IMAP     — 需在 163 网页版重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```

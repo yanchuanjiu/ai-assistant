@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.17 - 2026-03-22
+
+### Feature
+- **新增 `feishu_wiki_delete` 工具**：删除飞书知识库中的 wiki 节点（页面或文件夹）。调用 `DELETE /wiki/v2/nodes/{node_token}`，user token 优先，通过 `@feishu_tool` 统一处理权限/token 异常。注册到 `TOOL_CATEGORIES["feishu_wiki"]`；新增关键词"删除页面/删除节点/删除wiki/删除飞书"触发。⚠️ 操作不可逆，删除文件夹会同时删除所有子页面。
+
+### Improved
+- **自我改进报告（v1.0.16 分析周期）**：基于198条交互分析；纠正率12.1%；响应延迟 p50=80s（持续）；主飞书线程 avg 54K tokens（恶化）；更新 workspace/MEMORY.md 延迟和 token 数据。
+
 ## v1.0.16 - 2026-03-22
 
 ### Feature

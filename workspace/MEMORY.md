@@ -1,7 +1,7 @@
 # MEMORY.md — 长期记忆
 
 _这是我的精华记忆，由心跳任务定期提炼和维护。原始日志在 `logs/interactions.jsonl`。_
-_2026-03-22（基于 179 条交互日志分析，v1.0.11 自我改进）_
+_2026-03-22（基于 198 条交互日志分析，v1.0.16 自我改进）_
 
 ## 用户行为模式
 
@@ -50,8 +50,8 @@ _2026-03-22（基于 179 条交互日志分析，v1.0.11 自我改进）_
   - **用户已完成**：.env 中 FEISHU_USER_ACCESS_TOKEN + FEISHU_USER_REFRESH_TOKEN 已配置，refresh_token 有效期约30天
   - ⚠️ **重要**：不要告诉用户"权限已开通就够了"，wiki:wiki 应用权限和空间成员权限是两个不同的事情
 
-- **响应延迟极高（⚠️ 持续未解决）**：179条交互中85%超过15秒（152/179），p50=80s，p95=469s，max=2975s。LLM单次p50=21s，p95=55s。根因：① "会议"关键词触发feishu_wiki+dingtalk_mcp+feishu_advanced共75个工具，系统提示极长 ② 主飞书线程max 42K tokens ③ 工具调用链长。v1.0.11修复：移除feishu_advanced"会议"重复关键词。
-- **token 消耗极重（⚠️ 持续未解决）**：最近200次LLM，主飞书线程avg 19K、max 42K；心跳线程max 36K（负担较重）。根因同上。
+- **响应延迟极高（⚠️ 持续未解决）**：198条交互中92.4%超过15秒（183/198），p50=80s，p95=433s，max=2975s（49分钟）。LLM单次avg 38.6s，p95=97s。根因：① "会议"关键词触发多分类工具，系统提示极长 ② 主飞书线程avg 42K tokens（max 203K） ③ 工具调用链长。v1.0.11移除feishu_advanced"会议"重复关键词部分缓解。用户已明确反馈（2次明确投诉）。
+- **token 消耗极重（⚠️ 持续未解决）**：最近1107次LLM：avg input 42K，p95=183K；主飞书线程avg 54K（!!）、max 203K；心跳线程avg 33K，max 36K。**46.8%的LLM调用超过30K tokens**。
 - **话题路由 BUG（✅ v1.0.11 修复）**：用户通过"引用回复"(quote-reply)话题消息时，飞书消息有 parent_id 但 root_id 为空，旧代码只检查 root_id → 主聊天上下文。修复：_parse_feishu_message 增加 parent_id fallback。
 - **会议纪要飞书展示效果不好（✅ v1.0.11 修复）**：Markdown 表格在 md_to_feishu_blocks 不支持，渲染为含竖线的原始文本。修复：format_for_project_page 改为列表项格式（`- 📅 **日期**：{date}`）。
 - **admin-http 端口冲突（✅ v1.0.4 已修复）**：HTTPServer 已改为端口占用时跳过而非崩溃，不再写入 crash.log
@@ -73,6 +73,7 @@ _2026-03-22（基于 179 条交互日志分析，v1.0.11 自我改进）_
 - 2026-03-22（v1.0.9）：基于171条交互，发现话题路由BUG（用户reply未加入正确话题）；token消耗恶化（avg 43K）；新用户需求：AI前沿定向订阅；纠正率12.9%（22/171）
 - 2026-03-22（v1.0.10）：基于177条交互，发现并修复131006根因D（并发token续期竞争条件）；加threading.Lock防止多线程同时续期；区分UserTokenNotConfiguredError和续期失败；纠正率12.4%（22/177）
 - 2026-03-22（v1.0.11）：基于179条交互，修复话题路由BUG-002（parent_id fallback）；修复会议纪要Markdown表格渲染问题；移除feishu_advanced"会议"重复关键词减少工具叠加；纠正率12.3%（22/179）
+- 2026-03-22（v1.0.16）：基于198条交互，新增feishu_wiki_delete工具（删除wiki节点）；纠正率12.1%（24/198）；响应延迟持续高（p50=80s），已记录根因；主飞书线程token消耗恶化（avg 54K）
 
 - ⚠️ 未解决：钉钉纪要回答未回复到原问题（BUG-001）—— MarkdownCardInstance.reply 已绑定原消息，但 send_text fallback 仍为独立消息
 - ✅ 已解决（v1.0.11）：飞书话题路由 BUG-002 — quote-reply 消息 parent_id 未被路由

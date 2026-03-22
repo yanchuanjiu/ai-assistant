@@ -1002,6 +1002,40 @@ def feishu_wiki_page(
         return f"未知 action: {action!r}，可选：list_children / find_or_create"
 
 
+# --------------------------------------------------------------------------- #
+# 飞书知识库节点删除
+# --------------------------------------------------------------------------- #
+@tool
+@feishu_tool
+def feishu_wiki_delete(node_token: str) -> str:
+    """删除飞书知识库中的一个 wiki 节点（页面或文件夹）。
+
+    调用飞书 API：DELETE /wiki/v2/nodes/{node_token}
+
+    参数：
+      node_token — wiki 节点 token（来自 feishu_wiki_page(list_children) 的返回结果，
+                   或用户提供的页面 URL 中提取）
+
+    ⚠️ 注意：
+      - 此操作不可逆，删除后无法直接恢复
+      - 若删除文件夹节点，其所有子页面也会被删除
+      - token 必须来自 feishu_wiki_page(list_children) 返回结果或用户提供的 URL，不能凭记忆猜测
+      - 需要 user token（wiki:wiki 写权限），若权限不足会返回 131006
+
+    示例：
+      feishu_wiki_delete(node_token="FalZwGDOkiqpbQkeAjGc8jaznMd")
+    """
+    from integrations.feishu.knowledge import parse_wiki_token
+    from integrations.feishu.client import feishu_call
+
+    node_token = parse_wiki_token(node_token.split("#")[0].strip())
+    if not node_token:
+        return "❌ node_token 不能为空"
+
+    feishu_call(f"/wiki/v2/nodes/{node_token}", method="DELETE", as_="user")
+    return f"✅ 已删除 wiki 节点 token={node_token}"
+
+
 @tool
 @feishu_tool
 def feishu_project_setup(
@@ -2469,6 +2503,7 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_search_wiki,
         sync_context_to_feishu,
         feishu_wiki_page,
+        feishu_wiki_delete,
         feishu_project_setup,
         feishu_oauth_setup,
     ],
@@ -2507,6 +2542,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "复盘", "项目集", "portfolio", "上线", "验收", "立项",
         "新建项目", "项目初始化", "建立项目", "创建项目", "项目结构",
         "oauth", "授权", "token", "权限", "131006",
+        "删除页面", "删除节点", "删除wiki", "删除飞书",
     ],
     "feishu_advanced": [
         "多维表格", "bitable", "飞书任务", "飞书table",
