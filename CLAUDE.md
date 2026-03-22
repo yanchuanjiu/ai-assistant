@@ -28,6 +28,7 @@
 ✅ 飞书日历        — feishu_calendar_event（需 calendar:calendar 权限）
 ✅ 飞书电子表格    — feishu_spreadsheet（create/read/write/append）
 ✅ 飞书群聊信息    — feishu_chat_info（list_chats/get_chat/list_members/get_user）
+✅ 话题管理        — manage_topics（list/delete/delete_all，清除 SQLite + checkpoint + feishu_anchors）
 ✅ 会议纪要闭环    — 钉钉轮询 → LLM 分析 → 飞书写入（自动 + 按需 + 每日富文本迁移）
 ✅ Claude Code    — tmux 会话（持久化），stream-json 实时推送 IM
 ✅ 进程管理        — supervised thread + 指数退避自动重启，崩溃写 logs/crash.log

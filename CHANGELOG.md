@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.15 - 2026-03-22
+
+### Fixed
+- **新增 `manage_topics` 工具，修复"删除话题线程"导致的死循环**：用户请求"删除飞书话题的4个线程"时，Agent 因无对应工具而重复调用无关工具（trigger_self_iteration 等），触发循环检测并中止。`graph/tools.py`：新增 `manage_topics` 工具（action: list/delete/delete_all），支持列出、删除指定话题、批量清除话题；同时清除 SQLite chat_topics 表、LangGraph checkpoint、feishu_anchors 记录；注册到 `feishu_advanced` 分类，新增关键词"话题/线程/thread/topic/删除话题/清除话题"。
+
 ## v1.0.13 - 2026-03-22
 
 ### Refactor

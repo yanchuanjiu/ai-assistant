@@ -1817,6 +1817,144 @@ def feishu_chat_info(
 
 
 # --------------------------------------------------------------------------- #
+# 话题 / 线程管理
+# --------------------------------------------------------------------------- #
+@tool
+def manage_topics(
+    action: str,
+    chat_id: str = "",
+    topic_name: str = "",
+    thread_id: str = "",
+) -> str:
+    """
+    管理 AI 助理内部的话题（#话题名）和线程记录。
+
+    action 可选：
+      list         — 列出 chat_id 下所有话题和线程（需 chat_id）
+      delete       — 删除指定话题（需 chat_id + topic_name；或直接提供 thread_id）
+      delete_all   — 删除 chat_id 下所有话题和线程（需 chat_id；主对话除外）
+
+    说明：
+    - 删除操作会同时清除：SQLite chat_topics 表记录 + LangGraph checkpoint 历史
+    - feishu_anchors 里的线程路由记录也会一并清除（避免孤立记录）
+    - 主对话（feishu:{chat_id}）不会被 delete_all 删除，只会删除话题和线程
+    - 删除后话题历史无法恢复，请谨慎操作
+    """
+    import sqlite3 as _sqlite3
+    from integrations.topic_manager import _get_topic_db, _topics, _lock, _get_all_sessions
+
+    def _clear_checkpoint(tid: str) -> bool:
+        try:
+            from graph.agent import clear_history
+            return clear_history(tid)
+        except Exception as e:
+            logger.warning(f"[manage_topics] 清除 checkpoint 失败 {tid}: {e}")
+            return False
+
+    def _delete_topic_from_db(cid: str, tname: str | None, tid: str | None) -> int:
+        """从 chat_topics 表删除，返回删除行数。"""
+        db = _get_topic_db()
+        if tname:
+            cur = db.execute("DELETE FROM chat_topics WHERE chat_id=? AND topic_name=?", (cid, tname))
+        elif tid:
+            cur = db.execute("DELETE FROM chat_topics WHERE thread_id=?", (tid,))
+        else:
+            cur = db.execute("DELETE FROM chat_topics WHERE chat_id=?", (cid,))
+        db.commit()
+        return cur.rowcount
+
+    def _delete_anchors(tid: str) -> None:
+        try:
+            db_path = "data/memory.db"
+            conn = _sqlite3.connect(db_path, check_same_thread=False)
+            conn.execute("DELETE FROM feishu_anchors WHERE thread_id=?", (tid,))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+    try:
+        if action == "list":
+            if not chat_id:
+                return "list 操作需要提供 chat_id"
+            sessions = _get_all_sessions(chat_id)
+            if not sessions:
+                return f"chat_id={chat_id} 下没有话题记录"
+            lines = [f"chat_id={chat_id} 共 {len(sessions)} 个 session："]
+            import datetime
+            for s in sessions:
+                ts_str = datetime.datetime.fromtimestamp(s["last_activity"]).strftime("%m-%d %H:%M") \
+                    if s.get("last_activity", 0) > 0 else "未知"
+                preview = f"「{s['preview']}」" if s.get("preview") else ""
+                lines.append(f"  [{s['kind']}] {s['label']}  thread_id={s['thread_id']}  最后活跃={ts_str} {preview}")
+            return "\n".join(lines)
+
+        elif action == "delete":
+            if not thread_id and not (chat_id and topic_name):
+                return "delete 操作需要提供 thread_id，或同时提供 chat_id + topic_name"
+            # 解析 thread_id
+            if not thread_id and topic_name and chat_id:
+                import re as _re
+                safe = _re.sub(r'[^\w\u4e00-\u9fff\-]', '_', topic_name)[:20]
+                # 尝试从 feishu 和 dingtalk 两个平台找
+                db = _get_topic_db()
+                row = db.execute(
+                    "SELECT thread_id FROM chat_topics WHERE chat_id=? AND topic_name=?",
+                    (chat_id, topic_name)
+                ).fetchone()
+                if row:
+                    thread_id = row[0]
+                else:
+                    # 构造默认 thread_id
+                    thread_id = f"feishu:{chat_id}#topic#{safe}"
+
+            deleted_db = _delete_topic_from_db(chat_id, topic_name or None, thread_id if not topic_name else None)
+            ok_cp = _clear_checkpoint(thread_id)
+            _delete_anchors(thread_id)
+            # 清除内存缓存
+            if chat_id and topic_name:
+                with _lock:
+                    _topics.get(chat_id, {}).pop(topic_name, None)
+
+            return (f"已删除话题：topic_name={topic_name or '?'} thread_id={thread_id}\n"
+                    f"数据库记录删除={deleted_db} 行，checkpoint 清除={'成功' if ok_cp else '失败/已空'}")
+
+        elif action == "delete_all":
+            if not chat_id:
+                return "delete_all 操作需要提供 chat_id"
+            sessions = _get_all_sessions(chat_id)
+            main_tid = f"feishu:{chat_id}"
+            deleted = []
+            for s in sessions:
+                tid = s["thread_id"]
+                if tid == main_tid:
+                    continue  # 保留主对话
+                _clear_checkpoint(tid)
+                _delete_anchors(tid)
+                deleted.append(tid)
+            # 清除 chat_topics 表（保留主对话不在此表中，所以全删）
+            db = _get_topic_db()
+            db.execute("DELETE FROM chat_topics WHERE chat_id=?", (chat_id,))
+            db.commit()
+            # 清除内存缓存
+            with _lock:
+                _topics.pop(chat_id, None)
+
+            if not deleted:
+                return f"chat_id={chat_id} 下没有话题/线程可删除（主对话已保留）"
+            return (f"已删除 {len(deleted)} 个话题/线程：\n" +
+                    "\n".join(f"  - {tid}" for tid in deleted) +
+                    "\n\n主对话（feishu:{chat_id}）已保留。")
+
+        else:
+            return f"未知 action：{action}。可选：list / delete / delete_all"
+
+    except Exception as e:
+        logger.error(f"[manage_topics] {e}", exc_info=True)
+        return f"操作失败：{e}"
+
+
+# --------------------------------------------------------------------------- #
 # 运行时配置管理（长期记忆存储，无需重启）
 # --------------------------------------------------------------------------- #
 @tool
@@ -2346,6 +2484,7 @@ TOOL_CATEGORIES: dict[str, list] = {
         feishu_spreadsheet,
         feishu_chat_info,
         excel_import,
+        manage_topics,
     ],
     # Claude Code 自迭代 + 自我改进
     "claude": [
@@ -2377,6 +2516,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "电子表格", "sheet", "spreadsheet",
         "群成员", "chat_id", "用户信息",
         "excel", "xlsx", "xls", "导入", "excel导入", "表格导入", "上传文件", "解析excel",
+        "话题", "线程", "thread", "topic", "删除话题", "清除话题", "话题管理", "查看话题",
     ],
     "claude": [
         "迭代", "开发", "修复", "实现", "编写代码", "重构",
