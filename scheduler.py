@@ -86,12 +86,12 @@ def poll_dingtalk_meetings():
             content = docs.read_file_content(doc_id)
             if not content:
                 logger.warning(f"[Scheduler] 文档内容为空，跳过: {doc_name!r}")
-                tracker.mark_processed(doc_id, docs.space_id, doc_name, "empty")
+                tracker.mark_processed(doc_id, docs.url_space_id, doc_name, "empty")
                 continue
 
             info = analyzer.analyze(content, doc_name=doc_name)
             if info is None:
-                tracker.mark_processed(doc_id, docs.space_id, doc_name, "not_meeting")
+                tracker.mark_processed(doc_id, docs.url_space_id, doc_name, "not_meeting")
                 continue
 
             doc_url = item.get("url", "")
@@ -99,7 +99,7 @@ def poll_dingtalk_meetings():
                 _route_and_write_meeting(info, doc_url, analyzer)
             )
             tracker.mark_processed(
-                doc_id, docs.space_id, doc_name, feishu_page,
+                doc_id, docs.url_space_id, doc_name, feishu_page,
                 project_name=project_name, project_code=project_code,
                 project_folder_token=folder_token, raid_written=raid_written,
             )

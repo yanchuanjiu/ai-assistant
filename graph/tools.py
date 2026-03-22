@@ -252,8 +252,8 @@ def get_latest_meeting_docs(limit: int = 20, keyword: str = None, space_id: str 
         if not items:
             kw_hint = f"（关键词：{keyword}）" if keyword else ""
             return (
-                f"知识库空间 {docs.space_id} 中暂未找到文档{kw_hint}。\n"
-                f"提示：可改用 MCP 工具 list_nodes(spaceId='{docs.space_id}') 或 "
+                f"知识库空间 {docs.url_space_id} 中暂未找到文档{kw_hint}。\n"
+                f"提示：可改用 MCP 工具 list_nodes(spaceId='{docs.url_space_id}') 或 "
                 f"search_documents(keyword='会议纪要') 直接搜索。"
             )
         lines = [f"共 {len(items)} 条文档："]
@@ -329,7 +329,7 @@ def analyze_meeting_doc(file_id: str, force: bool = False) -> str:
 
         info = analyzer.analyze(content, doc_name=doc_name)
         if info is None:
-            tracker.mark_processed(file_id, docs.space_id, doc_name, "not_meeting")
+            tracker.mark_processed(file_id, docs.url_space_id, doc_name, "not_meeting")
             return "该文档不像是会议纪要，未写入飞书。"
 
         doc_url = item.get("url", "")
@@ -361,7 +361,7 @@ def analyze_meeting_doc(file_id: str, force: bool = False) -> str:
             feishu_page = analyzer.write_to_feishu(info, doc_url=doc_url)
 
         tracker.mark_processed(
-            file_id, docs.space_id, doc_name, feishu_page,
+            file_id, docs.url_space_id, doc_name, feishu_page,
             project_name=project_name, project_code=project_code,
             project_folder_token=folder_token, raid_written=raid_written,
         )
