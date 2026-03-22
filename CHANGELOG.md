@@ -10,6 +10,12 @@
   4. **Bot 框架统一**：新增 `integrations/base_bot.py`（`BaseBotHandler` 模板方法）和 `integrations/message_context.py`（`MessageContext` dataclass）；`FeishuBotHandler` 和 `DingTalkBotHandler` 各继承基类，仅实现平台特定接口（parse_message / send_reply 及可选 hook）；飞书 bot.py 精简约 200 行。
   5. **持久化层 LLM 接入**：`agent_config` 工具新增 `action=topics`（查询活跃话题列表）和 `action=sessions`（查询近期会话线程）；`config_store.py` 新增 `get_active_topics()` / `get_recent_sessions()`。
 
+## v1.0.18-doc - 2026-03-23
+
+### Docs
+- **functional_spec.md 更新至 v1.0.18**：同步 v1.0.18 架构变更（去除 ToolMessage 截断、hook 机制、中间层、Bot 统一框架、持久化层 LLM 接入）；修正 CORE_TOOLS 数量（7→9，新增 get_recent_chat_context/query_task_status）；修正 MAX_TOOL_ITERATIONS（10→15）；修正串行锁粒度（per-chat→per-topic）；更新 feishu_wiki 工具数（6→9）和 feishu_advanced 工具数（6→11）；补全 feishu_project_setup、feishu_oauth_setup、feishu_bitable_meta 等工具描述；修正 19.2 ToolMessage 截断描述。
+- **test_spec.md 全量重写**：基于 functional_spec.md v1.0.18，覆盖所有 19 个功能模块，共 ~90 个测试用例（TC-PROC/AGENT/TOOL-WIKI/TOOL-ADV/TOOL-CORE/TOOL-CLAUDE/TOOL-MEET/FEISHU/DINGTALK/TOPIC/PERSIST/SCHED/MEETING/CLAUDE-SUB/ERR/CFG/ADMIN/SYNC/CONC）；明确 P0/P1/P2 优先级；规范化 Arrange-Act-Assert 结构；提供 Mock 策略和 CI 集成方案。
+
 ## v1.0.17 - 2026-03-22
 
 ### Feature

@@ -51,6 +51,7 @@
 ✅ 飞书工具全层重构（v1.0.13）  — feishu_call 统一入口（token 过期自动刷新+重试一次）；v2 刷新端点；@feishu_tool 装饰器；WikiPermissionError/UserTokenExpiredError 精确异常；obj_type 路由；write 返回链接；移除 check_status；关键词去重（会议归 dingtalk_mcp）
 ✅ 飞书 wiki 节点删除（v1.0.16）— feishu_wiki_delete 工具：DELETE /wiki/v2/nodes/{node_token}，user token，@feishu_tool 统一错误处理
 ✅ 架构优化（v1.0.18）          — 去除 ToolMessage 截断；火山云 hook 机制（graph/hooks/volcengine.py）；飞书错误中间层（integrations/feishu/middleware.py）；Bot 框架统一（BaseBotHandler + FeishuBotHandler + DingTalkBotHandler）；持久化层 LLM 接入（agent_config topics/sessions 动作）
+✅ 文档更新（v1.0.18-doc）     — functional_spec.md 同步 v1.0.18 所有变更；test_spec.md 全量重写（~90 用例覆盖 19 个功能模块）
 
 ⚠️  163 IMAP     — 需在 163 网页版重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```
