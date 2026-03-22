@@ -343,7 +343,7 @@ def _check_user_interaction_needed(messages: list) -> str | None:
             return f"需要用户手动操作（检测到：{signal}）"
 
     # 检测重复工具调用：最近 2 条 AIMessage 调用了完全相同的工具（名称+参数）
-    # 优先用此方式检测循环，不依赖工具返回值（避免成功结果也触发误报）
+    # 只有在上一次工具返回包含错误关键词时才认定为循环，避免"验证型"二次调用被误报
     recent_ai_with_tools = [
         m for m in current_turn_msgs
         if isinstance(m, AIMessage) and getattr(m, "tool_calls", None)
@@ -355,7 +355,19 @@ def _check_user_interaction_needed(messages: list) -> str | None:
                 sort_keys=True, ensure_ascii=False,
             )
         if _tc_key(recent_ai_with_tools[0]) == _tc_key(recent_ai_with_tools[1]):
-            return "重复调用相同工具（可能陷入循环）"
+            # 只有当两次调用之间的工具结果含错误关键词时，才判定为循环
+            _err_kws = ("失败", "错误", "error", "Error", "failed", "exception", "Exception", "超时", "timeout", "无效", "不存在", "not found")
+            idx0 = current_turn_msgs.index(recent_ai_with_tools[0])
+            idx1 = current_turn_msgs.index(recent_ai_with_tools[1])
+            between_tool_msgs = [
+                m for m in current_turn_msgs[idx0 + 1:idx1]
+                if isinstance(m, ToolMessage)
+            ]
+            between_content = " ".join(
+                (m.content if isinstance(m.content, str) else "") for m in between_tool_msgs
+            ).lower()
+            if any(kw.lower() in between_content for kw in _err_kws):
+                return "重复调用相同工具（可能陷入循环）"
 
     # 兜底检测：最近 3 条工具结果高度相似且含错误关键词（内容前 100 字符完全相同）
     error_keywords = ("失败", "错误", "error", "Error", "failed", "exception", "Exception", "超时", "timeout")
