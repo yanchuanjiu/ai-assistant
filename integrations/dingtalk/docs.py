@@ -61,8 +61,9 @@ class DingTalkDocs:
         if not operator_id:
             logger.warning(
                 "[wiki/v2] DINGTALK_OPERATOR_ID 未配置，无法调用 v2.0 wiki API。"
-                "请在 .env 中添加 DINGTALK_OPERATOR_ID=<你的 unionId>。"
-                "获取方法：钉钉 → 个人主页 → 更多 → 复制 unionId，或联系管理员从开发者后台查询。"
+                "请在 .env 中添加 DINGTALK_OPERATOR_ID=<你的 staffId 或 unionId>，"
+                "staffId 可从日志 [钉钉流模式] user=xxx 中读取（当前值：2269324059227948998）。"
+                "同时确认 open.dingtalk.com 中 Wiki.Workspace.Read + Wiki.Node.Read 权限已开通。"
             )
             return None
 
