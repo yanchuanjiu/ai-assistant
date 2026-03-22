@@ -45,6 +45,7 @@
 ✅ 飞书线程路由    — root_id 反向映射 + SQLite 持久化；root_id 未知时回退主聊天上下文（非孤立会话）；bot send_text 消息 ID 注册到反向映射；用户在话题窗口回复时机器人也回复至同一线程；_thread_anchor 启动时重建
 ✅ 话题持久化      — chat_topics SQLite 表（UPSERT），命名话题重启不丢失；_get_all_sessions() 联合查 feishu_anchors + checkpoints
 ✅ Excel 导入      — excel_import 工具：搜索/解析/预览/写入电子表格或多维表格；支持合并单元格、对话上传文件
+✅ 飞书 wiki user token 续期    — threading.Lock 防并发竞争；UserTokenNotConfiguredError 专用异常，区分"未配置"和"续期失败"，修复 131006 复现根因（v1.0.10）
 
 ⚠️  163 IMAP     — 需在 163 网页版重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```
@@ -73,8 +74,9 @@
   1. `.env` 配置 `FEISHU_WIKI_ROOT_NODES=token1,token2,...`（已知项目根节点，最简单）
   2. 配置 `FEISHU_USER_ACCESS_TOKEN` / `FEISHU_USER_REFRESH_TOKEN`（user token 优先，完整方案）
   3. 在飞书知识库空间设置中将应用 `cli_a8fec6e8585d100d` 添加为成员
-- `knowledge.py` 的 `_wiki_get` / `_wiki_post` 自动 user token 优先、tenant token 降级
+- `knowledge.py` 的 `_wiki_get` / `_wiki_post` 自动 user token 优先、仅在 token **未配置**（`UserTokenNotConfiguredError`）时降级 tenant token；续期失败不降级（否则会引发 131006）
 - v0.9.1：131006 时若有 `FEISHU_WIKI_ROOT_NODES`，通过 `get_node` API（tenant token 可用）返回已知节点
+- v1.0.10：修复并发续期竞争条件（多线程同时刷新 refresh_token → 后者失败 → 误用 tenant token → 131006）；`get_user_access_token()` 加 `threading.Lock` + 双重检查锁定
 
 ### 4. Claude Code 子进程权限
 运行环境是 root，`--dangerously-skip-permissions` 被禁止。

@@ -318,12 +318,14 @@ class FeishuKnowledge:
     # wiki space API 专用：user token 优先，tenant token 降级
     # ------------------------------------------------------------------ #
     def _wiki_get(self, path: str, params: dict = None) -> dict:
-        """GET wiki space API：先用 user_access_token，失败/未配置则用 tenant_access_token。"""
-        from integrations.feishu.client import feishu_get_user, feishu_get
+        """GET wiki space API：先用 user_access_token，仅在 token 未配置时降级 tenant_access_token。
+        注意：token 续期失败（RuntimeError 但非 UserTokenNotConfiguredError）不降级，
+        避免误用 tenant token 触发 131006 权限错误。"""
+        from integrations.feishu.client import feishu_get_user, feishu_get, UserTokenNotConfiguredError
         try:
             return feishu_get_user(path, params)
-        except RuntimeError:
-            # user token 未配置
+        except UserTokenNotConfiguredError:
+            # user token 未配置 → 降级 tenant token
             return feishu_get(path, params)
         except Exception as e:
             status = getattr(getattr(e, "response", None), "status_code", None)
@@ -333,12 +335,14 @@ class FeishuKnowledge:
             raise
 
     def _wiki_post(self, path: str, json: dict = None) -> dict:
-        """POST wiki space API：先用 user_access_token，失败/未配置则用 tenant_access_token。"""
-        from integrations.feishu.client import feishu_post_user, feishu_post
+        """POST wiki space API：先用 user_access_token，仅在 token 未配置时降级 tenant_access_token。
+        注意：token 续期失败（RuntimeError 但非 UserTokenNotConfiguredError）不降级，
+        避免误用 tenant token 触发 131006 权限错误。"""
+        from integrations.feishu.client import feishu_post_user, feishu_post, UserTokenNotConfiguredError
         try:
             return feishu_post_user(path, json)
-        except RuntimeError:
-            # user token 未配置
+        except UserTokenNotConfiguredError:
+            # user token 未配置 → 降级 tenant token
             return feishu_post(path, json)
         except Exception as e:
             status = getattr(getattr(e, "response", None), "status_code", None)

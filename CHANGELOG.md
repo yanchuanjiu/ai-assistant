@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.10 - 2026-03-22
+
+### Fixed
+- **飞书 wiki 131006 权限错误根因D（并发续期竞争）**：多个并发请求同时发现 user access_token 过期后各自尝试用同一 refresh_token 续期，第一个成功后 refresh_token 作废，其余均失败。失败抛出 RuntimeError 被 `_wiki_get`/`_wiki_post` 误判为"token未配置"，降级 tenant token → tenant token 无 wiki 空间权限 → 131006 复现。
+  - `client.py`：新增 `UserTokenNotConfiguredError(RuntimeError)` 专用异常类；`get_user_access_token()` 加 `threading.Lock` + 双重检查锁定，确保同一时刻只有一个线程执行续期
+  - `knowledge.py`：`_wiki_get`/`_wiki_post` 只捕获 `UserTokenNotConfiguredError` 才降级 tenant token；续期失败（RuntimeError 非未配置）直接上报，不再静默降级
+
 ## v1.0.8 - 2026-03-22
 
 ### Fixed

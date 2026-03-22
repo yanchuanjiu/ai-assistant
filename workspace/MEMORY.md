@@ -38,16 +38,16 @@ _2026-03-22（基于 171 条交互日志分析，v1.0.9 自我改进）_
 
 - **⚠️ 钉钉纪要回答未回复到原问题（BUG-001，未解决）**：用户在钉钉中提问 → Agent 分析会议纪要后以新消息回复，未 thread 至原始提问消息。相关代码：`integrations/dingtalk/bot.py` 响应发送逻辑。待心跳任务分析根因后更新此条。录入：2026-03-21
 
-- **⚠️ 131006 权限错误（核心问题，v0.9.5 修复根因）** — 截至2026-03-21已出现 10+ 次，跨越多天：
-  - **根因A（确认）**：`FEISHU_USER_ACCESS_TOKEN` / `FEISHU_USER_REFRESH_TOKEN` **从未配置到 .env**（grep 返回 0 结果）
+- **⚠️ 131006 权限错误（核心问题，v1.0.10 修复根因D）** — 截至2026-03-22已出现 14+ 次，跨越多天：
+  - **根因A（已配置，非当前根因）**：`FEISHU_USER_ACCESS_TOKEN` / `FEISHU_USER_REFRESH_TOKEN` 曾未配置 → 现已在 .env 中配置
   - **根因B（确认）**：飞书 wiki SPACE 成员权限 ≠ 应用 wiki:wiki 权限。即使 wiki:wiki 应用权限已开通，调用 `/wiki/v2/spaces/{space_id}/nodes` 仍需要 APP 被显式添加为空间成员
-  - **根因C（v0.9.5 新发现）**：飞书 API 有时以 HTTP 200 响应返回 `{"code": 131006, ...}`，旧代码只检测 HTTP 4xx/5xx 异常，导致 131006 被静默忽略 → 根节点查询返回空列表
-  - **v0.9.5 代码修复**：`list_wiki_children` 和 `create_wiki_child_page` 在 API 调用后主动检查 `resp.get("code", 0)`，非 0 时抛出 RuntimeError，确保 131006 被正确捕获并触发 fallback
-  - **v0.9.1 代码修复**：新增 `FEISHU_WIKI_ROOT_NODES` 配置降级方案（`get_node` API 用 tenant token 可访问）
-  - **用户需要做的**（三选一）：
-    - A. 在 .env 配置 `FEISHU_WIKI_ROOT_NODES=token1,token2,...`（最简单）
-    - B. 配置 `FEISHU_USER_ACCESS_TOKEN` + `FEISHU_USER_REFRESH_TOKEN`（完整方案）
-    - C. 在飞书知识库空间设置中将应用 `cli_a8fec6e8585d100d` 添加为空间成员
+  - **根因C（v0.9.5 修复）**：飞书 API 有时以 HTTP 200 响应返回 `{"code": 131006, ...}`，旧代码只检测 HTTP 4xx/5xx 异常 → 已修复为主动检查 resp.get("code")
+  - **根因D（v1.0.10 新发现 + 修复，2026-03-22 根因）**：并发 token 续期竞争条件。多个并发请求同时发现 user access_token 过期 → 都用同一 refresh_token 调用续期接口 → 第一个成功，其余因 refresh_token 已失效而失败 → 失败请求抛出 RuntimeError → `_wiki_get`/`_wiki_post` 错误地将任意 RuntimeError 都视为"token未配置" → 降级 tenant token → tenant token 无 wiki 空间成员权限 → 131006
+  - **v1.0.10 代码修复**（client.py + knowledge.py）：
+    1. 新增 `UserTokenNotConfiguredError(RuntimeError)` 专用异常类，区分"未配置"和"续期失败"
+    2. `get_user_access_token()` 加 `threading.Lock`（双重检查锁定），确保同一时刻只有一个线程执行续期
+    3. `_wiki_get`/`_wiki_post` 只捕获 `UserTokenNotConfiguredError` 才降级，续期失败直接上报
+  - **用户已完成**：.env 中 FEISHU_USER_ACCESS_TOKEN + FEISHU_USER_REFRESH_TOKEN 已配置，refresh_token 有效期约30天
   - ⚠️ **重要**：不要告诉用户"权限已开通就够了"，wiki:wiki 应用权限和空间成员权限是两个不同的事情
 
 - **响应延迟极高（⚠️ 持续未解决）**：171条交互中85%超过15秒（146/171），p50=82s，p95=469s，max=2975s。根因：主飞书线程累积 LLM 调用（650次）、单次 max input 203K tokens、工具调用链长（max 36 工具/次）。用户3月20日和3月21日两次明确提出优化要求。
@@ -70,3 +70,9 @@ _2026-03-22（基于 171 条交互日志分析，v1.0.9 自我改进）_
 - 2026-03-21（v0.9.5）：基于100条交互，发现 131006 在 HTTP 200 响应中被静默忽略（根节点返回空列表）；修复 list_wiki_children / create_wiki_child_page 的响应码检查；纠正率18%（18/100）
 - 2026-03-21（v1.0.4）：基于149条交互，修复飞书 OAuth refresh_token 未自动续期（根因：HTTP 200 错误码未检测 + 旧接口）；修复 admin-http 端口冲突 crash；纠正率12.8%（19/149）
 - 2026-03-22（v1.0.9）：基于171条交互，发现话题路由BUG（用户reply未加入正确话题）；token消耗恶化（avg 43K）；新用户需求：AI前沿定向订阅；纠正率12.9%（22/171）
+- 2026-03-22（v1.0.10）：基于177条交互，发现并修复131006根因D（并发token续期竞争条件）；加threading.Lock防止多线程同时续期；区分UserTokenNotConfiguredError和续期失败；纠正率12.4%（22/177）
+
+- ⚠️ 未解决：钉钉纪要回答未回复到原问题（BUG-001）
+- ⚠️ 未解决：飞书话题路由 — 聊天框内 reply 未路由到对应话题（BUG-002）
+⚠️ 未解决：钉钉纪要回答未回复到原问题（BUG-001）：响应发送逻辑未关联原消息thread，导致上下文断裂
+⚠️ 未解决：飞书话题路由（BUG-002）：reply消息未正确识别root_id/parent_id，导致路由到错误上下文
