@@ -14,7 +14,8 @@ class DingTalkSettings(BaseSettings):
     dingtalk_client_secret: str = ""
     dingtalk_agent_id: str = ""
     dingtalk_docs_space_id: str = ""
-    dingtalk_operator_id: str = ""  # 用户 unionId，v2.0 wiki API 必填
+    dingtalk_workspace_id: str = ""  # v2.0 API workspaceId（≠ URL 里的 spaceId）
+    dingtalk_operator_id: str = ""   # 用户 unionId，v2.0 wiki API 必填
 
     class Config:
         env_file = ".env"
