@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.0.8 - 2026-03-22
+
+### Fixed
+- **飞书知识库工具空参崩溃**：`feishu_wiki_page` 的 `action` 参数增加默认值 `"list_children"`，修复 LLM 传空 dict 时的 `ValidationError`
+- **钉钉知识库 API 404/403**：`DingTalkDocs._list_wiki_nodes` 新增 `/v1.0/doc/spaces/` 和 `/v2.0/doc/spaces/` 路径尝试，兼容 `docs.dingtalk.com` 新版知识库；`_list_drive_files` 同步添加 v2 路径；所有路径失败时 warning 统一提示使用 MCP 工具替代
+- **`get_latest_meeting_docs` 增强**：优先通过 MCP `list_nodes` 工具获取知识库文档（认证更可靠），失败后降级直接 API，同时在失败结果中提供 MCP 工具调用建议
+- **DingTalk unionId 400 日志噪音**：app token 不支持 `/v2.0/users/me`，将 warning 降级为 debug 日志
+
 ## v1.0.6 - 2026-03-22
 
 ### Fixed

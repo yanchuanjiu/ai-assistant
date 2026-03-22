@@ -57,7 +57,7 @@ def get_current_user_unionid() -> str:
             logger.info(f"[DingTalk] 获取 unionId 成功: {union_id}")
         return union_id
     except Exception as e:
-        logger.warning(f"[DingTalk] 获取 unionId 失败: {e}")
+        logger.debug(f"[DingTalk] 获取 unionId 失败（app token 不支持，已跳过）: {e}")
         return ""
 
 

@@ -34,55 +34,75 @@ class DingTalkDocs:
         return nodes[:limit]
 
     def _list_wiki_nodes(self, limit: int = 50) -> list[dict] | None:
-        """调用钉钉知识库节点列表 API。"""
-        try:
-            union_id = get_current_user_unionid()
-            params: dict = {"maxResults": limit, "orderBy": "modifiedTime", "order": "desc"}
-            if union_id:
-                params["unionId"] = union_id
-            resp = dt_get(
-                f"/v1.0/wiki/spaces/{self.space_id}/nodes",
-                params=params,
-            )
-            logger.info(f"[wiki/nodes] resp keys={list(resp.keys())} preview={str(resp)[:400]}")
-            # 兼容多种响应格式
-            nodes_raw = (
-                resp.get("nodes")
-                or resp.get("items")
-                or resp.get("files")
-                or resp.get("nodeList")
-                or (resp.get("result") or {}).get("nodes")
-                or (resp.get("result") or {}).get("items")
-                or (resp.get("data") or {}).get("nodes")
-                or (resp.get("data") or {}).get("items")
-            )
-            # 响应本身即为列表
-            if nodes_raw is None and isinstance(resp, list):
-                nodes_raw = resp
-            if not nodes_raw:
-                logger.warning(f"[wiki/nodes] 未解析到节点，完整响应: {resp}")
-                return None
-            return [self._normalize_node(n) for n in nodes_raw]
-        except Exception as e:
-            logger.warning(f"[wiki/nodes] 失败: {e}")
-            return None
+        """调用钉钉知识库节点列表 API，依次尝试多条路径。"""
+        union_id = get_current_user_unionid()
+        base_params: dict = {"maxResults": limit, "orderBy": "modifiedTime", "order": "desc"}
+        if union_id:
+            base_params["unionId"] = union_id
+
+        # 依次尝试可能的路径（新版 doc space → 旧版 wiki space）
+        candidate_paths = [
+            f"/v1.0/doc/spaces/{self.space_id}/files",        # 新版 docs.dingtalk.com
+            f"/v2.0/doc/spaces/{self.space_id}/files",        # 新版 v2
+            f"/v1.0/wiki/spaces/{self.space_id}/nodes",       # 旧版 wiki
+            f"/v1.0/wiki/spaces/{self.space_id}/nodes/search",# wiki 搜索
+        ]
+        for path in candidate_paths:
+            try:
+                resp = dt_get(path, params=dict(base_params))
+                logger.info(f"[wiki/nodes] path={path} resp keys={list(resp.keys())} preview={str(resp)[:400]}")
+                nodes_raw = (
+                    resp.get("nodes")
+                    or resp.get("items")
+                    or resp.get("files")
+                    or resp.get("nodeList")
+                    or (resp.get("result") or {}).get("nodes")
+                    or (resp.get("result") or {}).get("items")
+                    or (resp.get("data") or {}).get("nodes")
+                    or (resp.get("data") or {}).get("items")
+                    or (resp.get("data") or {}).get("files")
+                )
+                if nodes_raw is None and isinstance(resp, list):
+                    nodes_raw = resp
+                if nodes_raw:
+                    logger.info(f"[wiki/nodes] 成功路径: {path}，节点数: {len(nodes_raw)}")
+                    return [self._normalize_node(n) for n in nodes_raw]
+                logger.debug(f"[wiki/nodes] 路径 {path} 响应无节点: {resp}")
+            except Exception as e:
+                logger.debug(f"[wiki/nodes] 路径 {path} 失败: {e}")
+
+        logger.warning(f"[wiki/nodes] 所有路径均失败，space_id={self.space_id}")
+        return None
 
     def _list_drive_files(self, limit: int = 50) -> list[dict] | None:
-        """Fallback：尝试旧版 drive/spaces 接口。"""
-        try:
-            union_id = get_current_user_unionid()
-            params: dict = {"parentId": "0", "maxResults": limit, "orderBy": "modifiedTime", "order": "desc"}
-            if union_id:
-                params["unionId"] = union_id
-            resp = dt_get(
-                f"/v1.0/drive/spaces/{self.space_id}/files",
-                params=params,
-            )
-            files = resp.get("files", [])
-            return [self._normalize_node(f) for f in files]
-        except Exception as e:
-            logger.warning(f"[drive/files] 失败: {e}")
-            return None
+        """Fallback：尝试旧版 drive/spaces 接口（多条路径）。"""
+        union_id = get_current_user_unionid()
+        params: dict = {"parentId": "0", "maxResults": limit, "orderBy": "modifiedTime", "order": "desc"}
+        if union_id:
+            params["unionId"] = union_id
+
+        candidate_paths = [
+            f"/v1.0/drive/spaces/{self.space_id}/files",
+            f"/v2.0/drive/spaces/{self.space_id}/files",
+        ]
+        for path in candidate_paths:
+            try:
+                resp = dt_get(path, params=dict(params))
+                files = (
+                    resp.get("files")
+                    or resp.get("items")
+                    or (resp.get("data") or {}).get("files")
+                    or []
+                )
+                if files:
+                    return [self._normalize_node(f) for f in files]
+                logger.debug(f"[drive/files] 路径 {path} 响应无文件: {resp}")
+            except Exception as e:
+                logger.debug(f"[drive/files] 路径 {path} 失败: {e}")
+
+        logger.warning(f"[drive/files] 所有路径均失败，space_id={self.space_id}。"
+                       "建议使用 MCP 工具 list_nodes(spaceId='{self.space_id}') 替代。")
+        return None
 
     def _normalize_node(self, n: dict) -> dict:
         """统一节点字段格式。"""

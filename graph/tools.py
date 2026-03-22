@@ -153,13 +153,38 @@ def get_latest_meeting_docs(limit: int = 20, keyword: str = None, space_id: str 
       space_id — 知识库空间 ID（默认使用 .env 中的 DINGTALK_DOCS_SPACE_ID=r9xmyYP7YK1w1mEO）
 
     返回文档列表（名称、URL、更新时间）。
+    若直接 API 失败，建议改用 MCP 工具 list_nodes(spaceId=...) 或 search_documents(keyword=...) 获取。
     """
+    from integrations.dingtalk.client import _settings
+    actual_space_id = space_id or _settings.dingtalk_docs_space_id
+
+    # 优先通过 MCP list_nodes 获取（不依赖 app token 权限）
     try:
-        docs = DingTalkDocs(space_id=space_id)
+        mcp_tools_list = globals().get("_dingtalk_mcp_tools", [])
+        list_nodes_tool = next((t for t in mcp_tools_list if t.name == "list_nodes"), None)
+        if list_nodes_tool:
+            result = list_nodes_tool.invoke({"spaceId": actual_space_id, "parentNodeId": ""})
+            result_str = str(result).strip()
+            if result_str and "失败" not in result_str and "error" not in result_str.lower():
+                # MCP 返回原始结构，过滤关键词后直接返回
+                if keyword:
+                    lines = [l for l in result_str.splitlines() if keyword.lower() in l.lower()]
+                    return f"[MCP] 关键词={keyword} 过滤结果：\n" + ("\n".join(lines) if lines else "无匹配文档")
+                return f"[MCP] 知识库文档列表：\n{result_str}"
+    except Exception as mcp_err:
+        logger.debug(f"[get_latest_meeting_docs] MCP list_nodes 失败，降级直接 API: {mcp_err}")
+
+    # 降级：直接调用 DingTalk API
+    try:
+        docs = DingTalkDocs(space_id=actual_space_id)
         items = docs.list_recent_files(limit=limit, keyword=keyword)
         if not items:
             kw_hint = f"（关键词：{keyword}）" if keyword else ""
-            return f"知识库空间 {docs.space_id} 中暂未找到文档{kw_hint}。"
+            return (
+                f"知识库空间 {docs.space_id} 中暂未找到文档{kw_hint}。\n"
+                f"提示：可改用 MCP 工具 list_nodes(spaceId='{docs.space_id}') 或 "
+                f"search_documents(keyword='会议纪要') 直接搜索。"
+            )
         lines = [f"共 {len(items)} 条文档："]
         for d in items:
             name = d['name'] or '（无标题）'
@@ -169,7 +194,10 @@ def get_latest_meeting_docs(limit: int = 20, keyword: str = None, space_id: str 
         return "\n".join(lines)
     except Exception as e:
         logger.error(f"[get_latest_meeting_docs] {e}")
-        return f"获取失败：{e}"
+        return (
+            f"获取失败：{e}\n"
+            f"提示：可直接调用 MCP 工具 list_nodes(spaceId='{actual_space_id}') 获取知识库文档列表。"
+        )
 
 
 @tool
@@ -842,7 +870,7 @@ def get_service_status() -> str:
 # --------------------------------------------------------------------------- #
 @tool
 def feishu_wiki_page(
-    action: str,
+    action: str = "list_children",
     title: str = "",
     parent_wiki_token: str = "",
     cache_key: str = "",
