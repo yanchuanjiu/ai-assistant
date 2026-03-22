@@ -11,14 +11,75 @@
 """
 import re
 import time
+import sqlite3
 import threading
 from collections import defaultdict
 
 _topics: dict[str, dict[str, dict]] = defaultdict(dict)
 _lock = threading.Lock()
 
-_TOPIC_TTL = 86400 * 7  # 7天不活跃则过期
+_TOPIC_TTL = 86400 * 7  # 7天不活跃则过期（内存清理用）
 _MAX_TOPICS_PER_CHAT = 20  # 单个聊天最多话题数
+
+# SQLite 持久化
+_topic_db: sqlite3.Connection | None = None
+_topic_db_lock = threading.Lock()
+
+
+def _get_topic_db() -> sqlite3.Connection:
+    """懒加载 SQLite 连接，首次调用时建表并加载历史记录到内存。"""
+    global _topic_db
+    if _topic_db is not None:
+        return _topic_db
+    with _topic_db_lock:
+        if _topic_db is not None:
+            return _topic_db
+        import os
+        os.makedirs("data", exist_ok=True)
+        conn = sqlite3.connect("data/memory.db", check_same_thread=False)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS chat_topics (
+                chat_id      TEXT NOT NULL,
+                topic_name   TEXT NOT NULL,
+                thread_id    TEXT NOT NULL,
+                last_activity REAL NOT NULL,
+                preview      TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (chat_id, topic_name)
+            )
+        """)
+        conn.commit()
+        # 加载所有已知话题到内存
+        rows = conn.execute(
+            "SELECT chat_id, topic_name, thread_id, last_activity, preview FROM chat_topics"
+        ).fetchall()
+        with _lock:
+            for chat_id, topic_name, thread_id, last_activity, preview in rows:
+                _topics[chat_id][topic_name] = {
+                    "thread_id": thread_id,
+                    "last_activity": last_activity,
+                    "preview": preview,
+                }
+        _topic_db = conn
+        return conn
+
+
+def _persist_topic(chat_id: str, topic_name: str, thread_id: str, last_activity: float, preview: str) -> None:
+    """将话题状态持久化到 SQLite（UPSERT）。"""
+    try:
+        db = _get_topic_db()
+        db.execute(
+            """INSERT INTO chat_topics (chat_id, topic_name, thread_id, last_activity, preview)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(chat_id, topic_name) DO UPDATE SET
+                   thread_id=excluded.thread_id,
+                   last_activity=excluded.last_activity,
+                   preview=excluded.preview""",
+            (chat_id, topic_name, thread_id, last_activity, preview),
+        )
+        db.commit()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"[TopicManager] 持久化话题失败: {e}")
 
 
 def extract_topic(text: str) -> tuple[str | None, str]:
@@ -76,46 +137,68 @@ def extract_real_chat_id(thread_id: str) -> str:
 
 
 def register_topic(chat_id: str, topic_name: str, thread_id: str, preview: str = "") -> None:
-    """注册/更新话题活跃状态。"""
+    """注册/更新话题活跃状态（内存 + SQLite）。"""
+    last_activity = time.time()
     with _lock:
         _topics[chat_id][topic_name] = {
             "thread_id": thread_id,
-            "last_activity": time.time(),
+            "last_activity": last_activity,
             "preview": preview[:60],
         }
+    _persist_topic(chat_id, topic_name, thread_id, last_activity, preview[:60])
 
 
 def get_topics(chat_id: str) -> dict[str, dict]:
-    """返回指定 chat 下所有未过期的活跃话题，按最后活动时间降序排列。"""
-    now = time.time()
+    """返回指定 chat 下所有话题，按最后活动时间降序排列（含历史，从 SQLite 加载）。"""
+    # 确保 SQLite 已加载
+    _get_topic_db()
     with _lock:
-        active = {
-            k: v for k, v in _topics[chat_id].items()
-            if now - v["last_activity"] < _TOPIC_TTL
-        }
-        _topics[chat_id] = active
-        return dict(sorted(active.items(), key=lambda x: -x[1]["last_activity"]))
+        topics = dict(_topics[chat_id])
+    return dict(sorted(topics.items(), key=lambda x: -x[1]["last_activity"]))
 
 
 def format_topics(chat_id: str) -> str:
-    """生成话题列表的可读文本，供 /topics 命令返回给用户。"""
+    """生成话题列表，供 /topics 命令返回给用户。包含历史话题，支持直接 resume。"""
     import datetime
     topics = get_topics(chat_id)
     if not topics:
         return (
-            "当前没有活跃话题。\n\n"
+            "当前没有话题记录。\n\n"
             "💡 **多话题用法**：在消息前加 `#话题名` 即可隔离上下文：\n"
             "• `#项目A 进展如何？` — 开始/切换到项目A话题\n"
             "• `#日程 明天有什么安排？` — 独立处理日程\n"
-            "• `/topics` — 查看所有活跃话题"
+            "• `/topics` — 查看所有话题"
         )
-    lines = [f"**活跃话题（{len(topics)} 个）：**\n"]
+
+    now = time.time()
+    active = []    # 7天内
+    history = []   # 7天以上
+
     for name, info in topics.items():
+        age = now - info["last_activity"]
         ts = datetime.datetime.fromtimestamp(info["last_activity"]).strftime("%m-%d %H:%M")
         preview = info["preview"]
         preview_str = f"「{preview}」" if preview else ""
-        lines.append(f"• `#{name}` — 最后活动 {ts} {preview_str}")
-    lines.append("\n发 `#话题名 消息` 继续对话，发 `/topics` 刷新列表")
+        entry = f"• `#{name}` — {ts} {preview_str}"
+        if age < _TOPIC_TTL:
+            active.append(entry)
+        else:
+            history.append(entry)
+
+    lines = []
+    if active:
+        lines.append(f"**近期话题（{len(active)} 个）：**\n")
+        lines.extend(active)
+    if history:
+        if lines:
+            lines.append("")
+        lines.append(f"**历史话题（{len(history)} 个）：**\n")
+        lines.extend(history)
+
+    lines.append(
+        "\n💡 发 `#话题名 消息` 可恢复任意话题的完整对话历史\n"
+        "发 `/clear` 清空当前话题记录"
+    )
     return "\n".join(lines)
 
 
@@ -125,6 +208,6 @@ WELCOME_MESSAGE = (
     "💡 **同一窗口，多话题并行**：\n"
     "• `#项目A 进展如何？` — 在项目A话题下问\n"
     "• `#日程 明天有什么安排？` — 切换到日程话题\n"
-    "• `/topics` — 查看所有活跃话题\n"
+    "• `/topics` — 查看所有话题（含历史，可直接 resume）\n"
     "• `/clear` — 清空当前话题历史"
 )

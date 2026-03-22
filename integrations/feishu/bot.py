@@ -80,16 +80,22 @@ def _get_anchor_db() -> sqlite3.Connection:
             )
         """)
         conn.commit()
-        # 加载未过期条目到内存
+        # 加载未过期条目到内存，同时重建 _thread_anchor（thread_id → 最早的 anchor msg_id）
         now = time.time()
         rows = conn.execute(
-            "SELECT message_id, thread_id FROM feishu_anchors WHERE created_at > ?",
+            "SELECT message_id, thread_id, created_at FROM feishu_anchors WHERE created_at > ?",
             (now - _ANCHOR_TTL,),
         ).fetchall()
+        thread_earliest: dict[str, tuple[float, str]] = {}
         with _anchor_lock:
-            for msg_id, tid in rows:
+            for msg_id, tid, created_at in rows:
                 _anchor_to_thread[msg_id] = tid
-        logger.info(f"[飞书] 已加载 {len(rows)} 条 anchor 记录（跨重启保持线程路由）")
+                # 记录每个 thread_id 最早的 message_id 作为锚点
+                if tid not in thread_earliest or created_at < thread_earliest[tid][0]:
+                    thread_earliest[tid] = (created_at, msg_id)
+            for tid, (_, msg_id) in thread_earliest.items():
+                _thread_anchor[tid] = msg_id
+        logger.info(f"[飞书] 已加载 {len(rows)} 条 anchor 记录，恢复 {len(thread_earliest)} 个话题锚点")
         _anchor_db = conn
         return conn
 
@@ -424,6 +430,31 @@ def _handle_slash_command(text: str, thread_id: str, chat_id: str) -> str | None
     return None
 
 
+def _send_reply(parsed: dict, bot: "FeishuBot", text: str) -> bool:
+    """
+    统一回复路由：话题/线程上下文走 reply_in_thread，主聊天走 send_text。
+    reply_in_thread 自动处理长消息（wiki 存储或分块）。
+    """
+    root_id = parsed.get("root_id", "")
+    anchor = root_id or _get_anchor(parsed["thread_id"])
+    default_thread_id = f"feishu:{parsed['chat_id']}"
+    is_threaded = parsed["thread_id"] != default_thread_id or bool(root_id)
+
+    if anchor and is_threaded:
+        sent = bot.reply_in_thread(anchor, text, thread_id=parsed["thread_id"])
+        if sent:
+            return True
+
+    # 主聊天降级：发送并注册 bot 消息 ID 到反向映射
+    bot_msg_id = bot.send_text(chat_id=parsed["chat_id"], text=text)
+    sent = bool(bot_msg_id)
+    if bot_msg_id and isinstance(bot_msg_id, str) and bot_msg_id not in ("True", "sent"):
+        with _anchor_lock:
+            _anchor_to_thread[bot_msg_id] = parsed["thread_id"]
+        _persist_anchor(bot_msg_id, parsed["thread_id"])
+    return sent
+
+
 def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
     """在线程中运行 agent（已持有话题锁），发送回复。"""
     from graph.agent import invoke
@@ -437,40 +468,16 @@ def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
             chat_id=parsed["chat_id"],
             thread_id=parsed["thread_id"],
         )
-        # ── 回复定位策略 ───────────────────────────────────────────────────
-        # root_id 非空 = 用户在飞书话题/线程窗口回复，需把机器人回复打到同一线程
-        # root_id 为空 = 普通主聊天消息，走 send_text 保持原有行为
-        root_id = parsed.get("root_id", "")
-        # 优先用 root_id 作为回复锚点（确保落入同一话题窗口）；否则用注册的首条锚点
-        anchor = root_id or _get_anchor(parsed["thread_id"])
-        default_thread_id = f"feishu:{parsed['chat_id']}"
-        # 满足以下任一条件时走 reply_in_thread：
-        # 1. 话题前缀消息（thread_id != default）
-        # 2. 用户从飞书话题/线程窗口回复（root_id 非空）
-        is_threaded = parsed["thread_id"] != default_thread_id or bool(root_id)
-        sent = False
-        if anchor and is_threaded:
-            sent = bot.reply_in_thread(anchor, reply, thread_id=parsed["thread_id"])
-        if not sent:
-            bot_msg_id = bot.send_text(chat_id=parsed["chat_id"], text=reply)
-            sent = bool(bot_msg_id)
-            # 注册机器人消息 ID：让用户后续回复该消息时能找到正确上下文
-            if bot_msg_id and isinstance(bot_msg_id, str) and bot_msg_id not in ("True", "sent"):
-                with _anchor_lock:
-                    _anchor_to_thread[bot_msg_id] = parsed["thread_id"]
-                _persist_anchor(bot_msg_id, parsed["thread_id"])
+        sent = _send_reply(parsed, bot, reply)
         bot.remove_reaction(parsed["message_id"], processing_reaction_id)
         if sent:
             bot.add_reaction(parsed["message_id"], "OK")
         else:
-            bot.send_text(
-                chat_id=parsed["chat_id"],
-                text="⚠️ 回复生成成功但发送失败，请重试或查看服务日志。",
-            )
+            _send_reply(parsed, bot, "⚠️ 回复生成成功但发送失败，请重试或查看服务日志。")
     except Exception as e:
-        logger.error(f"[飞书] Agent 处理失败: {e}")
+        logger.error(f"[飞书] Agent 处理失败: {e}", exc_info=True)
         bot.remove_reaction(parsed["message_id"], processing_reaction_id)
-        bot.send_text(chat_id=parsed["chat_id"], text=f"处理出错：{e}")
+        _send_reply(parsed, bot, f"处理出错：{e}")
 
 
 # --------------------------------------------------------------------------- #
@@ -508,7 +515,7 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
     if text.startswith("/") and msg_type == "text":
         resp = _handle_slash_command(text, thread_id, chat_id)
         if resp is not None:
-            bot.send_text(chat_id=chat_id, text=resp)
+            _send_reply(parsed, bot, resp)
             return
 
     # ── 话题解析：#话题名 前缀 → 隔离对话上下文 ──────────────────────────
@@ -530,19 +537,19 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
     # ── 问候快速路径（0ms，不走 LLM）────────────────────────────────────
     _GREETINGS = {"你好", "hi", "hello", "嗨", "哈喽", "在吗", "在不在", "hey", "yo", "早", "早上好"}
     if text.strip().lower() in _GREETINGS and msg_type == "text" and not topic_name:
-        bot.send_text(chat_id=chat_id, text=WELCOME_MESSAGE)
+        _send_reply(parsed, bot, WELCOME_MESSAGE)
         return
 
     # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────────────
     if session_manager.get(thread_id) and msg_type == "text":
         session_manager.relay_input(thread_id, text)
-        bot.send_text(chat_id=chat_id, text="↩️ 已转发给 Claude")
+        _send_reply(parsed, bot, "↩️ 已转发给 Claude")
         return
 
     # 话题消息但内容为空：只切换话题，不触发 Agent
     if topic_name and not text:
         from integrations.topic_manager import format_topics
-        bot.send_text(chat_id=chat_id, text=f"已切换到话题 **#{topic_name}**\n\n{format_topics(chat_id)}")
+        _send_reply(parsed, bot, f"已切换到话题 **#{topic_name}**\n\n{format_topics(chat_id)}")
         return
 
     # ── 正常 Agent 流程（每话题串行，不同话题可并行）────────────────────────
@@ -620,21 +627,8 @@ class FeishuBot:
         except Exception as e:
             logger.warning(f"[飞书] 删除 reaction 失败: {e}")
 
-    def reply_in_thread(self, anchor_message_id: str, text: str, thread_id: str = "") -> bool:
-        """
-        回复指定消息，并在其线程中展示（reply_in_thread=True）。
-        用于话题/线程上下文的所有回复（含首条），使飞书 UI 自动形成线程视图。
-        失败时返回 False（调用方可降级为 send_text）。
-
-        thread_id: 传入后，bot 回复的 message_id 也会注册进反向映射，
-                   确保后续 root_id 路由始终能找到正确话题上下文。
-        """
-        if not anchor_message_id:
-            return False
-        # 超长消息降级走 send_text 的存 wiki 逻辑：这里只做 ≤800 字符的快路径
-        _IM_LIMIT = 800
-        if len(text) > _IM_LIMIT:
-            return False  # 让调用方降级到 send_text
+    def _reply_in_thread_single(self, anchor_message_id: str, text: str, thread_id: str = "") -> bool:
+        """发送单条 reply_in_thread，注册 bot 回复 ID 到反向映射。"""
         content = json.dumps(
             {"zh_cn": {"content": [[{"tag": "md", "text": text}]]}},
             ensure_ascii=False,
@@ -655,9 +649,6 @@ class FeishuBot:
         if not resp.success():
             logger.warning(f"[飞书] reply_in_thread 失败(code={resp.code}): {resp.msg}")
             return False
-        # 注册 bot 回复的 message_id 到反向映射
-        # 飞书同一线程中所有消息共享同一 root_id（= anchor_message_id），
-        # 但保留 bot 消息 ID 方便未来扩展
         if thread_id:
             try:
                 bot_msg_id = getattr(getattr(resp, "data", None), "message_id", None)
@@ -668,6 +659,56 @@ class FeishuBot:
             except Exception:
                 pass
         return True
+
+    def reply_in_thread(self, anchor_message_id: str, text: str, thread_id: str = "") -> bool:
+        """
+        回复指定消息，并在其线程中展示（reply_in_thread=True）。
+        用于话题/线程上下文的所有回复（含首条），使飞书 UI 自动形成线程视图。
+        长消息自动处理：先尝试存知识库发摘要链接，失败则分块发送。
+        失败时返回 False（调用方可降级为 send_text）。
+        """
+        if not anchor_message_id:
+            return False
+
+        _IM_LIMIT = 4000  # 单条消息字符上限
+
+        if len(text) <= _IM_LIMIT:
+            return self._reply_in_thread_single(anchor_message_id, text, thread_id)
+
+        # 超长消息：尝试存知识库，发摘要+链接到 thread
+        try:
+            wiki_token = self._save_to_feishu_wiki(text)
+            if wiki_token:
+                summary = text[:300].rstrip() + "…" if len(text) > 300 else text
+                short_text = f"{summary}\n\n📄 详细内容：https://feishu.cn/wiki/{wiki_token}"
+                return self._reply_in_thread_single(anchor_message_id, short_text, thread_id)
+        except Exception as e:
+            logger.warning(f"[飞书] thread 回复存知识库失败，降级分块: {e}")
+
+        # 知识库失败：按段落分块，逐块 reply_in_thread
+        _CHUNK = 3800
+        chunks: list[str] = []
+        current = ""
+        for line in text.split("\n"):
+            segment = line + "\n"
+            if len(current) + len(segment) > _CHUNK:
+                if current:
+                    chunks.append(current.rstrip())
+                current = segment
+            else:
+                current += segment
+        if current.strip():
+            chunks.append(current.rstrip())
+
+        success = False
+        for i, chunk in enumerate(chunks):
+            prefix = f"（{i+1}/{len(chunks)}）\n" if len(chunks) > 1 else ""
+            ok = self._reply_in_thread_single(
+                anchor_message_id, prefix + chunk, thread_id if i == 0 else ""
+            )
+            if ok:
+                success = True
+        return success
 
     def _send_single(self, chat_id: str, text: str) -> str | None:
         """

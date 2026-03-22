@@ -79,8 +79,52 @@ def _start_admin():
     start_admin_server()
 
 
+def _cleanup_previous():
+    """杀掉上一个实例进程并释放占用的端口，幂等可重入。"""
+    import subprocess
+
+    # 1. 通过 PID 文件杀旧进程
+    if os.path.exists(_PID_FILE):
+        try:
+            old_pid = int(open(_PID_FILE).read().strip())
+            if old_pid != os.getpid():
+                try:
+                    os.kill(old_pid, signal.SIGTERM)
+                    logger.info(f"[cleanup] 已发送 SIGTERM 给旧进程 PID={old_pid}")
+                    time.sleep(2)
+                    os.kill(old_pid, 0)          # 还活着？
+                    os.kill(old_pid, signal.SIGKILL)
+                    logger.warning(f"[cleanup] 旧进程未退出，SIGKILL PID={old_pid}")
+                except ProcessLookupError:
+                    pass                         # 已退出，正常
+        except Exception as e:
+            logger.warning(f"[cleanup] 处理旧 PID 文件失败: {e}")
+        os.remove(_PID_FILE)
+
+    # 2. 释放 admin 端口（防止 TIME_WAIT/CLOSE_WAIT 残留）
+    admin_port = int(os.getenv("ADMIN_PORT", "8080"))
+    try:
+        result = subprocess.run(
+            ["fuser", f"{admin_port}/tcp"],
+            capture_output=True, text=True
+        )
+        pids = result.stdout.strip().split()
+        for pid_str in pids:
+            try:
+                pid = int(pid_str)
+                if pid != os.getpid():
+                    os.kill(pid, signal.SIGKILL)
+                    logger.info(f"[cleanup] 释放端口 {admin_port}，杀 PID={pid}")
+            except (ValueError, ProcessLookupError):
+                pass
+    except FileNotFoundError:
+        pass  # fuser 不存在时跳过
+
+
 def main():
     import scheduler as sched
+
+    _cleanup_previous()
 
     # 写 PID 文件
     try:
