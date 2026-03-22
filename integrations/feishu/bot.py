@@ -465,7 +465,11 @@ def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
     """在线程中运行 agent（已持有话题锁），发送回复。"""
     from graph.agent import invoke
 
-    processing_reaction_id = bot.add_reaction(parsed["message_id"], "Typing")
+    # 话题线程内的回复消息（root_id 非空）不支持 reaction API（返回 400），
+    # 改为对 root_id（线程锚点，主聊天中可见）添加 reaction；
+    # 普通主聊天消息无 root_id，直接对自身消息添加 reaction。
+    reaction_target = parsed.get("root_id") or parsed["message_id"]
+    processing_reaction_id = bot.add_reaction(reaction_target, "Typing")
     try:
         reply = invoke(
             message=parsed["text"],
@@ -475,14 +479,14 @@ def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
             thread_id=parsed["thread_id"],
         )
         sent = _send_reply(parsed, bot, reply)
-        bot.remove_reaction(parsed["message_id"], processing_reaction_id)
+        bot.remove_reaction(reaction_target, processing_reaction_id)
         if sent:
-            bot.add_reaction(parsed["message_id"], "OK")
+            bot.add_reaction(reaction_target, "OK")
         else:
             _send_reply(parsed, bot, "⚠️ 回复生成成功但发送失败，请重试或查看服务日志。")
     except Exception as e:
         logger.error(f"[飞书] Agent 处理失败: {e}", exc_info=True)
-        bot.remove_reaction(parsed["message_id"], processing_reaction_id)
+        bot.remove_reaction(reaction_target, processing_reaction_id)
         _send_reply(parsed, bot, f"处理出错：{e}")
 
 
@@ -542,8 +546,41 @@ def _on_message_inner(parsed, bot, text, thread_id, chat_id, message_id, msg_typ
     # ── 话题解析：#话题名 前缀 → 隔离对话上下文 ──────────────────────────
     from integrations.topic_manager import (
         extract_topic, make_topic_thread_id, register_topic, WELCOME_MESSAGE,
+        get_topics, find_similar_topics,
     )
+    original_text = text  # 保存原始文本用于长度判断
     topic_name, cleaned_text = extract_topic(text)
+
+    # ── 短标题话题检测：#标题（总字数<10，无正文）→ 检查相近话题 ──────────
+    # 仅在主窗口（非话题线程内）且消息是纯短标题时触发
+    is_main_window = thread_id == f"feishu:{chat_id}"
+    if (topic_name and not cleaned_text and len(original_text) < 10
+            and original_text.startswith("#") and is_main_window):
+        existing = get_topics(chat_id)
+        if topic_name in existing:
+            # 已有完全相同话题 → 直接切换，走下方正常流程
+            pass
+        else:
+            similar = find_similar_topics(topic_name, existing)
+            if similar:
+                # 有相近话题 → 询问是否合并，不自动创建
+                sim_list = "\n".join(f"• `#{n}`" for n in similar[:3])
+                _send_reply(parsed, bot,
+                    f"发现相近话题：\n{sim_list}\n\n"
+                    f"• 如需合并到已有话题，发 `#已有话题名 消息内容`\n"
+                    f"• 如需新建 **#{topic_name}**，发 `#{topic_name} 消息内容`（带上正文即可创建）")
+                return
+            else:
+                # 无匹配 → 创建新话题并通知
+                new_thread_id = make_topic_thread_id("feishu", chat_id, topic_name)
+                register_topic(chat_id, topic_name, new_thread_id, preview="")
+                _set_anchor(new_thread_id, message_id)
+                reply_fn_registry[new_thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
+                _send_reply(parsed, bot,
+                    f"✅ 已创建新话题 **#{topic_name}**\n\n"
+                    f"发 `#{topic_name} 消息内容` 即可在此话题下对话")
+                return
+
     if topic_name:
         thread_id = make_topic_thread_id("feishu", chat_id, topic_name)
         text = cleaned_text  # 去掉前缀后的实际消息

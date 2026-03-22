@@ -157,6 +157,28 @@ def get_topics(chat_id: str) -> dict[str, dict]:
     return dict(sorted(topics.items(), key=lambda x: -x[1]["last_activity"]))
 
 
+def find_similar_topics(name: str, topics: dict[str, dict]) -> list[str]:
+    """
+    找出与 name 相近的话题名称（子串匹配或字符集重叠 >= 60%），排除完全相同项。
+    返回列表按最后活动时间降序排列。
+    """
+    similar = []
+    for existing_name, info in topics.items():
+        if existing_name == name:
+            continue
+        # 子串匹配
+        if name in existing_name or existing_name in name:
+            similar.append((existing_name, info.get("last_activity", 0)))
+            continue
+        # 字符集重叠（适合中文短标题）
+        overlap = len(set(name) & set(existing_name))
+        threshold = min(len(name), len(existing_name)) * 0.6
+        if overlap >= threshold and overlap >= 2:
+            similar.append((existing_name, info.get("last_activity", 0)))
+    similar.sort(key=lambda x: -x[1])
+    return [n for n, _ in similar]
+
+
 def _get_all_sessions(chat_id: str) -> list[dict]:
     """
     从 LangGraph checkpoints + feishu_anchors 获取该 chat 的所有对话 session。

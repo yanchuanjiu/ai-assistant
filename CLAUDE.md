@@ -41,7 +41,7 @@
 ✅ 迭代保护        — MAX_TOOL_ITERATIONS=10，超限或检测到需用户交互时强制终止
 ✅ 问候快速路径    — 纯问候词直接回复，不走 LLM
 ✅ 钉钉 MCP       — 文档12个 + AI 表格21个工具，关键词"钉钉"触发
-✅ 多话题并行      — #话题名 / 新话题：xxx 前缀隔离上下文，不同话题并行处理；/topics 查看全部历史会话（含线程）
+✅ 多话题并行      — #话题名 / 新话题：xxx 前缀隔离上下文，不同话题并行处理；/topics 查看全部历史会话（含线程）；主窗口纯短标题（#标题，<10字）自动检测相近话题并询问合并确认
 ✅ 线程化回复      — 所有话题回复（含首条）均 reply_in_thread（飞书）/ MarkdownCard（钉钉，无过期）
 ✅ 飞书线程路由    — root_id 反向映射 + SQLite 持久化；root_id 未知时回退主聊天上下文（非孤立会话）；bot send_text 消息 ID 注册到反向映射；用户在话题窗口回复时机器人也回复至同一线程；_thread_anchor 启动时重建
 ✅ 话题持久化      — chat_topics SQLite 表（UPSERT），命名话题重启不丢失；_get_all_sessions() 联合查 feishu_anchors + checkpoints
