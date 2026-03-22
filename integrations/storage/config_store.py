@@ -83,3 +83,65 @@ def list_all() -> dict[str, dict]:
     except Exception as e:
         logger.error(f"[config_store] list_all() failed: {e}")
         return {}
+
+
+def get_active_topics(chat_id: str = None) -> list[dict]:
+    """查询活跃话题，返回 [{chat_id, topic_name, thread_id, last_active}]。
+
+    Args:
+        chat_id: 可选，只查询指定聊天窗口的话题；不填返回所有话题。
+    """
+    try:
+        conn = sqlite3.connect(_DB_PATH)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS chat_topics (
+                chat_id     TEXT NOT NULL,
+                topic_name  TEXT NOT NULL,
+                thread_id   TEXT NOT NULL,
+                last_active TEXT,
+                PRIMARY KEY (chat_id, topic_name)
+            )
+        """)
+        if chat_id:
+            rows = conn.execute(
+                "SELECT chat_id, topic_name, thread_id, last_active FROM chat_topics "
+                "WHERE chat_id=? ORDER BY last_active DESC",
+                (chat_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT chat_id, topic_name, thread_id, last_active FROM chat_topics "
+                "ORDER BY last_active DESC LIMIT 50"
+            ).fetchall()
+        conn.close()
+        return [
+            {"chat_id": r[0], "topic_name": r[1], "thread_id": r[2], "last_active": r[3]}
+            for r in rows
+        ]
+    except Exception as e:
+        logger.warning(f"[config_store] get_active_topics() failed: {e}")
+        return []
+
+
+def get_recent_sessions(limit: int = 20) -> list[dict]:
+    """查询最近活跃的会话（从 LangGraph checkpoints 元数据）。
+
+    Returns: [{thread_id, last_active, msg_count}]
+    """
+    try:
+        conn = sqlite3.connect(_DB_PATH)
+        # LangGraph SQLite checkpointer 使用 checkpoints 表
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "checkpoints" not in tables:
+            conn.close()
+            return []
+        rows = conn.execute(
+            "SELECT thread_id, MAX(ts) as last_ts, COUNT(*) as cnt "
+            "FROM checkpoints GROUP BY thread_id ORDER BY last_ts DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        conn.close()
+        return [{"thread_id": r[0], "last_active": r[1], "msg_count": r[2]} for r in rows]
+    except Exception as e:
+        logger.warning(f"[config_store] get_recent_sessions() failed: {e}")
+        return []

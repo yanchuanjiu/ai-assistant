@@ -21,64 +21,14 @@ from integrations.feishu.client import (
     invalidate_user_token_cache,
     UserTokenNotConfiguredError, UserTokenExpiredError,
     WikiPermissionError, AppScopeError,
-    notify_owner_reauth, notify_wiki_permission_issue,
 )
+from integrations.feishu.middleware import feishu_tool, notify_owner_reauth, notify_wiki_permission_issue
 from integrations.dingtalk.docs import DingTalkDocs
 from sync.context_sync import ContextSync
-
-import functools
 
 logger = logging.getLogger(__name__)
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-# --------------------------------------------------------------------------- #
-# 飞书工具统一错误处理装饰器（参考 OpenClaw tool-client.js rethrowStructuredError）
-# --------------------------------------------------------------------------- #
-def feishu_tool(func):
-    """飞书工具统一错误处理装饰器。
-
-    捕获 client.py 抛出的结构化认证/权限异常，翻译为 LLM 友好的字符串：
-    - UserTokenExpiredError    → 推 IM 通知（owner 重新授权），返回一句话
-    - WikiPermissionError      → 推 IM 通知（131006 说明），返回说明文字
-    - AppScopeError            → 返回需管理员操作的说明
-    - UserTokenNotConfiguredError → 返回需授权的说明
-    - 其他异常                 → log + 返回操作失败：{msg}
-
-    用法（顺序重要：@tool 在外，@feishu_tool 在内）：
-      @tool
-      @feishu_tool
-      def feishu_xxx(...) -> str:
-          ...
-    """
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except UserTokenExpiredError as e:
-            notify_owner_reauth(str(e))
-            return (
-                "⚠️ 飞书 OAuth 授权已失效（refresh_token 过期/撤销），"
-                "已通过飞书消息通知你重新授权，请完成授权后重试。"
-            )
-        except WikiPermissionError:
-            notify_wiki_permission_issue()
-            return (
-                "⚠️ wiki 空间权限未配置（131006），已通过飞书消息通知你。\n"
-                "解决方法（三选一）：\n"
-                "① 在飞书知识库「空间设置→成员管理」将应用添加为成员\n"
-                "② 在 .env 配置 FEISHU_WIKI_ROOT_NODES\n"
-                "③ 告诉我「帮我重新授权飞书」"
-            )
-        except AppScopeError as e:
-            return f"⚠️ 应用 API 权限缺失，需管理员在飞书开放平台开通权限后重新发布应用。详情：{e}"
-        except UserTokenNotConfiguredError:
-            return "⚠️ 飞书 user token 未配置。请告诉我「帮我授权飞书」开始 OAuth 流程。"
-        except Exception as e:
-            logger.error(f"[{func.__name__}] {e}", exc_info=True)
-            return f"操作失败：{e}"
-    return wrapper
 
 
 # --------------------------------------------------------------------------- #
@@ -1997,10 +1947,12 @@ def agent_config(action: str, key: str = "", value: str = "") -> str:
     管理 Agent 运行时配置（持久化到 SQLite，优先级高于 .env，无需重启生效）。
 
     action 可选：
-      get    — 读取指定 key 的值（key 必填）
-      set    — 写入 key=value（key、value 必填）
-      delete — 删除指定 key（key 必填）
-      list   — 列出所有配置项（key 可省略）
+      get      — 读取指定 key 的值（key 必填）
+      set      — 写入 key=value（key、value 必填）
+      delete   — 删除指定 key（key 必填）
+      list     — 列出所有配置项（key 可省略）
+      topics   — 查询活跃话题列表（key 可选，填入 chat_id 则只看该聊天）
+      sessions — 查询最近活跃会话（按 thread_id 汇总，key 可选填 limit 数字）
 
     常用 key：
       FEISHU_WIKI_MEETING_PAGE  — 飞书会议纪要汇总页面 wiki token（如 Qo4nwXxx）
@@ -2011,9 +1963,14 @@ def agent_config(action: str, key: str = "", value: str = "") -> str:
       agent_config(action="set", key="FEISHU_WIKI_MEETING_PAGE", value="Qo4nwXxx")
       agent_config(action="get", key="FEISHU_WIKI_MEETING_PAGE")
       agent_config(action="list")
+      agent_config(action="topics")
+      agent_config(action="topics", key="oc_xxxxxxxx")
+      agent_config(action="sessions")
     """
-    from integrations.storage.config_store import get as cfg_get, set as cfg_set, delete as cfg_del, list_all as cfg_list
-    import json
+    from integrations.storage.config_store import (
+        get as cfg_get, set as cfg_set, delete as cfg_del, list_all as cfg_list,
+        get_active_topics, get_recent_sessions,
+    )
 
     if action == "get":
         if not key:
@@ -2038,8 +1995,25 @@ def agent_config(action: str, key: str = "", value: str = "") -> str:
         for k, v in data.items():
             lines.append(f"  {k} = {v['value']!r}  （更新于 {v['updated_at'][:16]}）")
         return "\n".join(lines)
+    elif action == "topics":
+        topics = get_active_topics(chat_id=key or None)
+        if not topics:
+            return "暂无活跃话题" + (f"（chat_id={key}）" if key else "")
+        lines = [f"共 {len(topics)} 个话题："]
+        for t in topics:
+            lines.append(f"  [{t['chat_id']}] #{t['topic_name']} → {t['thread_id']}  （{(t['last_active'] or '')[:16]}）")
+        return "\n".join(lines)
+    elif action == "sessions":
+        limit = int(key) if key and key.isdigit() else 20
+        sessions = get_recent_sessions(limit=limit)
+        if not sessions:
+            return "暂无会话记录"
+        lines = [f"最近 {len(sessions)} 个会话："]
+        for s in sessions:
+            lines.append(f"  {s['thread_id']}  消息数={s['msg_count']}  最后活跃={s['last_active'][:16] if s['last_active'] else '?'}")
+        return "\n".join(lines)
     else:
-        return f"未知 action: {action!r}，可选：get / set / delete / list"
+        return f"未知 action: {action!r}，可选：get / set / delete / list / topics / sessions"
 
 
 # --------------------------------------------------------------------------- #

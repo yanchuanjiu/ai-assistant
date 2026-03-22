@@ -18,6 +18,8 @@ from lark_oapi.api.im.v1 import (
 )
 from pydantic_settings import BaseSettings
 from integrations.feishu.client import feishu_post, feishu_delete, feishu_get
+from integrations.base_bot import BaseBotHandler
+from integrations.message_context import MessageContext
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +41,6 @@ _lark_client = lark.Client.builder() \
     .app_secret(_cfg.feishu_app_secret) \
     .log_level(lark.LogLevel.WARNING) \
     .build()
-
-# --------------------------------------------------------------------------- #
-# 消息去重（防止 WebSocket 断线重连时重放同一消息）
-# --------------------------------------------------------------------------- #
-_seen_message_ids: dict[str, float] = {}
-_seen_lock = threading.Lock()
-_DEDUP_TTL = 120  # 2 分钟内相同 message_id 视为重复
 
 # --------------------------------------------------------------------------- #
 # 话题锚点（thread reply）：记录每个 thread_id 的第一条消息 ID
@@ -112,18 +107,6 @@ def _persist_anchor(message_id: str, thread_id: str) -> None:
     except Exception as e:
         logger.warning(f"[飞书] anchor 持久化失败: {e}")
 
-
-def _is_duplicate(message_id: str) -> bool:
-    """检查 message_id 是否已处理过，同时清理过期条目。"""
-    now = time.time()
-    with _seen_lock:
-        expired = [k for k, v in _seen_message_ids.items() if now - v > _DEDUP_TTL]
-        for k in expired:
-            del _seen_message_ids[k]
-        if message_id in _seen_message_ids:
-            return True
-        _seen_message_ids[message_id] = now
-        return False
 
 
 # --------------------------------------------------------------------------- #
@@ -400,224 +383,180 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
     }
 
 
-def _handle_slash_command(text: str, thread_id: str, chat_id: str) -> str | None:
+
+# --------------------------------------------------------------------------- #
+# 飞书业务处理（继承 BaseBotHandler，实现平台特定接口）
+# --------------------------------------------------------------------------- #
+class FeishuBotHandler(BaseBotHandler):
+    """飞书消息处理器，继承平台无关的 BaseBotHandler。
+
+    平台特定实现：
+    - parse_message()      — 解析飞书 P2ImMessageReceiveV1
+    - send_reply()         — 话题线程走 reply_in_thread，主聊天走 send_text
+    - _on_pre_handle()     — 登记锚点、注册 reply_fn
+    - _on_extract_topic()  — 飞书短标题检测 + 话题路由
+    - _handle_slash()      — 仅文本消息处理斜杠命令
+    - _handle_greeting()   — 仅文本消息处理问候
+    - _relay_claude()      — 仅文本消息中继 Claude
+    - _invoke_agent()      — 话题串行锁 + _replied 短路 + 飞书 reaction
     """
-    处理斜杠命令。返回响应文本，如果不是已知命令则返回 None。
 
-    支持的命令：
-      /status — 查看服务状态
-      /clear  — 清空当前会话历史
-      /stop   — 停止当前 Claude Code 会话
-      /topics — 查看所有活跃话题
-    """
-    parts = text.strip().split()
-    cmd = parts[0].lower() if parts else ""
-
-    if cmd == "/status":
-        from graph.tools import get_service_status
-        return get_service_status.invoke({})
-
-    elif cmd == "/clear":
-        from graph.agent import clear_history
-        ok = clear_history(thread_id)
-        return "✅ 对话历史已清空" if ok else "❌ 清空失败，请查看日志"
-
-    elif cmd == "/stop":
-        from integrations.claude_code.session import session_manager
-        if session_manager.get(thread_id):
-            session_manager.kill(thread_id)
-            return "✅ Claude 会话已停止"
-        return "当前没有运行中的 Claude 会话"
-
-    elif cmd == "/topics":
-        from integrations.topic_manager import format_topics
-        return format_topics(chat_id)
-
-    return None
-
-
-def _send_reply(parsed: dict, bot: "FeishuBot", text: str) -> bool:
-    """
-    统一回复路由：话题/线程上下文走 reply_in_thread，主聊天走 send_text。
-    reply_in_thread 自动处理长消息（wiki 存储或分块）。
-    """
-    root_id = parsed.get("root_id", "")
-    anchor = root_id or _get_anchor(parsed["thread_id"])
-    default_thread_id = f"feishu:{parsed['chat_id']}"
-    is_threaded = parsed["thread_id"] != default_thread_id or bool(root_id)
-
-    if anchor and is_threaded:
-        sent = bot.reply_in_thread(anchor, text, thread_id=parsed["thread_id"])
-        if sent:
-            return True
-
-    # 主聊天降级：发送并注册 bot 消息 ID 到反向映射
-    bot_msg_id = bot.send_text(chat_id=parsed["chat_id"], text=text)
-    sent = bool(bot_msg_id)
-    if bot_msg_id and isinstance(bot_msg_id, str) and bot_msg_id not in ("True", "sent"):
-        with _anchor_lock:
-            _anchor_to_thread[bot_msg_id] = parsed["thread_id"]
-        _persist_anchor(bot_msg_id, parsed["thread_id"])
-    return sent
-
-
-def _run_agent(parsed: dict, bot: "FeishuBot") -> None:
-    """在线程中运行 agent（已持有话题锁），发送回复。"""
-    from graph.agent import invoke
-
-    # 话题线程内的回复消息（root_id 非空）不支持 reaction API（返回 400），
-    # 改为对 root_id（线程锚点，主聊天中可见）添加 reaction；
-    # 普通主聊天消息无 root_id，直接对自身消息添加 reaction。
-    reaction_target = parsed.get("root_id") or parsed["message_id"]
-    processing_reaction_id = bot.add_reaction(reaction_target, "Typing")
-    try:
-        reply = invoke(
-            message=parsed["text"],
-            platform="feishu",
+    def parse_message(self, raw: P2ImMessageReceiveV1) -> MessageContext | None:
+        parsed = _parse_feishu_message(raw)
+        if parsed is None:
+            return None
+        ctx = MessageContext(
+            text=parsed["text"],
             user_id=parsed["user_id"],
             chat_id=parsed["chat_id"],
+            message_id=parsed["message_id"],
             thread_id=parsed["thread_id"],
+            platform="feishu",
+            raw=raw,
         )
-        sent = _send_reply(parsed, bot, reply)
-        bot.remove_reaction(reaction_target, processing_reaction_id)
-        if sent:
-            bot.add_reaction(reaction_target, "OK")
-        else:
-            _send_reply(parsed, bot, "⚠️ 回复生成成功但发送失败，请重试或查看服务日志。")
-    except Exception as e:
-        logger.error(f"[飞书] Agent 处理失败: {e}", exc_info=True)
-        bot.remove_reaction(reaction_target, processing_reaction_id)
-        _send_reply(parsed, bot, f"处理出错：{e}")
+        ctx.extra["root_id"] = parsed.get("root_id", "")
+        ctx.extra["msg_type"] = parsed.get("msg_type", "text")
+        ctx.extra["bot"] = FeishuBot()
+        logger.info(
+            f"[飞书长连接] user={ctx.user_id} chat={ctx.chat_id} "
+            f"thread={ctx.thread_id} type={ctx.extra['msg_type']} msg={ctx.text[:80]}"
+        )
+        return ctx
+
+    def send_reply(self, text: str, ctx: MessageContext) -> None:
+        """发送回复：话题/线程走 reply_in_thread，主聊天走 send_text。"""
+        bot = ctx.extra.get("bot") or FeishuBot()
+        root_id = ctx.extra.get("root_id", "")
+        anchor = root_id or _get_anchor(ctx.thread_id)
+        is_threaded = ctx.thread_id != f"feishu:{ctx.chat_id}" or bool(root_id)
+
+        if anchor and is_threaded:
+            sent = bot.reply_in_thread(anchor, text, thread_id=ctx.thread_id)
+            if sent:
+                ctx.extra["_last_send_ok"] = True
+                return
+
+        bot_msg_id = bot.send_text(chat_id=ctx.chat_id, text=text)
+        ctx.extra["_last_send_ok"] = bool(bot_msg_id)
+        if bot_msg_id and isinstance(bot_msg_id, str) and bot_msg_id not in ("True", "sent"):
+            with _anchor_lock:
+                _anchor_to_thread[bot_msg_id] = ctx.thread_id
+            _persist_anchor(bot_msg_id, ctx.thread_id)
+
+    def _on_pre_handle(self, ctx: MessageContext) -> None:
+        """登记线程锚点，注册 reply_fn 供工具回调使用。"""
+        bot = ctx.extra.get("bot") or FeishuBot()
+        ctx.extra["bot"] = bot
+        _set_anchor(ctx.thread_id, ctx.message_id)
+        from integrations.claude_code.session import reply_fn_registry
+        reply_fn_registry[ctx.thread_id] = lambda t, _cid=ctx.chat_id: bot.send_text(chat_id=_cid, text=t)
+
+    def _on_extract_topic(self, ctx: MessageContext) -> None:
+        """飞书特有：短标题话题检测 + 话题路由。"""
+        from integrations.topic_manager import (
+            extract_topic, make_topic_thread_id, register_topic,
+            get_topics, find_similar_topics,
+        )
+        from integrations.claude_code.session import reply_fn_registry
+        bot = ctx.extra.get("bot") or FeishuBot()
+        original_text = ctx.text
+        topic_name, cleaned_text = extract_topic(ctx.text)
+
+        is_main_window = ctx.thread_id == f"feishu:{ctx.chat_id}"
+        if (topic_name and not cleaned_text and len(original_text) < 10
+                and original_text.startswith("#") and is_main_window):
+            existing = get_topics(ctx.chat_id)
+            if topic_name not in existing:
+                similar = find_similar_topics(topic_name, existing)
+                if similar:
+                    sim_list = "\n".join(f"• `#{n}`" for n in similar[:3])
+                    self.send_reply(
+                        f"发现相近话题：\n{sim_list}\n\n"
+                        f"• 如需合并到已有话题，发 `#已有话题名 消息内容`\n"
+                        f"• 如需新建 **#{topic_name}**，发 `#{topic_name} 消息内容`（带上正文即可创建）",
+                        ctx,
+                    )
+                    ctx.extra["_replied"] = True
+                    return
+                else:
+                    new_thread_id = make_topic_thread_id("feishu", ctx.chat_id, topic_name)
+                    register_topic(ctx.chat_id, topic_name, new_thread_id, preview="")
+                    _set_anchor(new_thread_id, ctx.message_id)
+                    reply_fn_registry[new_thread_id] = lambda t, _cid=ctx.chat_id: bot.send_text(chat_id=_cid, text=t)
+                    self.send_reply(
+                        f"✅ 已创建新话题 **#{topic_name}**\n\n"
+                        f"发 `#{topic_name} 消息内容` 即可在此话题下对话",
+                        ctx,
+                    )
+                    ctx.extra["_replied"] = True
+                    return
+
+        if topic_name:
+            ctx.topic_name = topic_name
+            ctx.thread_id = make_topic_thread_id("feishu", ctx.chat_id, topic_name)
+            ctx.text = cleaned_text
+            register_topic(ctx.chat_id, ctx.topic_name, ctx.thread_id, preview=ctx.text[:60])
+            _set_anchor(ctx.thread_id, ctx.message_id)
+            reply_fn_registry[ctx.thread_id] = lambda t, _cid=ctx.chat_id: bot.send_text(chat_id=_cid, text=t)
+
+    def _handle_slash(self, ctx: MessageContext) -> bool:
+        if ctx.extra.get("msg_type") != "text":
+            return False
+        return super()._handle_slash(ctx)
+
+    def _handle_greeting(self, ctx: MessageContext) -> bool:
+        if ctx.extra.get("msg_type") != "text":
+            return False
+        return super()._handle_greeting(ctx)
+
+    def _relay_claude(self, ctx: MessageContext) -> bool:
+        if ctx.extra.get("msg_type") != "text":
+            return False
+        return super()._relay_claude(ctx)
+
+    def _invoke_agent(self, ctx: MessageContext) -> None:
+        """话题串行锁 + _replied 短路 + 飞书 Typing/OK reaction。"""
+        if ctx.extra.get("_replied"):
+            return
+        bot = ctx.extra.get("bot") or FeishuBot()
+        ctx.extra["bot"] = bot
+        reaction_target = ctx.extra.get("root_id") or ctx.message_id
+        topic_lock = _get_topic_lock(ctx.thread_id)
+
+        def run():
+            with topic_lock:
+                reaction_id = bot.add_reaction(reaction_target, "Typing")
+                try:
+                    from graph.agent import invoke
+                    reply = invoke(
+                        message=ctx.text,
+                        platform=ctx.platform,
+                        user_id=ctx.user_id,
+                        chat_id=ctx.chat_id,
+                        thread_id=ctx.thread_id,
+                    )
+                    self.send_reply(reply, ctx)
+                    bot.remove_reaction(reaction_target, reaction_id)
+                    if ctx.extra.get("_last_send_ok", True):
+                        bot.add_reaction(reaction_target, "OK")
+                    else:
+                        self.send_reply("⚠️ 回复生成成功但发送失败，请重试或查看服务日志。", ctx)
+                except Exception as e:
+                    logger.error(f"[飞书] Agent 处理失败: {e}", exc_info=True)
+                    bot.remove_reaction(reaction_target, reaction_id)
+                    self.send_reply(f"处理出错：{e}", ctx)
+
+        threading.Thread(target=run, daemon=True).start()
+
+
+_feishu_handler = FeishuBotHandler()
 
 
 # --------------------------------------------------------------------------- #
 # 消息处理（协调层）
 # --------------------------------------------------------------------------- #
 def _on_message(data: P2ImMessageReceiveV1) -> None:
-    from integrations.claude_code.session import reply_fn_registry, session_manager
-
-    parsed = _parse_feishu_message(data)
-    if not parsed:
-        return
-
-    message_id = parsed["message_id"]
-    text = parsed["text"]
-    thread_id = parsed["thread_id"]
-    chat_id = parsed["chat_id"]
-    msg_type = parsed.get("msg_type", "text")
-
-    # ── 去重：防止断线重连时重放 ────────────────────────────────────────
-    if message_id and _is_duplicate(message_id):
-        logger.info(f"[飞书] 跳过重复消息 message_id={message_id}")
-        return
-
-    logger.info(f"[飞书长连接] user={parsed['user_id']} chat={chat_id} thread={thread_id} type={msg_type} msg={text[:80]}")
-
-    bot = FeishuBot()
-
-    # ── 登记线程锚点：首条消息的 message_id 作为后续 reply_in_thread 基准 ──
-    _set_anchor(thread_id, message_id)
-
-    # 注册 reply_fn（绑定到 thread_id，供工具回调使用）
-    reply_fn_registry[thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
-
-    try:
-        _on_message_inner(parsed, bot, text, thread_id, chat_id, message_id, msg_type,
-                          reply_fn_registry, session_manager)
-    except Exception as e:
-        logger.error(f"[飞书] _on_message 未捕获异常: {e}", exc_info=True)
-        try:
-            bot.send_text(chat_id=chat_id, text=f"⚠️ 处理出错（顶层）：{e}")
-        except Exception:
-            pass
-
-
-def _on_message_inner(parsed, bot, text, thread_id, chat_id, message_id, msg_type,
-                      reply_fn_registry, session_manager):
-    """_on_message 的实际业务逻辑，统一在顶层 try-except 中保护。"""
-
-    # ── 斜杠命令（优先处理，不走 chat lock）──────────────────────────────
-    if text.startswith("/") and msg_type == "text":
-        resp = _handle_slash_command(text, thread_id, chat_id)
-        if resp is not None:
-            _send_reply(parsed, bot, resp)
-            return
-
-    # ── 话题解析：#话题名 前缀 → 隔离对话上下文 ──────────────────────────
-    from integrations.topic_manager import (
-        extract_topic, make_topic_thread_id, register_topic, WELCOME_MESSAGE,
-        get_topics, find_similar_topics,
-    )
-    original_text = text  # 保存原始文本用于长度判断
-    topic_name, cleaned_text = extract_topic(text)
-
-    # ── 短标题话题检测：#标题（总字数<10，无正文）→ 检查相近话题 ──────────
-    # 仅在主窗口（非话题线程内）且消息是纯短标题时触发
-    is_main_window = thread_id == f"feishu:{chat_id}"
-    if (topic_name and not cleaned_text and len(original_text) < 10
-            and original_text.startswith("#") and is_main_window):
-        existing = get_topics(chat_id)
-        if topic_name in existing:
-            # 已有完全相同话题 → 直接切换，走下方正常流程
-            pass
-        else:
-            similar = find_similar_topics(topic_name, existing)
-            if similar:
-                # 有相近话题 → 询问是否合并，不自动创建
-                sim_list = "\n".join(f"• `#{n}`" for n in similar[:3])
-                _send_reply(parsed, bot,
-                    f"发现相近话题：\n{sim_list}\n\n"
-                    f"• 如需合并到已有话题，发 `#已有话题名 消息内容`\n"
-                    f"• 如需新建 **#{topic_name}**，发 `#{topic_name} 消息内容`（带上正文即可创建）")
-                return
-            else:
-                # 无匹配 → 创建新话题并通知
-                new_thread_id = make_topic_thread_id("feishu", chat_id, topic_name)
-                register_topic(chat_id, topic_name, new_thread_id, preview="")
-                _set_anchor(new_thread_id, message_id)
-                reply_fn_registry[new_thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
-                _send_reply(parsed, bot,
-                    f"✅ 已创建新话题 **#{topic_name}**\n\n"
-                    f"发 `#{topic_name} 消息内容` 即可在此话题下对话")
-                return
-
-    if topic_name:
-        thread_id = make_topic_thread_id("feishu", chat_id, topic_name)
-        text = cleaned_text  # 去掉前缀后的实际消息
-        parsed["text"] = text
-        parsed["thread_id"] = thread_id
-        register_topic(chat_id, topic_name, thread_id, preview=text[:60])
-        # 话题首条消息也登记锚点（话题 thread_id 维度）
-        _set_anchor(thread_id, message_id)
-        # 重新注册 reply_fn（绑定到话题 thread_id）
-        reply_fn_registry[thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
-
-    # ── 问候快速路径（0ms，不走 LLM）────────────────────────────────────
-    _GREETINGS = {"你好", "hi", "hello", "嗨", "哈喽", "在吗", "在不在", "hey", "yo", "早", "早上好"}
-    if text.strip().lower() in _GREETINGS and msg_type == "text" and not topic_name:
-        _send_reply(parsed, bot, WELCOME_MESSAGE)
-        return
-
-    # ── 检查是否有活跃 Claude Code 会话 ──────────────────────────────────
-    if session_manager.get(thread_id) and msg_type == "text":
-        session_manager.relay_input(thread_id, text)
-        _send_reply(parsed, bot, "↩️ 已转发给 Claude")
-        return
-
-    # 话题消息但内容为空：只切换话题，不触发 Agent
-    if topic_name and not text:
-        from integrations.topic_manager import format_topics
-        _send_reply(parsed, bot, f"已切换到话题 **#{topic_name}**\n\n{format_topics(chat_id)}")
-        return
-
-    # ── 正常 Agent 流程（每话题串行，不同话题可并行）────────────────────────
-    topic_lock = _get_topic_lock(thread_id)
-
-    def _run_with_lock():
-        with topic_lock:
-            _run_agent(parsed, bot)
-
-    threading.Thread(target=_run_with_lock, daemon=True).start()
+    _feishu_handler.handle(data)
 
 
 # --------------------------------------------------------------------------- #

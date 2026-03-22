@@ -6,7 +6,6 @@ LLM 链：火山云 Ark → OpenRouter（with_fallbacks 自动降级）
 Claude API 不在此使用，仅供 Claude Code CLI。
 """
 import os
-import re
 import json
 import time
 import logging
@@ -88,43 +87,27 @@ def _build_base_llm():
 _llm_base = _build_base_llm()
 tools_by_name = {t.name: t for t in ALL_TOOLS}
 
-# 火山云 Ark 有时以文本形式返回工具调用，格式为：
-# <|FunctionCallBegin|>[...] 或 <|FunctionCallBeginBegin|>[...]（双 Begin 变体）
-# 也可能缺少 Begin 标记，只有 End 标记：[...]<|FunctionCallEnd|>
-# 兼容单/双 Begin/End 的所有变体，以及缺少 Begin 标记的情况
-_FUNC_CALL_RE = re.compile(
-    r"<\|FunctionCallBegin(?:Begin)?\|>(.*?)(?:<\|FunctionCallEnd(?:End)?\|>|$)",
-    re.DOTALL,
-)
-# 缺少 Begin 标记的变体：JSON 数组直接跟 End 标记
-_FUNC_CALL_NO_BEGIN_RE = re.compile(
-    r"(\[.*?\])\s*<\|FunctionCallEnd(?:End)?\|>",
-    re.DOTALL,
-)
+# --------------------------------------------------------------------------- #
+# LLM 响应后处理 Hook 机制
+# --------------------------------------------------------------------------- #
+_LLM_RESPONSE_HOOKS: list = []
 
 
-def _extract_text_tool_calls(content: str) -> list[dict] | None:
-    """将火山云文本格式的工具调用解析为 LangChain tool_calls 列表。"""
-    match = _FUNC_CALL_RE.search(content)
-    if not match:
-        # 尝试缺少 Begin 标记的变体
-        match = _FUNC_CALL_NO_BEGIN_RE.search(content)
-    if not match:
-        return None
-    try:
-        raw = json.loads(match.group(1).strip())
-        return [
-            {
-                "id": f"call_{c.get('id', i)}",
-                "name": c["name"],
-                "args": c.get("parameters", c.get("arguments", {})),
-                "type": "tool_call",
-            }
-            for i, c in enumerate(raw)
-        ]
-    except Exception:
-        return None
+def register_llm_hook(fn) -> None:
+    """注册 LLM 响应后处理 hook。hook 按注册顺序执行，每个接收并返回 AIMessage。"""
+    _LLM_RESPONSE_HOOKS.append(fn)
 
+
+def _apply_llm_hooks(response: AIMessage) -> AIMessage:
+    """按顺序执行所有 LLM 响应 hook。"""
+    for hook in _LLM_RESPONSE_HOOKS:
+        response = hook(response)
+    return response
+
+
+# 注册内置 hook：火山云文本格式工具调用转换
+from graph.hooks.volcengine import volcengine_text_tool_call_hook
+register_llm_hook(volcengine_text_tool_call_hook)
 
 _PROJECT_MGMT_KEYWORDS = [
     "项目", "章程", "周报", "里程碑", "raid", "portfolio",
@@ -223,9 +206,6 @@ def _build_system_prompt(messages: list | None = None, thread_id: str = "") -> s
 
 _LLM_LOG_PATH = "logs/llm.jsonl"
 
-# 历史工具结果内容限制：非当前轮的 ToolMessage 内容截断至此长度，防止旧任务结果污染新任务上下文
-# 注：不再按轮次截断对话历史，完整历史均传给 LLM（SQLite 存储）
-HISTORY_TOOL_CONTENT_LIMIT = 300
 # 每轮最大工具调用迭代次数（防止死循环）
 # 设为 15：复杂研究/开发任务（多轮 web_search + 自迭代 + 上下文分析）通常需要 8-12 次，保留余量
 MAX_TOOL_ITERATIONS = 15
@@ -238,37 +218,6 @@ _USER_INTERACTION_SIGNALS = [
     "请访问以下URL获取code",
     "请粘贴获取到的code",
 ]
-
-
-def _trim_tool_content(messages: list) -> list:
-    """
-    对历史轮次（非当前轮）的 ToolMessage 内容做截断，
-    避免旧任务的工具结果（如飞书页面内容、钉钉文档内容）占用大量 token。
-
-    不再按轮次截断对话历史——完整对话历史均传给 LLM，
-    仅限制历史 ToolMessage 内容长度至 HISTORY_TOOL_CONTENT_LIMIT 字符。
-    """
-    human_indices = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
-    if len(human_indices) <= 1:
-        return messages
-
-    current_turn_start = human_indices[-1]
-    result = []
-    tool_truncated = 0
-    for i, m in enumerate(messages):
-        if i < current_turn_start and isinstance(m, ToolMessage):
-            content = m.content if isinstance(m.content, str) else str(m.content)
-            if len(content) > HISTORY_TOOL_CONTENT_LIMIT:
-                # 只保留前 HISTORY_TOOL_CONTENT_LIMIT 字符作为人可读摘要，丢弃原始工具数据
-                new_content = content[:HISTORY_TOOL_CONTENT_LIMIT] + f"…[工具结果已省略，原长{len(content)}字符]"
-                result.append(ToolMessage(content=new_content, tool_call_id=m.tool_call_id))
-                tool_truncated += 1
-                continue
-        result.append(m)
-
-    if tool_truncated:
-        logger.info(f"[ContextIsolation] 省略 {tool_truncated} 条历史 ToolMessage 内容（保留前{HISTORY_TOOL_CONTENT_LIMIT}字符），防止跨任务上下文污染")
-    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -447,9 +396,7 @@ def agent_node(state: AgentState) -> dict:
         ))]}
     # ─────────────────────────────────────────────────────────────────────────
 
-    # 截断历史 ToolMessage 内容：保留完整对话历史，仅压缩历史轮工具结果体积
-    trimmed = _trim_tool_content(state["messages"])
-    messages = [SystemMessage(content=_build_system_prompt(trimmed, thread_id=thread_id))] + trimmed
+    messages = [SystemMessage(content=_build_system_prompt(state["messages"], thread_id=thread_id))] + state["messages"]
 
     # 动态选择工具（渐进式披露）
     tools = _select_tools(messages)
@@ -459,20 +406,7 @@ def agent_node(state: AgentState) -> dict:
     response = llm.invoke(messages)
     latency_ms = (time.monotonic() - t0) * 1000
 
-    # 处理火山云文本格式工具调用
-    if (
-        isinstance(response.content, str)
-        and "<|FunctionCall" in response.content
-        and not getattr(response, "tool_calls", None)
-    ):
-        tool_calls = _extract_text_tool_calls(response.content)
-        if tool_calls:
-            logger.debug(f"解析文本格式工具调用: {[c['name'] for c in tool_calls]}")
-            response = AIMessage(content="", tool_calls=tool_calls)
-        else:
-            # 解析失败：隐藏原始 JSON，避免泄漏给用户
-            logger.warning(f"[FunctionCall] 解析失败，原始内容: {response.content[:300]}")
-            response = AIMessage(content="（工具调用格式异常，请重试）")
+    response = _apply_llm_hooks(response)
 
     _log_llm_call(thread_id, messages, response, latency_ms, tools)
 

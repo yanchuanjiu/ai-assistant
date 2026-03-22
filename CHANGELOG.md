@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.18 - 2026-03-23
+
+### Refactor
+- **架构优化 5 项**（基于 functional_spec.md 审阅）：
+  1. **去除 ToolMessage 截断**：删除 `HISTORY_TOOL_CONTENT_LIMIT`、`_trim_tool_content()`，历史 ToolMessage 完整传给 LLM，消除因截断导致的上下文缺失误判。
+  2. **火山云 hook 机制**：将 `_extract_text_tool_calls()` 内联逻辑迁移至 `graph/hooks/volcengine.py`；`graph/nodes.py` 新增通用 `_LLM_RESPONSE_HOOKS` 列表 + `register_llm_hook()` / `_apply_llm_hooks()`，未来其他 LLM 适配可统一挂载。
+  3. **飞书错误处理中间层**：将 `@feishu_tool` 装饰器和 `notify_owner_reauth`/`notify_wiki_permission_issue` 从 `graph/tools.py` + `client.py` 迁移至 `integrations/feishu/middleware.py`；`graph/tools.py` 零 try/except，职责边界更清晰。
+  4. **Bot 框架统一**：新增 `integrations/base_bot.py`（`BaseBotHandler` 模板方法）和 `integrations/message_context.py`（`MessageContext` dataclass）；`FeishuBotHandler` 和 `DingTalkBotHandler` 各继承基类，仅实现平台特定接口（parse_message / send_reply 及可选 hook）；飞书 bot.py 精简约 200 行。
+  5. **持久化层 LLM 接入**：`agent_config` 工具新增 `action=topics`（查询活跃话题列表）和 `action=sessions`（查询近期会话线程）；`config_store.py` 新增 `get_active_topics()` / `get_recent_sessions()`。
+
 ## v1.0.17 - 2026-03-22
 
 ### Feature

@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-22（v1.0.16）
+> 最后更新：2026-03-23（v1.0.18）
 
 ---
 
@@ -37,7 +37,7 @@
 ✅ 并发任务框架    — graph/parallel.py：工具并行执行 + 优先级队列（URGENT/NORMAL/LOW）+ TaskMonitor
 ✅ Workspace 体系 — workspace/{SOUL/USER/MEMORY/HEARTBEAT/SKILLS_*}.md 动态注入 system prompt
 ✅ 自我改进        — trigger_self_improvement，分析日志 → 优化 → 推送报告
-✅ 完整上下文      — 不按轮次截断，完整历史传给 LLM；历史 ToolMessage 内容截断至 300 字符
+✅ 完整上下文      — 不按轮次截断，完整历史传给 LLM（ToolMessage 不截断，保留完整内容）
 ✅ 迭代保护        — MAX_TOOL_ITERATIONS=10，超限或检测到需用户交互时强制终止
 ✅ 问候快速路径    — 纯问候词直接回复，不走 LLM
 ✅ 钉钉 MCP       — 文档12个 + AI 表格21个工具，关键词"钉钉"触发
@@ -50,6 +50,7 @@
 ✅ 话题路由 BUG-002 修复        — quote-reply(parent_id) fallback；会议纪要表格→列表项渲染修复；feishu_advanced 去除"会议"重复关键词（v1.0.11）
 ✅ 飞书工具全层重构（v1.0.13）  — feishu_call 统一入口（token 过期自动刷新+重试一次）；v2 刷新端点；@feishu_tool 装饰器；WikiPermissionError/UserTokenExpiredError 精确异常；obj_type 路由；write 返回链接；移除 check_status；关键词去重（会议归 dingtalk_mcp）
 ✅ 飞书 wiki 节点删除（v1.0.16）— feishu_wiki_delete 工具：DELETE /wiki/v2/nodes/{node_token}，user token，@feishu_tool 统一错误处理
+✅ 架构优化（v1.0.18）          — 去除 ToolMessage 截断；火山云 hook 机制（graph/hooks/volcengine.py）；飞书错误中间层（integrations/feishu/middleware.py）；Bot 框架统一（BaseBotHandler + FeishuBotHandler + DingTalkBotHandler）；持久化层 LLM 接入（agent_config topics/sessions 动作）
 
 ⚠️  163 IMAP     — 需在 163 网页版重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```
