@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.0.6 - 2026-03-22
+
+### Fixed
+- **重启清理**：将旧进程/端口清理逻辑内置到 `main.py` 的 `_cleanup_previous()`，`restart.sh` 简化为4行
+- **回复位置修正**：Hi/slash命令/普通回复统一通过 `_send_reply()` 路由，确保在正确线程回复而非主聊天窗口
+- **`_thread_anchor` 重启后丢失**：`_get_anchor_db()` 启动时按最早 `created_at` 重建 `_thread_anchor`，避免重启后锚点缺失导致回退主聊天
+- **`/topics` 历史会话缺失**：新增 `_get_all_sessions()` 同时查询 `feishu_anchors` 和 LangGraph `checkpoints`，显示全部历史会话（主对话 + 命名话题 + 飞书线程），重启后完整保留
+- **话题持久化**：`topic_manager.py` 新增 `chat_topics` SQLite 表 + `_persist_topic()` UPSERT，命名话题重启不丢失
+- **长消息回复限制**：`reply_in_thread` 从800字符提升至4000字符，超限优先存飞书知识库，降级分块发送
+- **顶层异常捕获**：`_on_message` 包裹 `_on_message_inner`，lark SDK 吞掉异常时仍能感知错误
+
 ## v1.0.5 - 2026-03-22
 
 ### Fixed

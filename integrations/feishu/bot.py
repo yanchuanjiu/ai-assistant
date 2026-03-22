@@ -511,6 +511,21 @@ def _on_message(data: P2ImMessageReceiveV1) -> None:
     # 注册 reply_fn（绑定到 thread_id，供工具回调使用）
     reply_fn_registry[thread_id] = lambda t, _cid=chat_id: bot.send_text(chat_id=_cid, text=t)
 
+    try:
+        _on_message_inner(parsed, bot, text, thread_id, chat_id, message_id, msg_type,
+                          reply_fn_registry, session_manager)
+    except Exception as e:
+        logger.error(f"[飞书] _on_message 未捕获异常: {e}", exc_info=True)
+        try:
+            bot.send_text(chat_id=chat_id, text=f"⚠️ 处理出错（顶层）：{e}")
+        except Exception:
+            pass
+
+
+def _on_message_inner(parsed, bot, text, thread_id, chat_id, message_id, msg_type,
+                      reply_fn_registry, session_manager):
+    """_on_message 的实际业务逻辑，统一在顶层 try-except 中保护。"""
+
     # ── 斜杠命令（优先处理，不走 chat lock）──────────────────────────────
     if text.startswith("/") and msg_type == "text":
         resp = _handle_slash_command(text, thread_id, chat_id)

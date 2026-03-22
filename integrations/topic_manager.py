@@ -157,13 +157,84 @@ def get_topics(chat_id: str) -> dict[str, dict]:
     return dict(sorted(topics.items(), key=lambda x: -x[1]["last_activity"]))
 
 
+def _get_all_sessions(chat_id: str) -> list[dict]:
+    """
+    从 LangGraph checkpoints + feishu_anchors 获取该 chat 的所有对话 session。
+    返回列表，每项：{thread_id, label, last_activity, kind}
+    kind: 'topic'(#话题名) / 'thread'(飞书线程) / 'main'(主对话)
+    """
+    import os
+    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "memory.db")
+    sessions = {}
+    try:
+        conn = sqlite3.connect(db_path, check_same_thread=False)
+        # 1. 从 feishu_anchors 获取每个 thread_id 的最后活动时间
+        anchor_rows = conn.execute(
+            "SELECT thread_id, MAX(created_at) FROM feishu_anchors GROUP BY thread_id"
+        ).fetchall()
+        for tid, ts in anchor_rows:
+            if chat_id in tid:
+                sessions[tid] = {"thread_id": tid, "last_activity": ts}
+
+        # 2. 从 checkpoints 补充没有在 anchors 里的 thread_id
+        cp_rows = conn.execute(
+            "SELECT DISTINCT thread_id FROM checkpoints WHERE thread_id LIKE ?",
+            (f"feishu:%{chat_id}%",)
+        ).fetchall()
+        for (tid,) in cp_rows:
+            if tid not in sessions:
+                sessions[tid] = {"thread_id": tid, "last_activity": 0}
+
+        # 也包含 feishu:thread:om_xxx（来自飞书话题线程，可能不含 chat_id 字符串）
+        thread_rows = conn.execute(
+            "SELECT thread_id, MAX(created_at) FROM feishu_anchors "
+            "WHERE thread_id LIKE 'feishu:thread:%' GROUP BY thread_id"
+        ).fetchall()
+        for tid, ts in thread_rows:
+            if tid not in sessions:
+                sessions[tid] = {"thread_id": tid, "last_activity": ts}
+
+        conn.close()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"[TopicManager] 获取 session 列表失败: {e}")
+
+    # 3. 合并 chat_topics 表里的已知话题（有 label 和 preview）
+    _get_topic_db()
+    with _lock:
+        named = dict(_topics.get(chat_id, {}))
+
+    result = []
+    for tid, info in sessions.items():
+        ts = info["last_activity"]
+        if "#topic#" in tid:
+            name = tid.split("#topic#", 1)[1]
+            preview = named.get(name, {}).get("preview", "")
+            result.append({"thread_id": tid, "label": f"#{name}", "last_activity": ts,
+                           "kind": "topic", "preview": preview})
+        elif tid == f"feishu:{chat_id}":
+            result.append({"thread_id": tid, "label": "主对话", "last_activity": ts,
+                           "kind": "main", "preview": ""})
+        elif tid.startswith("feishu:thread:"):
+            short = tid.split("feishu:thread:", 1)[1][:16]
+            result.append({"thread_id": tid, "label": f"线程 {short}…", "last_activity": ts,
+                           "kind": "thread", "preview": ""})
+        else:
+            result.append({"thread_id": tid, "label": tid, "last_activity": ts,
+                           "kind": "other", "preview": ""})
+
+    result.sort(key=lambda x: -x["last_activity"])
+    return result
+
+
 def format_topics(chat_id: str) -> str:
-    """生成话题列表，供 /topics 命令返回给用户。包含历史话题，支持直接 resume。"""
+    """生成话题列表，供 /topics 命令返回给用户。显示所有历史对话 session，支持 resume。"""
     import datetime
-    topics = get_topics(chat_id)
-    if not topics:
+    sessions = _get_all_sessions(chat_id)
+
+    if not sessions:
         return (
-            "当前没有话题记录。\n\n"
+            "当前没有历史对话记录。\n\n"
             "💡 **多话题用法**：在消息前加 `#话题名` 即可隔离上下文：\n"
             "• `#项目A 进展如何？` — 开始/切换到项目A话题\n"
             "• `#日程 明天有什么安排？` — 独立处理日程\n"
@@ -171,32 +242,39 @@ def format_topics(chat_id: str) -> str:
         )
 
     now = time.time()
-    active = []    # 7天内
-    history = []   # 7天以上
+    topic_lines = []
+    thread_lines = []
+    main_line = None
 
-    for name, info in topics.items():
-        age = now - info["last_activity"]
-        ts = datetime.datetime.fromtimestamp(info["last_activity"]).strftime("%m-%d %H:%M")
-        preview = info["preview"]
-        preview_str = f"「{preview}」" if preview else ""
-        entry = f"• `#{name}` — {ts} {preview_str}"
-        if age < _TOPIC_TTL:
-            active.append(entry)
-        else:
-            history.append(entry)
+    for s in sessions:
+        ts_str = datetime.datetime.fromtimestamp(s["last_activity"]).strftime("%m-%d %H:%M") \
+            if s["last_activity"] > 0 else "未知"
+        preview_str = f"「{s['preview']}」" if s.get("preview") else ""
+
+        if s["kind"] == "topic":
+            topic_lines.append(f"• `{s['label']}` — {ts_str} {preview_str}")
+        elif s["kind"] == "main":
+            main_line = f"• 主对话 — {ts_str}（直接发消息即可继续）"
+        elif s["kind"] == "thread":
+            thread_lines.append(f"• {s['label']} — {ts_str}（在原飞书话题里回复即可继续）")
 
     lines = []
-    if active:
-        lines.append(f"**近期话题（{len(active)} 个）：**\n")
-        lines.extend(active)
-    if history:
+    if main_line:
+        lines.append("**主对话：**\n")
+        lines.append(main_line)
+    if topic_lines:
         if lines:
             lines.append("")
-        lines.append(f"**历史话题（{len(history)} 个）：**\n")
-        lines.extend(history)
+        lines.append(f"**命名话题（{len(topic_lines)} 个）：**\n")
+        lines.extend(topic_lines)
+    if thread_lines:
+        if lines:
+            lines.append("")
+        lines.append(f"**飞书话题线程（{len(thread_lines)} 个）：**\n")
+        lines.extend(thread_lines)
 
     lines.append(
-        "\n💡 发 `#话题名 消息` 可恢复任意话题的完整对话历史\n"
+        "\n💡 命名话题：发 `#话题名 消息` 恢复（历史记录完整保留）\n"
         "发 `/clear` 清空当前话题记录"
     )
     return "\n".join(lines)
