@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.13 - 2026-03-22
+
+### Refactor
+- **飞书工具全层重构（OpenClaw 设计模式移植）**：将 OpenClaw (Node.js) 的认证封装哲学翻译为 Python，彻底解决 LLM 参与 token 管理导致的死循环问题。
+  - `client.py`：新增 `feishu_call()` 统一调用入口（参考 callWithUAT）；access_token 过期自动刷新后重试一次；使用官方 v2 端点 `/authen/v2/oauth/token` 刷新；错误码精确分类（TOKEN_RETRY_CODES / REFRESH_TOKEN_IRRECOVERABLE / APP_SCOPE_ERROR_CODES）；新增 `WikiPermissionError`/`UserTokenExpiredError`/`AppScopeError` 结构化异常；`notify_owner_reauth()` 和 `notify_wiki_permission_issue()` 通过 IM 直接通知用户（不经 LLM）
+  - `knowledge.py`：`_wiki_get/_wiki_post` → `_wiki_call()` 使用 `feishu_call`；`list_wiki_children()` 增加完整分页（has_more + page_token）；`wiki_token_to_obj_token()` 改用 tenant token；所有 docx API 调用迁移至 `feishu_call(as_="tenant")`；131006 字符串检测 → 捕获 `WikiPermissionError` 精确处理
+  - `tools.py`：新增 `@feishu_tool` 装饰器（统一错误翻译，替换各工具的 try/except）；`feishu_read_page` 增加 obj_type 路由（sheet/bitable/docx 分别提示对应工具）；`feishu_append_to_page`/`feishu_overwrite_page` 成功返回页面链接；`feishu_oauth_setup` 移除 `check_status`（token 续期已在系统层自动完成，LLM 不需要诊断）；`CATEGORY_KEYWORDS` 关键词去重（"会议/纪要/meeting" 归 dingtalk_mcp 独占；"表格" → "飞书表格"；"任务" → "飞书任务"）
+  - `prompts/system.md`：移除 OAuth SOP，增加 token 类型区分表和授权问题处理原则
+  - `workspace/MEMORY_CORE.md`/`SKILLS_PROJECT_MGMT.md`：更新坑点描述，增加 token 导航两步法
+
 ## v1.0.12 - 2026-03-22
 
 ### Fixed

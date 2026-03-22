@@ -22,6 +22,34 @@
 
 ---
 
+## 零、获取正确 parent_wiki_token（传参前必做）
+
+传错 token 是最常见失败原因。标准两步导航：
+
+```
+# Step 1：列出根节点，找项目文件夹
+feishu_wiki_page(action="list_children")
+→ 空间根节点 共 N 个子页面：
+    - AIKG AI产品知识库  token=RrdkwG6qXxxx（有子页）
+
+# Step 2：进入项目文件夹，找目标子页面
+feishu_wiki_page(action="list_children", parent_wiki_token="RrdkwG6qXxxx")
+→ 共 6 个子页面：
+    - 04_会议纪要  token=Page004token（有子页）
+
+# Step 3：对找到的 token 执行读写操作
+feishu_append_to_page(wiki_url_or_token="Page004token", content="...")
+```
+
+**错误快速诊断**：
+| 错误 | 根因 | 修复 |
+|------|------|------|
+| `400 Bad Request` | parent_wiki_token 传了 space_id（纯数字）| 重新 list_children |
+| `wiki 空间权限未配置` | 131006，系统已自动通知用户 | 等用户完成配置 |
+| `节点不存在` | token 来自记忆已失效 | 重新 list_children 刷新 |
+
+---
+
 ## 二、快速索引：用户意图 → 工具 → 关键参数
 
 | 用户意图 | 调用工具 | 关键参数 |

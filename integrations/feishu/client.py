@@ -1,16 +1,88 @@
-"""飞书 API 基础客户端：Token 管理 + 通用请求。"""
+"""飞书 API 基础客户端：Token 管理 + 通用请求。
+
+设计原则（参考 OpenClaw uat-client.js / tool-client.js）：
+- feishu_call() 是统一入口：自动选 user/tenant token，access_token 过期时刷新后重试一次
+- 业务错误码翻译为结构化异常，不向上暴露 HTTP 细节
+- Token 管理完全在本层，工具层和 knowledge 层无需关心续期
+"""
+import json as json_module
 import os
 import re
 import time
 import logging
 import threading
 import httpx
-from functools import lru_cache
 from pydantic_settings import BaseSettings
 
 logger = logging.getLogger(__name__)
 FEISHU_BASE = "https://open.feishu.cn/open-apis"
 
+# ---------------------------------------------------------------------------
+# 飞书 API 错误码常量（来源：飞书官方文档 + OpenClaw auth-errors.js）
+# ---------------------------------------------------------------------------
+
+# access_token 失效，可尝试刷新后重试（官方文档 99991668/99991677）
+TOKEN_RETRY_CODES: frozenset[int] = frozenset([
+    99991668,   # "Invalid access token for authorization" — token过期或类型错误
+    99991677,   # "token expire" — user token 已过期
+])
+
+# refresh_token 不可恢复，必须重新完整 OAuth（官方 v2 文档错误码）
+REFRESH_TOKEN_IRRECOVERABLE: frozenset[int] = frozenset([
+    20024,   # token 与 client_id 不匹配
+    20037,   # refresh_token 已过期（365天有效期）
+    20064,   # token 已被撤销（单次使用后失效）
+    20074,   # 应用未开启 token 刷新功能
+])
+
+# 应用/用户权限问题（需管理员或用户操作，非代码问题）
+APP_SCOPE_ERROR_CODES: frozenset[int] = frozenset([
+    99991672,   # 应用 API scope 缺失，需管理员在开放平台开通
+    99991679,   # user token scope 不足，需用户重新 OAuth 授权
+])
+
+
+# ---------------------------------------------------------------------------
+# 异常类型（参考 OpenClaw auth-errors.js，适配单用户场景）
+# ---------------------------------------------------------------------------
+
+class FeishuAuthError(RuntimeError):
+    """所有飞书认证/授权错误的基类。"""
+
+
+class UserTokenNotConfiguredError(FeishuAuthError):
+    """user token 完全未配置（.env 中无任何 token）。
+    区别于 token 已过期：未配置 → 需初次 OAuth；已过期 → 需刷新。
+    """
+
+
+class UserTokenExpiredError(FeishuAuthError):
+    """refresh_token 不可恢复（已过期/已撤销/未启用），必须重新完整 OAuth 授权。
+
+    工具层捕获此异常 → 通过 IM 通知用户，返回一句话给 LLM。
+    """
+    def __init__(self, msg: str, error_code: int = 0):
+        super().__init__(msg)
+        self.error_code = error_code
+
+
+class WikiPermissionError(FeishuAuthError):
+    """Wiki 空间权限不足（error 131006）。
+    根因：应用未被添加为 wiki 空间成员，或 user token 未配置/失效。
+    这是管理员配置问题，OAuth 流程解决不了。
+    工具层捕获此异常 → 通知用户，不走 OAuth 流程。
+    """
+
+
+class AppScopeError(FeishuAuthError):
+    """应用 API 权限 scope 缺失（99991672）或 user scope 不足（99991679）。
+    需管理员在飞书开放平台开通对应权限后重新发布，或用户重新授权。
+    """
+
+
+# ---------------------------------------------------------------------------
+# 配置 + 缓存
+# ---------------------------------------------------------------------------
 
 class FeishuSettings(BaseSettings):
     feishu_app_id: str = ""
@@ -26,12 +98,35 @@ _token_cache: dict = {"token": None, "expires_at": 0}
 _user_token_cache: dict = {"token": None, "expires_at": 0}
 _user_token_refresh_lock = threading.Lock()
 
+# 5分钟提前刷新窗口（参考 OpenClaw token-store.js REFRESH_AHEAD_MS）
+_REFRESH_AHEAD_SECS = 5 * 60
 
-class UserTokenNotConfiguredError(RuntimeError):
-    """用户 token 未配置（区别于 token 已配置但续期失败）。"""
 
+# ---------------------------------------------------------------------------
+# Token 状态判断
+# ---------------------------------------------------------------------------
+
+def _user_token_status(token: str, expires_at: float) -> str:
+    """判断 user token 状态。
+
+    Returns: "valid" | "needs_refresh" | "expired" | "missing"
+    """
+    if not token:
+        return "missing"
+    now = time.time()
+    if now < expires_at - _REFRESH_AHEAD_SECS:
+        return "valid"
+    if now < expires_at:
+        return "needs_refresh"
+    return "expired"
+
+
+# ---------------------------------------------------------------------------
+# Tenant Access Token
+# ---------------------------------------------------------------------------
 
 def get_tenant_access_token() -> str:
+    """获取 tenant_access_token，内存缓存60秒提前刷新。"""
     now = time.time()
     if _token_cache["token"] and now < _token_cache["expires_at"] - 60:
         return _token_cache["token"]
@@ -48,9 +143,13 @@ def get_tenant_access_token() -> str:
     return _token_cache["token"]
 
 
+# ---------------------------------------------------------------------------
+# User Access Token（含自动续期）
+# ---------------------------------------------------------------------------
+
 def _update_env_user_token(token: str, refresh_token: str, expires_at: float,
-                           refresh_expires_at: float = 0):
-    """将新 user token 写回 .env 文件。"""
+                            refresh_expires_at: float = 0):
+    """将新 user token 写回 .env 文件持久化。"""
     env_path = ".env"
     try:
         with open(env_path, "r", encoding="utf-8") as f:
@@ -68,7 +167,7 @@ def _update_env_user_token(token: str, refresh_token: str, expires_at: float,
         content = replace_or_append(content, "FEISHU_USER_TOKEN_EXPIRES_AT", int(expires_at))
         if refresh_expires_at > 0:
             content = replace_or_append(content, "FEISHU_USER_REFRESH_EXPIRES_AT",
-                                        int(refresh_expires_at))
+                                         int(refresh_expires_at))
 
         with open(env_path, "w", encoding="utf-8") as f:
             f.write(content)
@@ -76,138 +175,301 @@ def _update_env_user_token(token: str, refresh_token: str, expires_at: float,
         logger.warning(f"[user_token] 写回 .env 失败: {e}")
 
 
+def _do_refresh_token(refresh_token: str) -> dict:
+    """调用官方 v2 端点刷新 access_token。
+
+    使用 POST /authen/v2/oauth/token（client_id/client_secret 在请求体中）。
+    这是飞书官方当前推荐的 token 刷新方式。
+
+    Returns: 包含 access_token, refresh_token, expires_in 等字段的 dict
+    Raises:
+      UserTokenExpiredError — refresh_token 不可恢复（20024/20037/20064/20074）
+      RuntimeError          — 其他刷新失败（临时错误）
+    """
+    resp = httpx.post(
+        f"{FEISHU_BASE}/authen/v2/oauth/token",
+        json={
+            "grant_type": "refresh_token",
+            "client_id": _settings.feishu_app_id,
+            "client_secret": _settings.feishu_app_secret,
+            "refresh_token": refresh_token,
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+
+    biz_code = data.get("code", 0)
+    if biz_code != 0:
+        if biz_code in REFRESH_TOKEN_IRRECOVERABLE:
+            raise UserTokenExpiredError(
+                f"refresh_token 不可恢复（code={biz_code}: {data.get('msg', '')}），"
+                f"需要重新 OAuth 授权。",
+                error_code=biz_code,
+            )
+        raise RuntimeError(
+            f"token 刷新失败（code={biz_code}: {data.get('msg', '')}），"
+            f"可能是临时错误，可稍后重试。"
+        )
+
+    new_token = data.get("access_token", "")
+    if not new_token:
+        raise RuntimeError(f"刷新响应中无 access_token: {data}")
+
+    return data
+
+
 def get_user_access_token() -> str:
-    """读取 .env 中 FEISHU_USER_ACCESS_TOKEN，过期则用 FEISHU_USER_REFRESH_TOKEN 自动续期。
-    续期后将新 token 写回 .env 文件以持久化。
-    线程安全：使用 _user_token_refresh_lock 防止并发续期导致 refresh_token 失效。
+    """获取有效的 user_access_token，必要时自动刷新（线程安全）。
+
+    状态机（参考 OpenClaw getValidAccessToken）：
+      missing       → raise UserTokenNotConfiguredError
+      valid         → 直接返回（快速路径）
+      needs_refresh → 加锁刷新（提前5分钟，防止临界点失效）
+      expired       → 加锁刷新（已过期但 refresh_token 可能仍有效）
+
+    刷新结果：
+      成功               → 更新缓存 + .env，返回新 token
+      REFRESH_IRRECOVERABLE → raise UserTokenExpiredError（需重新 OAuth）
+      其他错误           → raise RuntimeError（临时错误）
     """
     now = time.time()
-    # 快速路径：缓存未过期，直接返回
-    if _user_token_cache["token"] and now < _user_token_cache["expires_at"] - 60:
-        return _user_token_cache["token"]
+
+    # 快速路径：内存缓存有效
+    cached_token = _user_token_cache["token"]
+    cached_expires = _user_token_cache["expires_at"]
+    if cached_token and _user_token_status(cached_token, cached_expires) == "valid":
+        return cached_token
 
     token = os.getenv("FEISHU_USER_ACCESS_TOKEN", "")
-    expires_at = float(os.getenv("FEISHU_USER_TOKEN_EXPIRES_AT", "0"))
     refresh_token = os.getenv("FEISHU_USER_REFRESH_TOKEN", "")
+    expires_at = float(os.getenv("FEISHU_USER_TOKEN_EXPIRES_AT", "0"))
 
     if not token and not refresh_token:
         raise UserTokenNotConfiguredError(
-            "FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN 未配置。"
-            "请在 .env 中设置，或调用 feishu_oauth_setup 重新授权。"
+            "FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN 均未配置，需初次 OAuth 授权。"
         )
 
-    # 手动配置 token 但未设置过期时间时，视为从现在起 2 小时有效
+    # 手动配置 token 但未设过期时间，视为从现在起 ~2小时有效
     if token and expires_at == 0:
         expires_at = now + 7100
         os.environ["FEISHU_USER_TOKEN_EXPIRES_AT"] = str(int(expires_at))
 
-    if token and now < expires_at - 60:
-        _user_token_cache["token"] = token
-        _user_token_cache["expires_at"] = expires_at
+    status = _user_token_status(token, expires_at)
+    if status == "valid":
+        _user_token_cache.update({"token": token, "expires_at": expires_at})
         return token
 
     if not refresh_token:
         raise UserTokenNotConfiguredError(
-            "FEISHU_USER_REFRESH_TOKEN 未配置，无法续期 user access token。"
-            "请在 .env 中设置 FEISHU_USER_REFRESH_TOKEN，或调用 feishu_oauth_setup 重新授权。"
+            "access_token 已过期且 refresh_token 未配置，无法自动续期。"
         )
 
-    # 需要续期，加锁防止并发续期（race condition：多线程同时使用同一 refresh_token 导致后续均失败）
+    # 需要刷新 — 加锁防并发竞争（refresh_token 单次使用，并发会导致第二次失败）
     with _user_token_refresh_lock:
-        # 双重检查：持有锁后其他线程可能已完成续期
+        # 双重检查：可能其他线程已完成刷新
         now = time.time()
-        if _user_token_cache["token"] and now < _user_token_cache["expires_at"] - 60:
+        if _user_token_cache["token"] and _user_token_status(
+            _user_token_cache["token"], _user_token_cache["expires_at"]
+        ) == "valid":
             return _user_token_cache["token"]
 
-        # 重新从 os.environ 读取（其他线程可能已更新）
+        # 重新读取（其他线程可能已写回 os.environ）
+        refresh_token = os.getenv("FEISHU_USER_REFRESH_TOKEN", "")
         token = os.getenv("FEISHU_USER_ACCESS_TOKEN", "")
         expires_at = float(os.getenv("FEISHU_USER_TOKEN_EXPIRES_AT", "0"))
-        refresh_token = os.getenv("FEISHU_USER_REFRESH_TOKEN", "")
 
-        if token and now < expires_at - 60:
-            _user_token_cache["token"] = token
-            _user_token_cache["expires_at"] = expires_at
+        if token and _user_token_status(token, expires_at) == "valid":
+            _user_token_cache.update({"token": token, "expires_at": expires_at})
             return token
 
-        # 检查 refresh_token 是否已过期
-        refresh_expires_at = float(os.getenv("FEISHU_USER_REFRESH_EXPIRES_AT", "0"))
-        if refresh_expires_at > 0 and now > refresh_expires_at:
-            raise RuntimeError(
-                "FEISHU_USER_REFRESH_TOKEN 已过期（30天有效期已到），需要重新 OAuth 授权。\n"
-                "请调用 feishu_oauth_setup(action=\"get_auth_url\") 重新授权。"
-            )
-
-        # 先获取 app_access_token（OIDC 刷新接口同样需要 app_access_token 作 Bearer）
-        app_resp = httpx.post(
-            f"{FEISHU_BASE}/auth/v3/app_access_token/internal",
-            json={"app_id": _settings.feishu_app_id, "app_secret": _settings.feishu_app_secret},
-            timeout=10,
+        # 调用 v2 刷新（_do_refresh_token 会按错误码精确抛出异常）
+        data = _do_refresh_token(refresh_token)
+        new_token = data["access_token"]
+        new_refresh = data.get("refresh_token", refresh_token)
+        new_expires_at = now + data.get("expires_in", 7200)
+        new_refresh_expires_at = (
+            now + data["refresh_token_expires_in"]
+            if data.get("refresh_token_expires_in")
+            else 0
         )
-        app_resp.raise_for_status()
-        app_token = app_resp.json()["app_access_token"]
 
-        # 优先用 OIDC 接口（/authen/v1/oidc/refresh_access_token），失败再降级到旧接口
-        new_token = ""
-        new_refresh = refresh_token
-        new_expires_at = now + 7200
-        new_refresh_expires_at = 0
-        last_err = None
-
-        for endpoint in [
-            f"{FEISHU_BASE}/authen/v1/oidc/refresh_access_token",
-            f"{FEISHU_BASE}/authen/v1/refresh_access_token",
-        ]:
-            try:
-                resp = httpx.post(
-                    endpoint,
-                    headers={"Authorization": f"Bearer {app_token}"},
-                    json={"grant_type": "refresh_token", "refresh_token": refresh_token},
-                    timeout=10,
-                )
-                resp.raise_for_status()
-                resp_json = resp.json()
-                # 检查飞书业务级错误码（HTTP 200 但 code != 0 表示失败）
-                biz_code = resp_json.get("code", 0)
-                if biz_code != 0:
-                    last_err = RuntimeError(
-                        f"refresh_token 续期失败（{endpoint.split('/')[-1]}）："
-                        f"code={biz_code} msg={resp_json.get('msg', '')}。"
-                        f"refresh_token 可能已失效，需要重新 OAuth 授权。"
-                    )
-                    continue
-                data = resp_json.get("data", resp_json)
-                new_token = data.get("access_token", "")
-                if not new_token:
-                    last_err = RuntimeError(f"续期响应中无 access_token：{resp_json}")
-                    continue
-                new_refresh = data.get("refresh_token", refresh_token)
-                new_expires_at = now + data.get("expires_in", 7200)
-                refresh_expires_in = data.get("refresh_expires_in", 0)
-                if refresh_expires_in > 0:
-                    new_refresh_expires_at = now + refresh_expires_in
-                last_err = None
-                break
-            except httpx.HTTPStatusError as e:
-                last_err = e
-                continue
-
-        if not new_token:
-            raise last_err or RuntimeError("refresh_token 续期失败，原因未知。请重新 OAuth 授权。")
-
-        _user_token_cache["token"] = new_token
-        _user_token_cache["expires_at"] = new_expires_at
+        _user_token_cache.update({"token": new_token, "expires_at": new_expires_at})
         os.environ["FEISHU_USER_ACCESS_TOKEN"] = new_token
         os.environ["FEISHU_USER_REFRESH_TOKEN"] = new_refresh
         os.environ["FEISHU_USER_TOKEN_EXPIRES_AT"] = str(int(new_expires_at))
         if new_refresh_expires_at > 0:
             os.environ["FEISHU_USER_REFRESH_EXPIRES_AT"] = str(int(new_refresh_expires_at))
         _update_env_user_token(new_token, new_refresh, new_expires_at, new_refresh_expires_at)
-        logger.info("[user_token] 已自动续期并写回 .env")
+        logger.info("[user_token] 已自动续期（v2 端点）并写回 .env")
         return new_token
 
 
+def invalidate_user_token_cache():
+    """强制清空内存 token 缓存。下次调用 get_user_access_token() 会重新读取并刷新。"""
+    _user_token_cache["token"] = None
+    _user_token_cache["expires_at"] = 0
+
+
+# ---------------------------------------------------------------------------
+# 业务错误码 → 结构化异常
+# ---------------------------------------------------------------------------
+
+def _raise_for_biz_code(code: int, data: dict, path: str = ""):
+    """将飞书业务错误码翻译为结构化异常（不向上暴露原始 HTTP/JSON 细节）。"""
+    msg = data.get("msg", "")
+    if code == 131006:
+        raise WikiPermissionError(
+            f"wiki 空间权限不足（131006）：应用需要被 wiki 空间管理员添加为成员，"
+            f"或配置 user_access_token。"
+        )
+    if code in APP_SCOPE_ERROR_CODES:
+        raise AppScopeError(
+            f"API 权限不足（code={code}）：{'应用缺少 scope，需管理员在开放平台开通后重新发布' if code == 99991672 else 'user token scope 不足，需重新 OAuth 授权'}。"
+            f" path={path}"
+        )
+    raise RuntimeError(f"飞书 API 错误 code={code} msg={msg} path={path}")
+
+
+# ---------------------------------------------------------------------------
+# feishu_call() — 统一调用入口（参考 OpenClaw callWithUAT）
+# ---------------------------------------------------------------------------
+
+def feishu_call(
+    path: str,
+    method: str = "GET",
+    json_body: dict = None,
+    params: dict = None,
+    as_: str = "user",
+) -> dict:
+    """统一飞书 API 调用入口。
+
+    自动处理（参考 OpenClaw callWithUAT + rethrowStructuredError）：
+    1. 根据 as_ 选择 user / tenant token
+    2. access_token 过期（TOKEN_RETRY_CODES）→ 刷新后重试一次
+    3. 业务错误码翻译为结构化异常
+
+    Args:
+      path      — API 路径，如 "/wiki/v2/spaces/{id}/nodes"
+      method    — HTTP 方法（GET/POST/PUT/DELETE/PATCH）
+      json_body — 请求体（JSON）
+      params    — 查询参数
+      as_       — "user"（user_access_token）| "tenant"（tenant_access_token）
+
+    Returns: 飞书 API 响应 dict（已确保 code=0）
+
+    Raises:
+      UserTokenNotConfiguredError — user token 未配置
+      UserTokenExpiredError       — refresh_token 不可恢复
+      WikiPermissionError         — 131006 wiki 空间权限
+      AppScopeError               — 99991672/99991679 权限 scope
+      RuntimeError                — 其他业务错误
+      httpx.HTTPStatusError       — HTTP 层 4xx/5xx
+    """
+    def _do(token: str) -> dict:
+        resp = httpx.request(
+            method.upper(),
+            f"{FEISHU_BASE}{path}",
+            headers={"Authorization": f"Bearer {token}"},
+            json=json_body,
+            params=params,
+            timeout=15,
+        )
+        _raise_with_body(resp)
+        return resp.json()
+
+    token = get_user_access_token() if as_ == "user" else get_tenant_access_token()
+    data = _do(token)
+    biz_code = data.get("code", 0)
+
+    # access_token 失效 → 刷新后重试一次（参考 OpenClaw callWithUAT retry）
+    if biz_code in TOKEN_RETRY_CODES and as_ == "user":
+        logger.warning(f"[feishu_call] token 失效（code={biz_code}），刷新后重试: {path}")
+        invalidate_user_token_cache()
+        token = get_user_access_token()   # 触发刷新
+        data = _do(token)
+        biz_code = data.get("code", 0)
+
+    if biz_code != 0:
+        _raise_for_biz_code(biz_code, data, path)
+
+    return data
+
+
+# ---------------------------------------------------------------------------
+# notify_owner_reauth() — 主动推 IM 通知（不依赖 user token）
+# ---------------------------------------------------------------------------
+
+def notify_owner_reauth(reason: str = ""):
+    """通过飞书 IM 向 owner 发送重新授权通知（使用 tenant_access_token）。
+
+    在 UserTokenExpiredError 被工具层捕获时调用。
+    绕过 LLM，直接通过飞书消息通知用户，无需用户再问 Agent。
+    """
+    try:
+        owner_chat_id = os.getenv("OWNER_FEISHU_CHAT_ID", "")
+        if not owner_chat_id:
+            logger.warning("[notify_owner_reauth] OWNER_FEISHU_CHAT_ID 未配置，无法推送通知")
+            return
+
+        text = (
+            "⚠️ 飞书 OAuth 授权已失效，需要重新授权\n\n"
+            f"原因：{reason or 'refresh_token 已过期或被撤销'}\n\n"
+            "请告诉我：「帮我重新授权飞书」，我会生成授权链接。"
+        )
+        token = get_tenant_access_token()
+        httpx.post(
+            f"{FEISHU_BASE}/im/v1/messages",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"receive_id_type": "chat_id"},
+            json={
+                "receive_id": owner_chat_id,
+                "msg_type": "text",
+                "content": json_module.dumps({"text": text}),
+            },
+            timeout=10,
+        ).raise_for_status()
+        logger.info("[notify_owner_reauth] 重新授权通知已发送")
+    except Exception as e:
+        logger.error(f"[notify_owner_reauth] 推送通知失败: {e}")
+
+
+def notify_wiki_permission_issue():
+    """通知用户 wiki 空间权限问题（131006）。"""
+    try:
+        owner_chat_id = os.getenv("OWNER_FEISHU_CHAT_ID", "")
+        if not owner_chat_id:
+            return
+        text = (
+            "⚠️ 飞书知识库权限问题（131006）\n\n"
+            "应用无法访问 wiki 空间，解决方法（三选一）：\n"
+            "① 在飞书知识库「空间设置→成员管理」将应用添加为成员\n"
+            "② 在 .env 中配置 FEISHU_WIKI_ROOT_NODES\n"
+            "③ 告诉我「帮我重新授权飞书」重新配置 user token"
+        )
+        token = get_tenant_access_token()
+        httpx.post(
+            f"{FEISHU_BASE}/im/v1/messages",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"receive_id_type": "chat_id"},
+            json={
+                "receive_id": owner_chat_id,
+                "msg_type": "text",
+                "content": json_module.dumps({"text": text}),
+            },
+            timeout=10,
+        ).raise_for_status()
+        logger.info("[notify_wiki_permission] 权限问题通知已发送")
+    except Exception as e:
+        logger.error(f"[notify_wiki_permission] 推送通知失败: {e}")
+
+
+# ---------------------------------------------------------------------------
+# 向后兼容的旧接口（knowledge.py 迁移期间仍在使用）
+# ---------------------------------------------------------------------------
+
 def feishu_get_user(path: str, params: dict = None) -> dict:
-    """用 user_access_token 做 GET 请求。"""
+    """用 user_access_token 做 GET 请求（旧接口，新代码请用 feishu_call）。"""
     token = get_user_access_token()
     resp = httpx.get(
         f"{FEISHU_BASE}{path}",
@@ -220,7 +482,7 @@ def feishu_get_user(path: str, params: dict = None) -> dict:
 
 
 def feishu_post_user(path: str, json: dict = None) -> dict:
-    """用 user_access_token 做 POST 请求。"""
+    """用 user_access_token 做 POST 请求（旧接口，新代码请用 feishu_call）。"""
     token = get_user_access_token()
     resp = httpx.post(
         f"{FEISHU_BASE}{path}",
@@ -241,13 +503,14 @@ def _raise_with_body(resp: httpx.Response) -> None:
     except Exception:
         body = resp.text
     raise httpx.HTTPStatusError(
-        f"Client error '{resp.status_code} {resp.reason_phrase}' for url '{resp.url}' | body={body}",
+        f"HTTP {resp.status_code} {resp.reason_phrase} | url={resp.url} | body={body}",
         request=resp.request,
         response=resp,
     )
 
 
 def feishu_get(path: str, params: dict = None) -> dict:
+    """tenant_access_token GET（旧接口）。"""
     token = get_tenant_access_token()
     resp = httpx.get(
         f"{FEISHU_BASE}{path}",
@@ -260,6 +523,7 @@ def feishu_get(path: str, params: dict = None) -> dict:
 
 
 def feishu_delete(path: str, json: dict = None) -> dict:
+    """tenant_access_token DELETE（旧接口）。"""
     token = get_tenant_access_token()
     resp = httpx.request(
         "DELETE",
@@ -273,6 +537,7 @@ def feishu_delete(path: str, json: dict = None) -> dict:
 
 
 def feishu_post(path: str, json: dict = None, data: dict = None) -> dict:
+    """tenant_access_token POST（旧接口）。"""
     token = get_tenant_access_token()
     resp = httpx.post(
         f"{FEISHU_BASE}{path}",

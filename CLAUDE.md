@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-22（v1.0.12）
+> 最后更新：2026-03-22（v1.0.13）
 
 ---
 
@@ -21,7 +21,7 @@
 ✅ SQLite 记忆    — data/memory.db（LangGraph checkpointer）/ data/meeting.db
 ✅ 定时任务        — 钉钉会议30min / 邮件60min / 上下文同步30min / 心跳30min / 每日迁移08:00
 ✅ 飞书知识库      — docx API via get_node（context page: LiLpwC7uWiMPi5kSPW2c45DIn8c）
-✅ 飞书 wiki 空间 — user_access_token 已配置，131006 权限错误处理已修复（响应码检查）；OAuth refresh_token 自动续期已修复（OIDC 接口）；FEISHU_USER_REFRESH_EXPIRES_AT 追踪30天到期
+✅ 飞书 wiki 空间 — feishu_call 统一入口自动续期（v2端点）；131006/UserTokenExpiredError 精确处理并推 IM 通知；FEISHU_USER_REFRESH_EXPIRES_AT 追踪30天到期
 ✅ 飞书消息接收    — 文本/富文本/合并转发/图片/文件/卡片均有处理（非文本不再静默丢弃）
 ✅ 飞书消息发送    — post 富文本格式（tag=md，Markdown 正常渲染）
 ✅ 消息稳定性      — 消息去重（2min TTL）+ 每 chat 串行锁，防重复响应和乱序
@@ -47,6 +47,7 @@
 ✅ Excel 导入      — excel_import 工具：搜索/解析/预览/写入电子表格或多维表格；支持合并单元格、对话上传文件
 ✅ 飞书 wiki user token 续期    — threading.Lock 防并发竞争；UserTokenNotConfiguredError 专用异常，区分"未配置"和"续期失败"，修复 131006 复现根因（v1.0.10）
 ✅ 话题路由 BUG-002 修复        — quote-reply(parent_id) fallback；会议纪要表格→列表项渲染修复；feishu_advanced 去除"会议"重复关键词（v1.0.11）
+✅ 飞书工具全层重构（v1.0.13）  — feishu_call 统一入口（token 过期自动刷新+重试一次）；v2 刷新端点；@feishu_tool 装饰器；WikiPermissionError/UserTokenExpiredError 精确异常；obj_type 路由；write 返回链接；移除 check_status；关键词去重（会议归 dingtalk_mcp）
 
 ⚠️  163 IMAP     — 需在 163 网页版重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```

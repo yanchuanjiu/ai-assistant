@@ -17,7 +17,12 @@ import re
 import time
 import logging
 from pydantic_settings import BaseSettings
-from integrations.feishu.client import feishu_get, feishu_post, feishu_delete
+from integrations.feishu.client import (
+    feishu_call,
+    feishu_get, feishu_post, feishu_delete,  # backward-compat for docx API
+    UserTokenNotConfiguredError,
+    WikiPermissionError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,13 +52,18 @@ def parse_wiki_token(url_or_token: str) -> str:
 
 
 def wiki_token_to_obj_token(wiki_token: str) -> tuple[str, str]:
+    """将 wiki node token 转为实际文档 token。
+
+    返回 (obj_token, obj_type)。
+    obj_type 来自官方文档枚举：doc/sheet/mindnote/bitable/file/docx/slides
+    调用方应检查 obj_type，非 docx 类型不能用 docx API 读写。
+
+    使用 tenant_access_token（get_node 不需要 user token）。
     """
-    将 wiki node token 转为实际文档 token。
-    返回 (obj_token, obj_type)，obj_type 通常是 'docx'。
-    """
-    resp = feishu_get(
+    resp = feishu_call(
         "/wiki/v2/spaces/get_node",
         params={"token": wiki_token},
+        as_="tenant",
     )
     node = resp.get("data", {}).get("node", {})
     obj_token = node.get("obj_token", "")
@@ -237,7 +247,7 @@ def _list_wiki_root_nodes_fallback() -> list[dict]:
         if not wt:
             continue
         try:
-            node_resp = feishu_get("/wiki/v2/spaces/get_node", params={"token": wt})
+            node_resp = feishu_call("/wiki/v2/spaces/get_node", params={"token": wt}, as_="tenant")
             node = node_resp.get("data", {}).get("node", {})
             if node:
                 items.append({
@@ -267,7 +277,7 @@ class FeishuKnowledge:
         obj_token, _ = wiki_token_to_obj_token(wiki_token)
         if not obj_token:
             raise ValueError(f"无法解析 wiki token: {wiki_token}")
-        resp = feishu_get(f"/docx/v1/documents/{obj_token}/raw_content")
+        resp = feishu_call(f"/docx/v1/documents/{obj_token}/raw_content", as_="tenant")
         return resp.get("data", {}).get("content", "")
 
     # ------------------------------------------------------------------ #
@@ -317,39 +327,26 @@ class FeishuKnowledge:
     # ------------------------------------------------------------------ #
     # wiki space API 专用：user token 优先，tenant token 降级
     # ------------------------------------------------------------------ #
-    def _wiki_get(self, path: str, params: dict = None) -> dict:
-        """GET wiki space API：先用 user_access_token，仅在 token 未配置时降级 tenant_access_token。
-        注意：token 续期失败（RuntimeError 但非 UserTokenNotConfiguredError）不降级，
-        避免误用 tenant token 触发 131006 权限错误。"""
-        from integrations.feishu.client import feishu_get_user, feishu_get, UserTokenNotConfiguredError
-        try:
-            return feishu_get_user(path, params)
-        except UserTokenNotConfiguredError:
-            # user token 未配置 → 降级 tenant token
-            return feishu_get(path, params)
-        except Exception as e:
-            status = getattr(getattr(e, "response", None), "status_code", None)
-            if status in (401, 403):
-                logger.warning(f"[wiki] user token GET 失败({status})，降级 tenant token: {e}")
-                return feishu_get(path, params)
-            raise
+    def _wiki_call(
+        self,
+        path: str,
+        method: str = "GET",
+        json_body: dict = None,
+        params: dict = None,
+    ) -> dict:
+        """wiki space API 统一调用：user token 优先，仅在 UserTokenNotConfiguredError 时降级。
 
-    def _wiki_post(self, path: str, json: dict = None) -> dict:
-        """POST wiki space API：先用 user_access_token，仅在 token 未配置时降级 tenant_access_token。
-        注意：token 续期失败（RuntimeError 但非 UserTokenNotConfiguredError）不降级，
-        避免误用 tenant token 触发 131006 权限错误。"""
-        from integrations.feishu.client import feishu_post_user, feishu_post, UserTokenNotConfiguredError
+        使用 feishu_call() 统一入口：
+        - token 过期自动刷新（access_token 失效 → 刷新 → 重试一次）
+        - 业务错误码已翻译为结构化异常（WikiPermissionError / AppScopeError / RuntimeError）
+        - UserTokenExpiredError 不降级（refresh_token 彻底失效需重新 OAuth，降级 tenant 也会 131006）
+        """
         try:
-            return feishu_post_user(path, json)
+            return feishu_call(path, method, json_body, params, as_="user")
         except UserTokenNotConfiguredError:
-            # user token 未配置 → 降级 tenant token
-            return feishu_post(path, json)
-        except Exception as e:
-            status = getattr(getattr(e, "response", None), "status_code", None)
-            if status in (401, 403):
-                logger.warning(f"[wiki] user token POST 失败({status})，降级 tenant token: {e}")
-                return feishu_post(path, json)
-            raise
+            # user token 未配置（首次使用）→ 降级 tenant token
+            return feishu_call(path, method, json_body, params, as_="tenant")
+        # WikiPermissionError / UserTokenExpiredError / AppScopeError → 向上传播，工具层处理
 
     # ------------------------------------------------------------------ #
     # 子页面：列出 / 查找 / 创建
@@ -368,76 +365,71 @@ class FeishuKnowledge:
         return False
 
     def list_wiki_children(self, parent_wiki_token: str = "") -> list[dict]:
-        """列出指定 wiki 节点的直属子页面。返回节点列表（含 title / node_token / has_child）。
+        """列出指定 wiki 节点的直属子页面。返回节点列表（含 title / node_token / has_child / obj_type）。
 
         parent_wiki_token 为空或 space 级标识时，列出知识库空间根节点（第一层文档）。
         parent_wiki_token 为 wiki node token 时，列出该节点的子页面。
+
+        完整分页：自动遍历 has_more + page_token（官方 API page_size 最大50）。
+
+        Raises:
+          WikiPermissionError — wiki 空间权限不足（131006）且 FEISHU_WIKI_ROOT_NODES 未配置
+          RuntimeError        — 其他 API 错误
         """
-        if not parent_wiki_token or self._is_space_level_token(parent_wiki_token):
-            # 列出知识库空间根节点：不传 parent_node_token
-            logger.info(
-                f"[FeishuKnowledge] list_wiki_children: 列出空间根节点（space_id={self.space_id}）"
-            )
+        is_root = not parent_wiki_token or self._is_space_level_token(parent_wiki_token)
+
+        if is_root:
+            logger.info(f"[FeishuKnowledge] list_wiki_children: 根节点（space_id={self.space_id}）")
             try:
-                resp = self._wiki_get(
+                items = self._list_pages_with_pagination(
                     f"/wiki/v2/spaces/{self.space_id}/nodes",
-                    params={"page_size": 50},
+                    base_params={"page_size": 50},
                 )
-                # 飞书 API 有时以 HTTP 200 返回业务错误码，需主动检查
-                resp_code = resp.get("code", 0)
-                if resp_code != 0:
-                    raise RuntimeError(f"code={resp_code} msg={resp.get('msg', '')}")
-                items = resp.get("data", {}).get("items", [])
-                logger.info(f"[FeishuKnowledge] 空间根节点数量: {len(items)}")
+                logger.info(f"[FeishuKnowledge] 根节点数量: {len(items)}")
                 return items
-            except Exception as e:
-                detail = str(e)
-                if "131006" in detail:
-                    # 尝试 FEISHU_WIKI_ROOT_NODES 配置的已知根节点作为 fallback
-                    fallback = _list_wiki_root_nodes_fallback()
-                    if fallback:
-                        logger.info(
-                            f"[FeishuKnowledge] 131006 fallback: 使用 FEISHU_WIKI_ROOT_NODES"
-                            f" 配置的已知节点（{len(fallback)} 个）"
-                        )
-                        return fallback
-                    raise RuntimeError(
-                        f"wiki 空间权限不足（error 131006）。\n"
-                        f"根因：应用 tenant_access_token 缺少 wiki 空间成员权限（与 wiki:wiki 应用权限不同）。\n"
-                        f"解决方案（三选一，按难度从低到高）：\n"
-                        f"  A. 在 .env 配置 FEISHU_WIKI_ROOT_NODES=token1,token2,token3（已知根节点的 wiki token，逗号分隔）\n"
-                        f"  B. 在 .env 配置 FEISHU_USER_ACCESS_TOKEN + FEISHU_USER_REFRESH_TOKEN（通过 OAuth 授权获取）\n"
-                        f"  C. 在飞书知识库空间设置中，将应用 cli_a8fec6e8585d100d 添加为空间成员\n"
-                        f"原始错误: {e}"
-                    ) from e
-                logger.warning(f"[FeishuKnowledge] 列出根节点失败: {e}，返回空列表")
-                return []
+            except WikiPermissionError:
+                # 131006 → 尝试 FEISHU_WIKI_ROOT_NODES 配置的已知根节点（降级）
+                fallback = _list_wiki_root_nodes_fallback()
+                if fallback:
+                    logger.info(
+                        f"[FeishuKnowledge] 131006 fallback: FEISHU_WIKI_ROOT_NODES"
+                        f" 配置的已知节点（{len(fallback)} 个）"
+                    )
+                    return fallback
+                raise  # 没有 fallback → 向上传播 WikiPermissionError，工具层统一处理
         else:
             try:
-                resp = self._wiki_get(
+                items = self._list_pages_with_pagination(
                     f"/wiki/v2/spaces/{self.space_id}/nodes",
-                    params={"parent_node_token": parent_wiki_token, "page_size": 50},
+                    base_params={"parent_node_token": parent_wiki_token, "page_size": 50},
                 )
-                # 飞书 API 有时以 HTTP 200 返回业务错误码，需主动检查
-                resp_code = resp.get("code", 0)
-                if resp_code != 0:
-                    raise RuntimeError(f"code={resp_code} msg={resp.get('msg', '')}")
+                return items
+            except WikiPermissionError:
+                raise  # 子节点查询也 131006 → 直接向上传播
             except Exception as e:
-                detail = str(e)
-                if "131006" in detail:
-                    raise RuntimeError(
-                        f"wiki 空间权限不足（error 131006）：应用需要被 wiki 空间管理员授予「读取」权限，"
-                        f"或在 .env 中配置 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN。"
-                        f"原始错误: {e}"
-                    ) from e
-                if "400" in detail:
+                if "400" in str(e):
                     logger.warning(
-                        f"[FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）: "
-                        f"{parent_wiki_token!r}，返回空列表"
+                        f"[FeishuKnowledge] list_wiki_children 400（页面可能已删除/移动/不在本空间）:"
+                        f" {parent_wiki_token!r}，返回空列表"
                     )
                     return []
                 raise
-        return resp.get("data", {}).get("items", [])
+
+    def _list_pages_with_pagination(self, path: str, base_params: dict) -> list[dict]:
+        """通用分页列表：遍历 has_more + page_token（官方 wiki nodes API）。"""
+        items = []
+        params = dict(base_params)
+        while True:
+            resp = self._wiki_call(path, params=params)
+            data = resp.get("data", {})
+            items.extend(data.get("items", []))
+            if not data.get("has_more", False):
+                break
+            page_token = data.get("page_token", "")
+            if not page_token:
+                break
+            params = {**base_params, "page_token": page_token}
+        return items
 
     def create_wiki_child_page(self, title: str, parent_wiki_token: str) -> str:
         """
@@ -466,34 +458,26 @@ class FeishuKnowledge:
             # space 级标识 → 创建在 wiki 空间根目录，不传 parent_node_token
             if not self._is_space_level_token(parent_wiki_token):
                 payload["parent_node_token"] = parent_wiki_token
-            resp = self._wiki_post(
+            resp = self._wiki_call(
                 f"/wiki/v2/spaces/{self.space_id}/nodes",
-                json=payload,
+                method="POST",
+                json_body=payload,
             )
-            # 飞书 API 有时以 HTTP 200 返回业务错误码，需主动检查
-            resp_code = resp.get("code", 0)
-            if resp_code != 0:
-                raise RuntimeError(f"code={resp_code} msg={resp.get('msg', '')}")
             node = resp.get("data", {}).get("node", {})
             node_token = node.get("node_token", "")
             if node_token:
                 logger.info(f"[FeishuKnowledge] 方案A 创建子页面成功: {title!r} → {node_token}")
                 return node_token
             logger.warning(f"[FeishuKnowledge] 方案A 响应未含 node_token: {resp}")
+        except WikiPermissionError:
+            # 131006：方案B同样需要空间权限，直接向上传播，工具层统一处理
+            raise
         except Exception as e:
-            detail = str(e)
-            # 检测 131006（wiki 空间权限不足）→ 直接报错，无需降级到方案B（方案B同样需要空间权限）
-            if "131006" in detail:
-                raise RuntimeError(
-                    f"wiki 空间权限不足（error 131006）：应用需要被 wiki 空间管理员授予「编辑」权限，"
-                    f"或在 .env 中配置 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN。"
-                    f"原始错误: {detail}"
-                ) from e
-            logger.warning(f"[FeishuKnowledge] 方案A 失败，降级到方案B: {detail}")
+            logger.warning(f"[FeishuKnowledge] 方案A 失败，降级到方案B: {e}")
 
         # 方案 B（降级）：创建 docx 后 move_docs_to_wiki
         # ① 创建 docx
-        doc_resp = feishu_post("/docx/v1/documents", json={"title": title})
+        doc_resp = feishu_call("/docx/v1/documents", method="POST", json_body={"title": title}, as_="tenant")
         doc_id = doc_resp["data"]["document"]["document_id"]
 
         # ② 移入 wiki（space 级标识时不传 parent_wiki_token → 移到根节点）
@@ -501,19 +485,17 @@ class FeishuKnowledge:
         if not self._is_space_level_token(parent_wiki_token):
             move_payload["parent_wiki_token"] = parent_wiki_token
         try:
-            move_resp = self._wiki_post(
+            move_resp = self._wiki_call(
                 f"/wiki/v2/spaces/{self.space_id}/nodes/move_docs_to_wiki",
-                json=move_payload,
+                method="POST",
+                json_body=move_payload,
             )
-        except Exception as e:
-            detail = str(e)
-            if "131006" in detail:
-                raise RuntimeError(
-                    f"wiki 空间权限不足（error 131006）：move_docs_to_wiki 需要应用有空间编辑权限，"
-                    f"或配置 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN。"
-                    f"已创建的独立文档 doc_id={doc_id} 可通过 /docx/{doc_id} 访问，"
-                    f"但未移入 wiki 空间。"
-                ) from e
+        except WikiPermissionError:
+            raise WikiPermissionError(
+                f"wiki 空间权限不足（131006）：move_docs_to_wiki 需要应用有空间编辑权限。"
+                f"已创建的独立文档 doc_id={doc_id} 可通过 /docx/{doc_id} 访问，但未移入 wiki 空间。"
+            )
+        except Exception:
             raise
         move_data = move_resp.get("data", {})
         logger.info(f"[FeishuKnowledge] 方案B move_docs_to_wiki 响应: {move_data}")
@@ -534,7 +516,7 @@ class FeishuKnowledge:
 
         for _ in range(10):
             time.sleep(1)
-            task_resp = feishu_get(f"/wiki/v2/tasks/{task_id}", params={"task_type": "move"})
+            task_resp = feishu_call(f"/wiki/v2/tasks/{task_id}", params={"task_type": "move"}, as_="tenant")
             results = task_resp.get("data", {}).get("task", {}).get("move_result", [])
             if results and results[0].get("status") == 0:
                 node_token = results[0]["node"]["node_token"]
@@ -690,9 +672,11 @@ class FeishuKnowledge:
             raise ValueError(f"无法解析 wiki token: {wiki_token}")
         for i in range(0, len(blocks), chunk_size):
             batch = blocks[i : i + chunk_size]
-            feishu_post(
+            feishu_call(
                 f"/docx/v1/documents/{obj_token}/blocks/{obj_token}/children",
-                json={"children": batch, "index": -1},
+                method="POST",
+                json_body={"children": batch, "index": -1},
+                as_="tenant",
             )
             if i + chunk_size < len(blocks):
                 time.sleep(0.3)
@@ -702,19 +686,20 @@ class FeishuKnowledge:
     # ------------------------------------------------------------------ #
     def _clear_doc(self, obj_token: str):
         """删除文档所有子块（清空内容）。"""
-        resp = feishu_get(f"/docx/v1/documents/{obj_token}/blocks")
+        resp = feishu_call(f"/docx/v1/documents/{obj_token}/blocks", as_="tenant")
         items = resp.get("data", {}).get("items", [])
         child_count = len(items) - 1   # items[0] 是根块自身
         if child_count <= 0:
             return
-        feishu_delete(
+        feishu_call(
             f"/docx/v1/documents/{obj_token}/blocks/{obj_token}/children/batch_delete",
-            json={"start_index": 0, "end_index": child_count},
+            method="DELETE",
+            json_body={"start_index": 0, "end_index": child_count},
+            as_="tenant",
         )
 
     def _append_text(self, obj_token: str, text: str, chunk_size: int = 40):
         """向文档末尾追加文本（按换行拆成段落块，分批提交避免超限）。"""
-        import time
         lines = text.split("\n")
         for i in range(0, len(lines), chunk_size):
             batch = lines[i : i + chunk_size]
@@ -728,9 +713,11 @@ class FeishuKnowledge:
                 }
                 for line in batch
             ]
-            feishu_post(
+            feishu_call(
                 f"/docx/v1/documents/{obj_token}/blocks/{obj_token}/children",
-                json={"children": children, "index": -1},
+                method="POST",
+                json_body={"children": children, "index": -1},
+                as_="tenant",
             )
             if i + chunk_size < len(lines):
                 time.sleep(0.3)  # 防止限速

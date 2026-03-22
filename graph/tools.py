@@ -15,9 +15,18 @@ import html
 from typing import Union
 from langchain_core.tools import tool
 from integrations.feishu.knowledge import FeishuKnowledge
-from integrations.feishu.client import feishu_get, feishu_post, feishu_delete, _update_env_user_token, FEISHU_BASE, _user_token_cache
+from integrations.feishu.client import (
+    feishu_call, feishu_get, feishu_post, feishu_delete,
+    _update_env_user_token, FEISHU_BASE, _user_token_cache,
+    invalidate_user_token_cache,
+    UserTokenNotConfiguredError, UserTokenExpiredError,
+    WikiPermissionError, AppScopeError,
+    notify_owner_reauth, notify_wiki_permission_issue,
+)
 from integrations.dingtalk.docs import DingTalkDocs
 from sync.context_sync import ContextSync
+
+import functools
 
 logger = logging.getLogger(__name__)
 
@@ -25,102 +34,163 @@ PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 # --------------------------------------------------------------------------- #
+# 飞书工具统一错误处理装饰器（参考 OpenClaw tool-client.js rethrowStructuredError）
+# --------------------------------------------------------------------------- #
+def feishu_tool(func):
+    """飞书工具统一错误处理装饰器。
+
+    捕获 client.py 抛出的结构化认证/权限异常，翻译为 LLM 友好的字符串：
+    - UserTokenExpiredError    → 推 IM 通知（owner 重新授权），返回一句话
+    - WikiPermissionError      → 推 IM 通知（131006 说明），返回说明文字
+    - AppScopeError            → 返回需管理员操作的说明
+    - UserTokenNotConfiguredError → 返回需授权的说明
+    - 其他异常                 → log + 返回操作失败：{msg}
+
+    用法（顺序重要：@tool 在外，@feishu_tool 在内）：
+      @tool
+      @feishu_tool
+      def feishu_xxx(...) -> str:
+          ...
+    """
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except UserTokenExpiredError as e:
+            notify_owner_reauth(str(e))
+            return (
+                "⚠️ 飞书 OAuth 授权已失效（refresh_token 过期/撤销），"
+                "已通过飞书消息通知你重新授权，请完成授权后重试。"
+            )
+        except WikiPermissionError:
+            notify_wiki_permission_issue()
+            return (
+                "⚠️ wiki 空间权限未配置（131006），已通过飞书消息通知你。\n"
+                "解决方法（三选一）：\n"
+                "① 在飞书知识库「空间设置→成员管理」将应用添加为成员\n"
+                "② 在 .env 配置 FEISHU_WIKI_ROOT_NODES\n"
+                "③ 告诉我「帮我重新授权飞书」"
+            )
+        except AppScopeError as e:
+            return f"⚠️ 应用 API 权限缺失，需管理员在飞书开放平台开通权限后重新发布应用。详情：{e}"
+        except UserTokenNotConfiguredError:
+            return "⚠️ 飞书 user token 未配置。请告诉我「帮我授权飞书」开始 OAuth 流程。"
+        except Exception as e:
+            logger.error(f"[{func.__name__}] {e}", exc_info=True)
+            return f"操作失败：{e}"
+    return wrapper
+
+
+# --------------------------------------------------------------------------- #
 # 飞书知识库 — 读
 # --------------------------------------------------------------------------- #
 @tool
+@feishu_tool
 def feishu_read_page(wiki_url_or_token: str) -> str:
-    """
-    读取飞书知识库页面的纯文本内容。
+    """读取飞书知识库页面的纯文本内容。
 
     参数：
-      wiki_url_or_token — 飞书 wiki 页面 URL 或 token。
-        支持完整 URL：https://xxx.feishu.cn/wiki/Qo4nwLphWiWZyfkGAHHcoHwQnEf
-        也支持裸 token：Qo4nwLphWiWZyfkGAHHcoHwQnEf
+      wiki_url_or_token — 飞书 wiki 页面 URL 或 裸 token
+        支持：https://xxx.feishu.cn/wiki/Qo4nwLphWiWZyfkGAHHcoHwQnEf
+        支持：Qo4nwLphWiWZyfkGAHHcoHwQnEf
 
-    返回页面的纯文本内容。
+    仅支持 docx 类型页面；若是电子表格/多维表格，返回提示使用对应专用工具。
 
-    ⚠️ token 必须来自用户提供的 URL 或 feishu_wiki_page(list_children) 的返回结果，不能使用记忆中的旧 token。
-    返回权限错误时（含 131006/403），停止重试，告知用户配置权限。
+    ⚠️ token 必须来自 feishu_wiki_page(list_children) 返回结果或用户提供的 URL，不能凭记忆猜测。
     """
-    try:
-        kb = FeishuKnowledge()
-        content = kb.read_page(wiki_url_or_token)
-        return content or "（页面内容为空）"
-    except Exception as e:
-        logger.error(f"[feishu_read_page] {e}")
-        return f"读取失败：{e}"
+    from integrations.feishu.knowledge import parse_wiki_token, wiki_token_to_obj_token
+    from integrations.feishu.client import feishu_call
+
+    wiki_token = parse_wiki_token(wiki_url_or_token)
+    obj_token, obj_type = wiki_token_to_obj_token(wiki_token)
+    if not obj_token:
+        return f"无法解析 wiki token：{wiki_token}（页面可能已删除或不在本空间）"
+
+    # obj_type 路由（官方文档：wiki 页面可以是多种类型）
+    if obj_type == "sheet":
+        return (
+            f"该 wiki 页面是电子表格（sheet），不能用此工具读取。\n"
+            f"请改用：feishu_spreadsheet(action='read_values', "
+            f"spreadsheet_token='{obj_token}', range_='...')"
+        )
+    if obj_type == "bitable":
+        return (
+            f"该 wiki 页面是多维表格（bitable），不能用此工具读取。\n"
+            f"请改用：feishu_bitable_record(action='list', app_token='{obj_token}', table_id='...')"
+        )
+    if obj_type not in ("docx", "doc"):
+        return f"该 wiki 页面类型为 {obj_type!r}，暂不支持读取。"
+
+    resp = feishu_call(f"/docx/v1/documents/{obj_token}/raw_content", as_="tenant")
+    return resp.get("data", {}).get("content", "") or "（页面内容为空）"
 
 
 # --------------------------------------------------------------------------- #
 # 飞书知识库 — 写（追加）
 # --------------------------------------------------------------------------- #
 @tool
+@feishu_tool
 def feishu_append_to_page(wiki_url_or_token: str, content: str) -> str:
-    """
-    向飞书知识库页面末尾追加文本内容，不影响已有内容。
+    """向飞书知识库页面末尾追加文本内容，不影响已有内容。
 
     参数：
       wiki_url_or_token — 飞书 wiki 页面 URL 或 token
       content           — 要追加的文本（支持多行）
 
     适用场景：记录新信息、追加日志、在已有文档末尾补充内容。
+    成功返回确认消息 + 页面链接。
     """
-    try:
-        kb = FeishuKnowledge()
-        kb.append_to_page(wiki_url_or_token, content)
-        return "内容已追加到飞书页面。"
-    except Exception as e:
-        logger.error(f"[feishu_append_to_page] {e}")
-        return f"追加失败：{e}"
+    from integrations.feishu.knowledge import parse_wiki_token
+    kb = FeishuKnowledge()
+    kb.append_to_page(wiki_url_or_token, content)
+    clean_token = parse_wiki_token(wiki_url_or_token)
+    page_url = f"https://pw46ob73t1c.feishu.cn/wiki/{clean_token}"
+    return f"✅ 内容已追加。\n页面链接：{page_url}"
 
 
 # --------------------------------------------------------------------------- #
 # 飞书知识库 — 写（覆盖）
 # --------------------------------------------------------------------------- #
 @tool
+@feishu_tool
 def feishu_overwrite_page(wiki_url_or_token: str, content: str) -> str:
-    """
-    清空飞书知识库页面并写入新内容（覆盖模式）。
+    """清空飞书知识库页面并写入新内容（覆盖模式，不可撤销）。
 
     参数：
       wiki_url_or_token — 飞书 wiki 页面 URL 或 token
       content           — 新的完整内容（会替换页面所有原有内容）
 
-    注意：此操作不可撤销，原有内容将被清除。
     适用场景：更新上下文快照、重写文档、定期刷新页面内容。
+    成功返回确认消息 + 页面链接。
     """
-    try:
-        kb = FeishuKnowledge()
-        kb.overwrite_page(wiki_url_or_token, content)
-        return "飞书页面内容已覆盖更新。"
-    except Exception as e:
-        logger.error(f"[feishu_overwrite_page] {e}")
-        return f"覆盖写入失败：{e}"
+    from integrations.feishu.knowledge import parse_wiki_token
+    kb = FeishuKnowledge()
+    kb.overwrite_page(wiki_url_or_token, content)
+    clean_token = parse_wiki_token(wiki_url_or_token)
+    page_url = f"https://pw46ob73t1c.feishu.cn/wiki/{clean_token}"
+    return f"✅ 页面已覆盖更新。\n页面链接：{page_url}"
 
 
 # --------------------------------------------------------------------------- #
 # 飞书知识库 — 搜索
 # --------------------------------------------------------------------------- #
 @tool
+@feishu_tool
 def feishu_search_wiki(query: str) -> str:
-    """
-    在飞书知识库（AI上下文页面）中搜索包含关键词的内容。
+    """在飞书知识库（AI上下文页面）中搜索包含关键词的内容。
 
     参数：
       query — 搜索关键词
 
     返回匹配的页面内容摘要。若无匹配则返回提示。
     适用场景：查找历史记录、检索已记录的信息。
+    注意：仅搜索 FEISHU_WIKI_CONTEXT_PAGE 中的内容，不是全空间搜索。
     """
-    try:
-        kb = FeishuKnowledge()
-        results = kb.search(query)
-        if not results:
-            return f"知识库中未找到包含「{query}」的内容。"
-        return "\n\n---\n\n".join(results[:3])
-    except Exception as e:
-        logger.error(f"[feishu_search_wiki] {e}")
-        return f"搜索失败：{e}"
+    kb = FeishuKnowledge()
+    results = kb.search(query)
+    if not results:
+        return f"知识库中未找到包含「{query}」的内容。"
+    return "\n\n---\n\n".join(results[:3])
 
 
 # --------------------------------------------------------------------------- #
@@ -873,14 +943,14 @@ def get_service_status() -> str:
 # 飞书知识库子页面管理（list / find_or_create）
 # --------------------------------------------------------------------------- #
 @tool
+@feishu_tool
 def feishu_wiki_page(
     action: str = "list_children",
     title: str = "",
     parent_wiki_token: str = "",
     cache_key: str = "",
 ) -> str:
-    """
-    飞书知识库子页面管理（全程 tenant_access_token，无需 user OAuth）。
+    """飞书知识库子页面管理（user token 优先，降级 tenant token）。
 
     action 可选：
       list_children   — 列出子页面
@@ -902,42 +972,38 @@ def feishu_wiki_page(
                        parent_wiki_token="FalZwGDOkiqpbQkeAjGc8jaznMd",
                        cache_key="WIKI_PAGE_MEETING_NOTES")
     """
-    try:
-        from integrations.feishu.knowledge import FeishuKnowledge, parse_wiki_token
-        kb = FeishuKnowledge()
+    from integrations.feishu.knowledge import FeishuKnowledge, parse_wiki_token
+    kb = FeishuKnowledge()
 
-        # 清理 token（去除 URL 前缀、inline comment 残留、空白）
-        if parent_wiki_token:
-            parent_wiki_token = parse_wiki_token(parent_wiki_token.split("#")[0].strip())
+    # 清理 token（去除 URL 前缀、inline comment 残留、空白）
+    if parent_wiki_token:
+        parent_wiki_token = parse_wiki_token(parent_wiki_token.split("#")[0].strip())
 
-        if action == "list_children":
-            items = kb.list_wiki_children(parent_wiki_token)
-            if not items:
-                scope = parent_wiki_token or "空间根节点"
-                return f"{scope} 下暂无子页面"
+    if action == "list_children":
+        items = kb.list_wiki_children(parent_wiki_token)
+        if not items:
             scope = parent_wiki_token or "空间根节点"
-            lines = [f"{scope} 共 {len(items)} 个子页面："]
-            for it in items:
-                child_hint = "（有子页）" if it.get("has_child") else ""
-                lines.append(f"  - {it['title']}{child_hint}  token={it['node_token']}")
-            return "\n".join(lines)
+            return f"{scope} 下暂无子页面"
+        scope = parent_wiki_token or "空间根节点"
+        lines = [f"{scope} 共 {len(items)} 个子页面："]
+        for it in items:
+            child_hint = "（有子页）" if it.get("has_child") else ""
+            lines.append(f"  - {it['title']}{child_hint}  token={it['node_token']}")
+        return "\n".join(lines)
 
-        elif action == "find_or_create":
-            if not title or not parent_wiki_token:
-                return "find_or_create 需要提供 title 和 parent_wiki_token"
-            token = kb.find_or_create_child_page(title, parent_wiki_token, cache_key)
-            url = f"https://pw46ob73t1c.feishu.cn/wiki/{token}"
-            return f"✅ 页面 token={token}\n链接：{url}"
+    elif action == "find_or_create":
+        if not title or not parent_wiki_token:
+            return "find_or_create 需要提供 title 和 parent_wiki_token"
+        token = kb.find_or_create_child_page(title, parent_wiki_token, cache_key)
+        url = f"https://pw46ob73t1c.feishu.cn/wiki/{token}"
+        return f"✅ 页面 token={token}\n链接：{url}"
 
-        else:
-            return f"未知 action: {action!r}，可选：list_children / find_or_create"
-
-    except Exception as e:
-        logger.error(f"[feishu_wiki_page] {e}")
-        return f"操作失败：{e}"
+    else:
+        return f"未知 action: {action!r}，可选：list_children / find_or_create"
 
 
 @tool
+@feishu_tool
 def feishu_project_setup(
     project_name: str,
     project_code: str,
@@ -1890,137 +1956,25 @@ _FEISHU_OAUTH_REDIRECT_URI = "https://open.feishu.cn/document/server-docs/"
 
 @tool
 def feishu_oauth_setup(action: str, code: str = "") -> str:
-    """飞书 OAuth 授权工具：获取/更新 user_access_token + refresh_token，修复 wiki 空间 131006 权限问题。
+    """飞书 OAuth 授权工具（仅在用户主动要求授权时调用）。
 
-    action 取值：
-      - "check_status"  : ⚠️ 必须首先调用！检查当前 token 状态，过期则自动用 refresh_token 续期
-      - "get_auth_url"  : 返回飞书登录授权链接，发给用户在浏览器中打开（仅 check_status 确认需要时才调用）
-      - "exchange_code" : 用授权 code 换取 access_token + refresh_token，自动写入 .env
+    ⚠️ 重要：token 过期的自动续期由系统在后台完成，不需要调用此工具。
+       遇到飞书 API 报错时**不要调用此工具诊断**，系统会自动处理并通知用户。
+       只有用户说「帮我重新授权飞书」时才调用。
 
-    ⚠️ 重要规则：遇到 token 相关错误时，必须先调用 check_status，不得直接调用 get_auth_url。
-    - check_status 返回"有效"或"已自动续期" → token 正常，不需要重新授权，不得再触发 OAuth 流程
-    - check_status 返回"需要重新授权" → 才可调用 get_auth_url 让用户登录
+    action 可选：
+      "get_auth_url"   — 生成 OAuth 授权链接（仅用户明确要求重新授权时调用）
+      "exchange_code"  — 用用户从浏览器获得的 code 换取 token（需要 code 参数）
 
-    使用流程（check_status 确认需要授权后）：
-    1. feishu_oauth_setup(action="get_auth_url")  → 将链接发给用户
-    2. 用户在浏览器打开链接，登录飞书后页面跳转，从地址栏复制 code=xxx 参数值，
-    3. feishu_oauth_setup(action="exchange_code", code="xxx")
-    4. .env 自动写入 FEISHU_USER_ACCESS_TOKEN / FEISHU_USER_REFRESH_TOKEN，立即生效
+    授权完成标准流程：
+      1. feishu_oauth_setup(action="get_auth_url") → 将链接发给用户
+      2. 用户在浏览器打开链接，登录飞书，从地址栏复制 code=xxx 参数值
+      3. feishu_oauth_setup(action="exchange_code", code="用户复制的code")
+
+    ❌ 禁止场景：遇到飞书 API 报错时主动调用（系统自动处理）
     """
     app_id = os.getenv("FEISHU_APP_ID", "")
     app_secret = os.getenv("FEISHU_APP_SECRET", "")
-
-    if action == "check_status":
-        token = os.getenv("FEISHU_USER_ACCESS_TOKEN", "")
-        refresh_token = os.getenv("FEISHU_USER_REFRESH_TOKEN", "")
-        expires_at = float(os.getenv("FEISHU_USER_TOKEN_EXPIRES_AT", "0"))
-        now = time.time()
-
-        if not token:
-            return (
-                "⚠️ token 状态：未配置\n"
-                "FEISHU_USER_ACCESS_TOKEN 未设置，需要重新授权。\n"
-                'feishu_oauth_setup(action="get_auth_url") 开始授权流程。'
-            )
-
-        # 手动配置 token 但未设置过期时间，视为有效（与 get_user_access_token 逻辑一致）
-        if token and expires_at == 0:
-            return (
-                "✅ token 状态：有效（手动配置，未设置过期时间，视为有效）\n"
-                "用户已登录，无需重新授权。token 可正常使用。"
-            )
-
-        # token 在缓存中且未过期
-        if expires_at > 0 and now < expires_at - 60:
-            remaining = int((expires_at - now) / 60)
-            return (
-                f"✅ token 状态：有效（剩余约 {remaining} 分钟）\n"
-                "用户已登录，无需重新授权。token 可正常使用。"
-            )
-
-        # token 已过期，尝试用 refresh_token 续期
-        if refresh_token:
-            # 检查 refresh_token 本身是否已过期
-            refresh_expires_at = float(os.getenv("FEISHU_USER_REFRESH_EXPIRES_AT", "0"))
-            if refresh_expires_at > 0 and now > refresh_expires_at:
-                return (
-                    "⚠️ token 状态：refresh_token 已过期（30天有效期到期）\n"
-                    "需要重新授权，请调用 feishu_oauth_setup(action=\"get_auth_url\")。"
-                )
-            try:
-                app_resp = httpx.post(
-                    f"{FEISHU_BASE}/auth/v3/app_access_token/internal",
-                    json={"app_id": app_id, "app_secret": app_secret},
-                    timeout=10,
-                )
-                app_resp.raise_for_status()
-                app_token = app_resp.json()["app_access_token"]
-
-                new_token = ""
-                new_refresh = refresh_token
-                new_expires_in = 7200
-                new_refresh_expires_at = 0
-
-                for endpoint in [
-                    f"{FEISHU_BASE}/authen/v1/oidc/refresh_access_token",
-                    f"{FEISHU_BASE}/authen/v1/refresh_access_token",
-                ]:
-                    try:
-                        resp = httpx.post(
-                            endpoint,
-                            headers={"Authorization": f"Bearer {app_token}"},
-                            json={"grant_type": "refresh_token", "refresh_token": refresh_token},
-                            timeout=10,
-                        )
-                        resp.raise_for_status()
-                        resp_json = resp.json()
-                        biz_code = resp_json.get("code", 0)
-                        if biz_code != 0:
-                            continue
-                        data = resp_json.get("data", resp_json)
-                        tok = data.get("access_token", "")
-                        if not tok:
-                            continue
-                        new_token = tok
-                        new_refresh = data.get("refresh_token", refresh_token)
-                        new_expires_in = data.get("expires_in", 7200)
-                        refresh_expires_in = data.get("refresh_expires_in", 0)
-                        if refresh_expires_in > 0:
-                            new_refresh_expires_at = now + refresh_expires_in
-                        break
-                    except Exception:
-                        continue
-
-                if new_token:
-                    new_expires_at = now + new_expires_in
-                    os.environ["FEISHU_USER_ACCESS_TOKEN"] = new_token
-                    os.environ["FEISHU_USER_REFRESH_TOKEN"] = new_refresh
-                    os.environ["FEISHU_USER_TOKEN_EXPIRES_AT"] = str(int(new_expires_at))
-                    if new_refresh_expires_at > 0:
-                        os.environ["FEISHU_USER_REFRESH_EXPIRES_AT"] = str(int(new_refresh_expires_at))
-                    _user_token_cache["token"] = new_token
-                    _user_token_cache["expires_at"] = new_expires_at
-                    _update_env_user_token(new_token, new_refresh, new_expires_at, new_refresh_expires_at)
-                    refresh_days = int(new_refresh_expires_at - now) // 86400 if new_refresh_expires_at > 0 else "未知"
-                    return (
-                        f"✅ token 状态：已自动续期（新有效期约 {new_expires_in // 60} 分钟，"
-                        f"refresh_token 剩余 {refresh_days} 天）\n"
-                        "用户已登录，无需重新授权。续期后可立即使用。"
-                    )
-                return (
-                    "⚠️ token 已过期，自动续期失败（两个接口均无法获取新 token）\n"
-                    "需要重新授权，请调用 feishu_oauth_setup(action=\"get_auth_url\")。"
-                )
-            except Exception as e:
-                return (
-                    f"⚠️ token 已过期，自动续期失败：{e}\n"
-                    "需要重新授权，请调用 feishu_oauth_setup(action=\"get_auth_url\")。"
-                )
-
-        return (
-            "⚠️ token 状态：已过期且无 refresh_token\n"
-            "需要重新授权，请调用 feishu_oauth_setup(action=\"get_auth_url\")。"
-        )
 
     if action == "get_auth_url":
         scope = "wiki:wiki docx:document bitable:app im:message:send_as_bot"
@@ -2108,7 +2062,7 @@ def feishu_oauth_setup(action: str, code: str = "") -> str:
         except Exception as e:
             return f"❌ 换取 token 失败：{e}"
 
-    return f"❌ 未知 action：{action}，支持 check_status / get_auth_url / exchange_code"
+    return f"❌ 未知 action：{action}，支持 get_auth_url / exchange_code"
 
 
 # --------------------------------------------------------------------------- #
@@ -2408,18 +2362,18 @@ TOOL_CATEGORIES: dict[str, list] = {
 CATEGORY_KEYWORDS: dict[str, list[str]] = {
     "feishu_wiki": [
         "飞书", "feishu", "知识库", "wiki", "页面", "同步上下文",
-        "读取文档", "追加", "覆盖",
-        "会议", "纪要", "meeting", "会议纪要", "整理会议", "写入飞书", "汇总",
-        "项目", "章程", "周报", "里程碑", "需求文档", "技术方案", "风险", "raid",
+        "读取文档", "追加", "覆盖", "写入飞书",
+        # 会议/纪要/meeting 不在此处：由 dingtalk_mcp 独占，避免重复触发
+        "汇总", "项目", "章程", "周报", "里程碑", "需求文档", "技术方案", "风险", "raid",
         "复盘", "项目集", "portfolio", "上线", "验收", "立项",
         "新建项目", "项目初始化", "建立项目", "创建项目", "项目结构",
         "oauth", "授权", "token", "权限", "131006",
     ],
     "feishu_advanced": [
-        "多维表格", "bitable", "表格", "任务", "task",
+        "多维表格", "bitable", "飞书任务", "飞书table",
         "全文搜索", "群聊", "消息记录", "im消息",
-        "表格记录", "待办", "清单",
-        "日历", "日程", "calendar", "约会", "忙闲", "freebusy", "日程安排", "会议室",
+        "飞书表格", "待办", "清单",
+        "日历", "日程", "calendar", "约会", "忙闲", "freebusy", "日程安排",
         "电子表格", "sheet", "spreadsheet",
         "群成员", "chat_id", "用户信息",
         "excel", "xlsx", "xls", "导入", "excel导入", "表格导入", "上传文件", "解析excel",
