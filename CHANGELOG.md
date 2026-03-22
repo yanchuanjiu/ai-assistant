@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.11 - 2026-03-22
+
+### Fixed
+- **web_search 传入 list 类型导致 pydantic 验证失败**：LLM（火山云）在并行搜索时偶发将多个 query 打包成 list 传入 `web_search(query)`，pydantic 验证 `str` 类型失败，工具执行报错。`graph/tools.py`：将参数类型改为 `Union[str, list]`，若传入 list 则自动 join 为空格分隔的单个查询字符串。
+- **MAX_TOOL_ITERATIONS 提升至 15**：研究类任务（多轮 web_search 并行搜索）在失败重试时容易耗尽 10 次上限，提升至 15 次，保证有足够迭代空间完成复杂任务。
+
 ## v1.0.10 - 2026-03-22
 
 ### Fixed

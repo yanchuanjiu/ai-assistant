@@ -227,8 +227,8 @@ _LLM_LOG_PATH = "logs/llm.jsonl"
 # 注：不再按轮次截断对话历史，完整历史均传给 LLM（SQLite 存储）
 HISTORY_TOOL_CONTENT_LIMIT = 300
 # 每轮最大工具调用迭代次数（防止死循环）
-# 设为 10：复杂开发任务（自迭代 + 上下文分析）通常需要 6-8 次，保留 2 次余量
-MAX_TOOL_ITERATIONS = 10
+# 设为 15：复杂研究/开发任务（多轮 web_search + 自迭代 + 上下文分析）通常需要 8-12 次，保留余量
+MAX_TOOL_ITERATIONS = 15
 
 # 需要用户手动交互的信号词（出现则提前终止，避免无效重试）
 _USER_INTERACTION_SIGNALS = [

@@ -12,6 +12,7 @@ import urllib.parse
 import httpx
 import urllib.request
 import html
+from typing import Union
 from langchain_core.tools import tool
 from integrations.feishu.knowledge import FeishuKnowledge
 from integrations.feishu.client import feishu_get, feishu_post, feishu_delete, _update_env_user_token, FEISHU_BASE, _user_token_cache
@@ -683,16 +684,19 @@ def send_claude_input(thread_id: str, text: str) -> str:
 # Web 工具
 # --------------------------------------------------------------------------- #
 @tool
-def web_search(query: str, num_results: int = 5) -> str:
+def web_search(query: Union[str, list], num_results: int = 5) -> str:
     """
     在网络上搜索信息，返回摘要结果列表。
 
     参数：
-      query       — 搜索关键词（支持中英文）
+      query       — 搜索关键词（支持中英文；若传入列表则自动合并为单个查询）
       num_results — 返回结果数量（默认 5，最多 10）
 
     返回搜索结果标题、URL 和摘要。
     """
+    # 兼容 LLM 误传 list 的情况：合并为空格分隔的单个查询
+    if isinstance(query, list):
+        query = " ".join(str(q) for q in query)
     num_results = min(int(num_results), 10)
     try:
         # 使用 DuckDuckGo lite（无需 API key）
