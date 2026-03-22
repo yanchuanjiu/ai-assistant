@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.0.12 - 2026-03-22
+
+### Fixed
+- **飞书话题路由 BUG-002（quote-reply 未路由到对应话题）**：用户在飞书聊天框内通过"引用回复"(quote-reply) 回复话题线程中的消息时，消息有 `parent_id` 但 `root_id` 为空，旧代码只检查 `root_id`，导致消息被归入主聊天上下文而非对应话题。`integrations/feishu/bot.py`：`_parse_feishu_message` 增加 `parent_id` fallback，当 `root_id` 为空且 `parent_id` 在 `_anchor_to_thread` 中时，路由到对应话题上下文。
+- **会议纪要飞书展示格式错误**：`format_for_project_page` 使用 Markdown 表格（`| 字段 | 内容 |`），但 `md_to_feishu_blocks` 不支持表格解析，表格行以含竖线字符的原始文本渲染，显示效果差。`integrations/meeting/analyzer.py`：改为列表项格式（`- 📅 **日期**：{date}`），正确渲染为飞书项目符号列表。
+- **工具叠加导致响应延迟**：`feishu_advanced` 分类关键词含"会议"，与 `feishu_wiki` 和 `dingtalk_mcp` 重复，用户提及"会议"时同时触发三个分类共~75个工具，大幅增加系统提示 token 用量。`graph/tools.py`：从 `feishu_advanced` 关键词中移除"会议"（保留"会议室"），改由日历专属词 "日历/日程/约会" 触发。
+
 ## v1.0.11 - 2026-03-22
 
 ### Fixed

@@ -233,10 +233,16 @@ def _parse_feishu_message(data: P2ImMessageReceiveV1) -> dict | None:
     msg_type = msg.message_type or "text"
     chat_id = msg.chat_id or ""
     root_id = getattr(msg, "root_id", None) or ""
+    parent_id = getattr(msg, "parent_id", None) or ""
     if root_id:
         # 优先从反向映射查找已知话题 thread_id（重启后也有效，已从 SQLite 恢复）
         # 未命中时回退到 feishu:{chat_id}（比创建孤立新会话更好：保留对话历史）
         thread_id = _anchor_to_thread.get(root_id) or f"feishu:{chat_id}"
+    elif parent_id and parent_id in _anchor_to_thread:
+        # BUG-002 修复：用户通过"引用回复"(quote-reply) 话题消息时，
+        # root_id 为空但 parent_id 命中已知话题 → 路由到对应话题上下文
+        thread_id = _anchor_to_thread[parent_id]
+        root_id = parent_id  # 让 _send_reply 用引用消息作为 anchor，保持回复可见性
     else:
         thread_id = f"feishu:{chat_id}"
     message_id = msg.message_id or ""

@@ -1,7 +1,7 @@
 # AI 个人助理 — Claude Code 项目上下文
 
 > 本文件是 Claude Code 自迭代的首要参考，进入项目目录后**先读此文件**再动手。
-> 最后更新：2026-03-21（v1.0.4）
+> 最后更新：2026-03-22（v1.0.12）
 
 ---
 
@@ -46,6 +46,7 @@
 ✅ 话题持久化      — chat_topics SQLite 表（UPSERT），命名话题重启不丢失；_get_all_sessions() 联合查 feishu_anchors + checkpoints
 ✅ Excel 导入      — excel_import 工具：搜索/解析/预览/写入电子表格或多维表格；支持合并单元格、对话上传文件
 ✅ 飞书 wiki user token 续期    — threading.Lock 防并发竞争；UserTokenNotConfiguredError 专用异常，区分"未配置"和"续期失败"，修复 131006 复现根因（v1.0.10）
+✅ 话题路由 BUG-002 修复        — quote-reply(parent_id) fallback；会议纪要表格→列表项渲染修复；feishu_advanced 去除"会议"重复关键词（v1.0.11）
 
 ⚠️  163 IMAP     — 需在 163 网页版重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```

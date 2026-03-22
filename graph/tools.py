@@ -2419,7 +2419,7 @@ CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "多维表格", "bitable", "表格", "任务", "task",
         "全文搜索", "群聊", "消息记录", "im消息",
         "表格记录", "待办", "清单",
-        "日历", "日程", "calendar", "会议", "约会", "忙闲", "freebusy",
+        "日历", "日程", "calendar", "约会", "忙闲", "freebusy", "日程安排", "会议室",
         "电子表格", "sheet", "spreadsheet",
         "群成员", "chat_id", "用户信息",
         "excel", "xlsx", "xls", "导入", "excel导入", "表格导入", "上传文件", "解析excel",

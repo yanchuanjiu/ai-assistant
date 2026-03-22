@@ -217,23 +217,21 @@ def format_for_project_page(info: dict, doc_url: str = "", doc_time: str = "") -
     milestone = (info.get("milestone_impact") or {})
     weekly_hint = info.get("weekly_report_hint") or ""
 
-    # 基本信息表格
+    # 基本信息（飞书富文本不支持 Markdown 表格，改用缩进列表格式）
     lines: list[str] = [
         "",
         "---",
         f"## 📋 {title}",
         "",
-        "| 字段 | 内容 |",
-        "|------|------|",
-        f"| 📅 **会议日期** | {date} |",
-        f"| ⏱ **原始时间** | {time_label} |",
-        f"| 👥 **参与人** | {participants} |",
+        f"- 📅 **会议日期**：{date}",
+        f"- ⏱ **原始时间**：{time_label}",
+        f"- 👥 **参与人**：{participants}",
     ]
     if project_code or project_name:
         proj_label = f"{project_code} {project_name}".strip()
-        lines.append(f"| 📁 **项目** | {proj_label} |")
+        lines.append(f"- 📁 **项目**：{proj_label}")
     if doc_url:
-        lines.append(f"| 🔗 **原始文档** | {doc_url} |")
+        lines.append(f"- 🔗 **原始文档**：{doc_url}")
 
     # 摘要引用块
     if summary:
