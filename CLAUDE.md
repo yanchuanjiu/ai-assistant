@@ -52,6 +52,7 @@
 ✅ 飞书 wiki 节点删除（v1.0.16）— feishu_wiki_delete 工具：DELETE /wiki/v2/nodes/{node_token}，user token，@feishu_tool 统一错误处理
 ✅ 架构优化（v1.0.18）          — 去除 ToolMessage 截断；火山云 hook 机制（graph/hooks/volcengine.py）；飞书错误中间层（integrations/feishu/middleware.py）；Bot 框架统一（BaseBotHandler + FeishuBotHandler + DingTalkBotHandler）；持久化层 LLM 接入（agent_config topics/sessions 动作）
 ✅ 文档更新（v1.0.18-doc）     — functional_spec.md 同步 v1.0.18 所有变更；test_spec.md 全量重写（~90 用例覆盖 19 个功能模块）
+✅ 回归测试修复（v1.0.19）     — 同步 v1.0.18 架构：132 个单元回归测试全部通过；FEISHU_WIKI_CONTEXT_PAGE 更新为有效 token（LkmAwSTmbivFy9klt9RcTA50nde）
 
 ⚠️  163 IMAP     — 需在 163 网页版重新开启 IMAP 并更新 EMAIL_AUTH_CODE
 ```

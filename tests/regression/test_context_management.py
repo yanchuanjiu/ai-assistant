@@ -1,106 +1,13 @@
 """
 回归测试：上下文管理逻辑（纯单元测试，无外部依赖）
 
-覆盖 graph/nodes.py 的三个核心函数：
-  CTX-1x  _trim_to_user_turns（v0.8.20/v0.8.22）
+覆盖 graph/nodes.py 的核心函数：
   CTX-2x  _build_system_prompt 按需加载（v0.8.21）
   CTX-3x  _select_tools 渐进式披露（v0.8.10/v0.8.22）
 """
 import os
 import pytest
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
-
-
-# ── CTX-1x: _trim_to_user_turns ──────────────────────────────────────────────
-class TestTrimToUserTurns:
-    """MAX_USER_TURNS=2，历史 ToolMessage 截断至 100 字符"""
-
-    @pytest.fixture(autouse=True)
-    def import_fn(self):
-        from graph.nodes import _trim_to_user_turns
-        self.trim = _trim_to_user_turns
-
-    def test_empty_messages_returns_empty(self):
-        """空列表 → 返回空列表，不崩溃"""
-        assert self.trim([]) == []
-
-    def test_single_turn_not_trimmed(self):
-        """只有 1 轮 → 全部返回（不触发截断）"""
-        msgs = [HumanMessage(content="你好"), AIMessage(content="你好！")]
-        result = self.trim(msgs)
-        assert len(result) == 2
-
-    def test_three_turns_keeps_last_two(self):
-        """3 轮 → 只保留最近 2 轮（MAX_USER_TURNS=2）"""
-        msgs = [
-            HumanMessage(content="第1轮"),
-            AIMessage(content="回复1"),
-            HumanMessage(content="第2轮"),
-            AIMessage(content="回复2"),
-            HumanMessage(content="第3轮"),
-            AIMessage(content="回复3"),
-        ]
-        result = self.trim(msgs)
-        human_msgs = [m for m in result if isinstance(m, HumanMessage)]
-        assert len(human_msgs) == 2
-        assert human_msgs[0].content == "第2轮"
-        assert human_msgs[1].content == "第3轮"
-
-    def test_history_tool_message_truncated(self):
-        """历史轮（非当前轮）的 ToolMessage 内容超 300 字符 → 截断至 100 + 省略标记"""
-        long_content = "飞书页面全文内容" * 50  # 400 字符
-        msgs = [
-            HumanMessage(content="第1轮"),
-            AIMessage(content="", tool_calls=[{"id": "c1", "name": "feishu_read_page", "args": {}, "type": "tool_call"}]),
-            ToolMessage(content=long_content, tool_call_id="c1"),
-            HumanMessage(content="第2轮"),
-        ]
-        result = self.trim(msgs)
-        tool_msgs = [m for m in result if isinstance(m, ToolMessage)]
-        assert len(tool_msgs) == 1
-        assert len(tool_msgs[0].content) < 300
-        assert "工具结果已省略" in tool_msgs[0].content
-        assert tool_msgs[0].content[:100] == long_content[:100]
-
-    def test_current_turn_tool_message_not_truncated(self):
-        """当前轮的 ToolMessage 内容超 300 字符 → 不截断"""
-        long_content = "当前轮工具结果" * 60  # 420 字符
-        msgs = [
-            HumanMessage(content="第1轮"),
-            AIMessage(content="回复1"),
-            HumanMessage(content="第2轮"),
-            AIMessage(content="", tool_calls=[{"id": "c2", "name": "feishu_read_page", "args": {}, "type": "tool_call"}]),
-            ToolMessage(content=long_content, tool_call_id="c2"),
-        ]
-        result = self.trim(msgs)
-        tool_msgs = [m for m in result if isinstance(m, ToolMessage)]
-        assert len(tool_msgs) == 1
-        assert tool_msgs[0].content == long_content, "当前轮 ToolMessage 不应被截断"
-
-    def test_short_tool_message_not_truncated(self):
-        """历史轮 ToolMessage 内容 <= 300 字符 → 不截断"""
-        short_content = "短结果" * 10  # 30 字符
-        msgs = [
-            HumanMessage(content="第1轮"),
-            AIMessage(content="", tool_calls=[{"id": "c3", "name": "feishu_read_page", "args": {}, "type": "tool_call"}]),
-            ToolMessage(content=short_content, tool_call_id="c3"),
-            HumanMessage(content="第2轮"),
-        ]
-        result = self.trim(msgs)
-        tool_msgs = [m for m in result if isinstance(m, ToolMessage)]
-        assert tool_msgs[0].content == short_content
-
-    def test_only_one_turn_tool_messages_not_touched(self):
-        """只有 1 轮用户消息时，步骤2 直接跳过（human_indices <= 1）"""
-        long_content = "x" * 500
-        msgs = [
-            HumanMessage(content="唯一一轮"),
-            AIMessage(content="", tool_calls=[{"id": "c4", "name": "feishu_read_page", "args": {}, "type": "tool_call"}]),
-            ToolMessage(content=long_content, tool_call_id="c4"),
-        ]
-        result = self.trim(msgs)
-        tool_msgs = [m for m in result if isinstance(m, ToolMessage)]
-        assert tool_msgs[0].content == long_content
 
 
 # ── CTX-2x: _build_system_prompt 按需加载（v0.8.21）──────────────────────────
@@ -271,10 +178,9 @@ class TestCrossRoundContextContinuity:
 
     @pytest.fixture(autouse=True)
     def import_fn(self):
-        from graph.nodes import _select_tools, _trim_to_user_turns
+        from graph.nodes import _select_tools
         from graph.tools import CORE_TOOLS
         self.select = _select_tools
-        self.trim = _trim_to_user_turns
         self.core_names = {t.name for t in CORE_TOOLS}
 
     def _tool_names(self, tools):
@@ -317,43 +223,6 @@ class TestCrossRoundContextContinuity:
         names = self._tool_names(result)
         assert "feishu_bitable_record" in names, \
             "bitable 工具连续性：上一轮已调用，下一轮（≥25字符）应保持"
-
-    def test_trim_preserves_current_round_tool_result(self):
-        """3轮对话，当前轮工具结果不被截断"""
-        long_content = "当前轮详细工具结果" * 40  # ~320 字符
-        msgs = [
-            HumanMessage(content="第1轮"),
-            AIMessage(content="回复1"),
-            HumanMessage(content="第2轮"),
-            AIMessage(content="回复2"),
-            HumanMessage(content="第3轮查询"),
-            AIMessage(content="", tool_calls=[{
-                "id": "c3", "name": "feishu_read_page", "args": {}, "type": "tool_call"
-            }]),
-            ToolMessage(content=long_content, tool_call_id="c3"),
-        ]
-        result = self.trim(msgs)
-        tool_msgs = [m for m in result if isinstance(m, ToolMessage)]
-        assert len(tool_msgs) == 1
-        assert tool_msgs[0].content == long_content, "当前轮 ToolMessage 不应被截断"
-
-    def test_multi_turn_trim_only_keeps_last_two_human(self):
-        """4轮对话 → 只保留最后2轮用户消息"""
-        msgs = [
-            HumanMessage(content="第1轮"),
-            AIMessage(content="A"),
-            HumanMessage(content="第2轮"),
-            AIMessage(content="B"),
-            HumanMessage(content="第3轮"),
-            AIMessage(content="C"),
-            HumanMessage(content="第4轮"),
-            AIMessage(content="D"),
-        ]
-        result = self.trim(msgs)
-        human_msgs = [m for m in result if isinstance(m, HumanMessage)]
-        assert len(human_msgs) == 2
-        assert human_msgs[-1].content == "第4轮"
-        assert human_msgs[0].content == "第3轮"
 
     def test_claude_continuity_after_self_iteration(self):
         """上一轮触发了 trigger_self_iteration → claude 工具保持激活（≥25字符触发连续性）"""

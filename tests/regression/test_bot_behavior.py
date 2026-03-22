@@ -25,9 +25,9 @@ class TestFeishuGreetingFastPath:
     def _clear_seen(self):
         """每个测试前清空去重缓存，避免跨测试的 message_id 碰撞。"""
         import integrations.feishu.bot as fb
-        fb._seen_message_ids.clear()
+        fb._feishu_handler._dedup_ids.clear()
         yield
-        fb._seen_message_ids.clear()
+        fb._feishu_handler._dedup_ids.clear()
 
     def _make_message_data(self, text: str, msg_id: str = None):
         """构造最小可用的飞书消息 mock 对象"""
@@ -112,44 +112,57 @@ class TestDingTalkGreetingFastPath:
     """钉钉 Bot：问候词直接回复，不走 Agent"""
 
     def _make_handler_and_callback(self, text: str):
-        """构造 _BotHandler 实例和 fake callback，patch _parse 以控制解析结果"""
+        """构造 _BotHandler 实例和 fake callback"""
         from integrations.dingtalk import bot as dd_bot
         handler = dd_bot._BotHandler.__new__(dd_bot._BotHandler)
+        handler._handler = dd_bot.DingTalkBotHandler()
+        handler.dingtalk_client = MagicMock()
         callback = MagicMock()
         callback.data = {}
-        parsed = {
-            "text": text,
-            "user_id": "user_001",
-            "chat_id": "conv_001",
-            "thread_id": "dingtalk:conv_001",
-        }
-        return handler, callback, parsed
+        return handler, callback
+
+    def _make_ctx(self, text: str):
+        from integrations.message_context import MessageContext
+        ctx = MessageContext(
+            text=text,
+            user_id="user_001",
+            chat_id="conv_001",
+            thread_id="dingtalk:conv_001",
+            platform="dingtalk",
+        )
+        ctx.extra["card"] = None
+        return ctx
 
     @pytest.mark.parametrize("greeting", ["你好", "hi", "嗨", "早上好"])
     def test_greeting_bypasses_agent(self, greeting):
-        """标准问候 → reply_text 被调用，invoke 不被调用"""
+        """标准问候 → send_reply 被调用，agent 线程不启动"""
         from integrations.dingtalk import bot as dd_bot
-        handler, callback, parsed = self._make_handler_and_callback(greeting)
+        handler, callback = self._make_handler_and_callback(greeting)
+        ctx = self._make_ctx(greeting)
         replied = []
 
-        with patch("integrations.dingtalk.bot._parse_dingtalk_message", return_value=parsed):
-            with patch("integrations.claude_code.session.session_manager") as mock_sm:
-                with patch.object(handler, "reply_text",
-                                  side_effect=lambda text, msg: replied.append(text)):
-                    mock_sm.get.return_value = None
-                    handler.process(callback)
+        with patch("dingtalk_stream.ChatbotMessage.from_dict", return_value=MagicMock()):
+            with patch.object(dd_bot.DingTalkBotHandler, "parse_message", return_value=ctx):
+                with patch.object(dd_bot.DingTalkBotHandler, "send_reply",
+                                  side_effect=lambda text, c: replied.append(text)):
+                    with patch("integrations.claude_code.session.session_manager") as mock_sm:
+                        with patch("integrations.base_bot.threading") as mock_thread:
+                            mock_sm.get.return_value = None
+                            handler.process(callback)
 
-        assert len(replied) > 0, f"钉钉问候 '{greeting}' 应触发 reply_text"
+        assert len(replied) > 0, f"钉钉问候 '{greeting}' 应触发 send_reply"
+        mock_thread.Thread.assert_not_called()
 
     def test_non_greeting_starts_agent(self):
         """非问候消息 → 启动 Agent 流程（threading.Thread 被调用）"""
         from integrations.dingtalk import bot as dd_bot
-        handler, callback, parsed = self._make_handler_and_callback("帮我查一下飞书")
+        handler, callback = self._make_handler_and_callback("帮我查一下飞书")
+        ctx = self._make_ctx("帮我查一下飞书")
 
-        with patch("integrations.dingtalk.bot._parse_dingtalk_message", return_value=parsed):
-            with patch("integrations.claude_code.session.session_manager") as mock_sm:
-                with patch("integrations.dingtalk.bot.threading") as mock_thread:
-                    with patch.object(handler, "reply_text", return_value=None):
+        with patch("dingtalk_stream.ChatbotMessage.from_dict", return_value=MagicMock()):
+            with patch.object(dd_bot.DingTalkBotHandler, "parse_message", return_value=ctx):
+                with patch("integrations.claude_code.session.session_manager") as mock_sm:
+                    with patch("integrations.base_bot.threading") as mock_thread:
                         mock_sm.get.return_value = None
                         mock_thread.Thread = MagicMock(return_value=MagicMock())
                         handler.process(callback)
@@ -222,10 +235,10 @@ class TestFeishuSendTextLongReply:
         assert call_count[0] >= 2, f"降级分段应多次调用，实际 {call_count[0]} 次"
 
     def test_empty_chat_id_returns_false(self, bot):
-        """chat_id 为空 → 直接返回 False，不发送"""
+        """chat_id 为空 → 直接返回 None，不发送"""
         with patch.object(bot, "_send_single") as mock_send:
             result = bot.send_text("", "任意内容")
-        assert result is False
+        assert result is None
         mock_send.assert_not_called()
 
 
@@ -328,13 +341,13 @@ class TestFeishuMultiTopicIsolation:
         import integrations.feishu.bot as fb
         saved_anchor = dict(fb._thread_anchor)
         saved_reverse = dict(fb._anchor_to_thread)
-        saved_seen = dict(fb._seen_message_ids)
+        saved_seen = dict(fb._feishu_handler._dedup_ids)
         saved_locks = dict(fb._topic_locks)
         saved_db = fb._anchor_db
 
         fb._thread_anchor.clear()
         fb._anchor_to_thread.clear()
-        fb._seen_message_ids.clear()
+        fb._feishu_handler._dedup_ids.clear()
         fb._topic_locks.clear()
         fb._anchor_db = None
         yield fb
@@ -343,8 +356,8 @@ class TestFeishuMultiTopicIsolation:
         fb._thread_anchor.update(saved_anchor)
         fb._anchor_to_thread.clear()
         fb._anchor_to_thread.update(saved_reverse)
-        fb._seen_message_ids.clear()
-        fb._seen_message_ids.update(saved_seen)
+        fb._feishu_handler._dedup_ids.clear()
+        fb._feishu_handler._dedup_ids.update(saved_seen)
         fb._topic_locks.clear()
         fb._topic_locks.update(saved_locks)
         fb._anchor_db = saved_db
@@ -452,30 +465,35 @@ class TestDingTalkMarkdownCardReplacement:
     def test_non_greeting_instantiates_markdown_card(self):
         """BOT-61: 非问候钉钉消息 → MarkdownCardInstance 被实例化"""
         from integrations.dingtalk import bot as dd_bot
+        from integrations.message_context import MessageContext
         handler = dd_bot._BotHandler.__new__(dd_bot._BotHandler)
+        handler._handler = dd_bot.DingTalkBotHandler()
         handler.dingtalk_client = MagicMock()
         callback = MagicMock()
         callback.data = {}
 
-        parsed = {
-            "text": "帮我查一下钉钉文档",
-            "user_id": "user_bot6",
-            "chat_id": "conv_bot6",
-            "thread_id": "dingtalk:conv_bot6",
-        }
+        ctx = MessageContext(
+            text="帮我查一下钉钉文档",
+            user_id="user_bot6",
+            chat_id="conv_bot6",
+            thread_id="dingtalk:conv_bot6",
+            platform="dingtalk",
+        )
+        ctx.extra["card"] = None
         mock_card = MagicMock()
         mock_card.reply.return_value = "card_id_bot6"
 
-        with patch("integrations.dingtalk.bot._parse_dingtalk_message", return_value=parsed):
-            with patch("integrations.claude_code.session.session_manager") as mock_sm:
-                with patch(
-                    "dingtalk_stream.card_instance.MarkdownCardInstance",
-                    return_value=mock_card,
-                ) as MockCard:
-                    with patch("integrations.dingtalk.bot.threading") as mock_thread:
-                        mock_sm.get.return_value = None
-                        mock_thread.Thread = MagicMock(return_value=MagicMock())
-                        handler.process(callback)
+        with patch("dingtalk_stream.ChatbotMessage.from_dict", return_value=MagicMock()):
+            with patch.object(dd_bot.DingTalkBotHandler, "parse_message", return_value=ctx):
+                with patch("integrations.claude_code.session.session_manager") as mock_sm:
+                    with patch(
+                        "dingtalk_stream.card_instance.MarkdownCardInstance",
+                        return_value=mock_card,
+                    ) as MockCard:
+                        with patch("integrations.base_bot.threading") as mock_thread:
+                            mock_sm.get.return_value = None
+                            mock_thread.Thread = MagicMock(return_value=MagicMock())
+                            handler.process(callback)
 
         MockCard.assert_called_once()
         mock_card.reply.assert_called_once()

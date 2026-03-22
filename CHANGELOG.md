@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.19 - 2026-03-23
+
+### Fix
+- **回归测试全面修复（v1.0.18 架构同步）**：完整修复测试套件中因 v1.0.18 架构重构导致的所有失败（37 FAILED + 39 ERROR → 0）：
+  1. `test_volcengine_parser.py`：修正 import 路径（`graph.nodes._extract_text_tool_calls` → `graph.hooks.volcengine._parse_func_call_json`）。
+  2. `test_context_management.py`：删除 `TestTrimToUserTurns` 和相关截断测试（v1.0.18 已移除该功能）。
+  3. `test_bot_behavior.py`：`_seen_message_ids` → `_feishu_handler._dedup_ids`；重写 `TestDingTalkGreetingFastPath` 和 `TestDingTalkMarkdownCardReplacement` 以适配新架构（patch.object DingTalkBotHandler.parse_message / integrations.base_bot.threading）。
+  4. `test_topic_routing.py`：更新 `isolated_feishu` fixture；重写 `TestFeishuReplyInThread`（改用 `FeishuBotHandler.send_reply` + `MessageContext`）；修复 `TestDingTalkMarkdownCard`（新增 `handler._handler`、patch ChatbotMessage.from_dict、DingTalkBotHandler.parse_message）；修正 root_id 未知时 fallback 为 `feishu:{chat_id}`。
+  5. `test_error_scenarios.py`：`feishu_post` / `feishu_get` mock → `feishu_call`（knowledge 层已统一用 feishu_call）；ES-4x、ES-5x mock 签名更新；ES-2x、ES-3x 同步修正。
+  6. `.env`：`FEISHU_WIKI_CONTEXT_PAGE` 更新为有效 token（旧 token 131005 not found）。
+  7. `test_feishu_wiki.py`：同步更新默认 CONTEXT_PAGE。
+
 ## v1.0.18 - 2026-03-23
 
 ### Refactor

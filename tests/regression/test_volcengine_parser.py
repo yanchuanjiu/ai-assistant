@@ -10,7 +10,7 @@
   VEP-6x  参数字段兼容性（parameters vs arguments）
 """
 import pytest
-from graph.nodes import _extract_text_tool_calls
+from graph.hooks.volcengine import _parse_func_call_json as _extract_text_tool_calls
 
 
 # ── VEP-1x: 单个工具调用（FunctionCallBegin）─────────────────────────────────

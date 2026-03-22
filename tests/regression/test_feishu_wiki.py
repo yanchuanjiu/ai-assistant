@@ -10,7 +10,7 @@ import os
 import pytest
 from integrations.feishu.knowledge import FeishuKnowledge, parse_wiki_token, wiki_token_to_obj_token
 
-CONTEXT_PAGE = os.getenv("FEISHU_WIKI_CONTEXT_PAGE", "FalZwGDOkiqpbQkeAjGc8jaznMd")
+CONTEXT_PAGE = os.getenv("FEISHU_WIKI_CONTEXT_PAGE", "LkmAwSTmbivFy9klt9RcTA50nde")
 TEST_CHILD_TITLE = "🧪 回归测试子页面（可删）"
 CACHE_KEY = "WIKI_PAGE_REGRESSION_TEST"
 

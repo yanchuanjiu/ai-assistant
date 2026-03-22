@@ -75,7 +75,7 @@ class TestWikiTokenToObjToken:
     def test_empty_obj_token_logs_warning(self, caplog):
         """API 返回空 node → warning 日志含 token 信息，函数返回 ('', 'docx')"""
         from integrations.feishu.knowledge import wiki_token_to_obj_token
-        with patch("integrations.feishu.knowledge.feishu_get", return_value={
+        with patch("integrations.feishu.knowledge.feishu_call", return_value={
             "data": {"node": {}}
         }):
             with caplog.at_level(logging.WARNING, logger="integrations.feishu.knowledge"):
@@ -88,7 +88,7 @@ class TestWikiTokenToObjToken:
     def test_valid_token_returns_obj_token(self):
         """正常情况：返回 (obj_token, obj_type)，不发 WARNING"""
         from integrations.feishu.knowledge import wiki_token_to_obj_token
-        with patch("integrations.feishu.knowledge.feishu_get", return_value={
+        with patch("integrations.feishu.knowledge.feishu_call", return_value={
             "data": {"node": {"obj_token": "docx_abc123", "obj_type": "docx"}}
         }):
             obj_token, obj_type = wiki_token_to_obj_token("ValidToken")
@@ -96,9 +96,9 @@ class TestWikiTokenToObjToken:
         assert obj_type == "docx"
 
     def test_api_exception_propagates(self):
-        """feishu_get 抛异常时，异常向上传播（不被吞掉）"""
+        """feishu_call 抛异常时，异常向上传播（不被吞掉）"""
         from integrations.feishu.knowledge import wiki_token_to_obj_token
-        with patch("integrations.feishu.knowledge.feishu_get", side_effect=RuntimeError("网络错误")):
+        with patch("integrations.feishu.knowledge.feishu_call", side_effect=RuntimeError("网络错误")):
             with pytest.raises(RuntimeError, match="网络错误"):
                 wiki_token_to_obj_token("AnyToken")
 
@@ -124,26 +124,30 @@ class TestSpaceLevelToken:
             f"_is_space_level_token({token!r}) 应为 {expected}"
 
     def test_list_children_space_id_no_api_call(self, kb):
-        """传入 space_id → 返回空列表，不调用 feishu_get"""
+        """传入 space_id → feishu_get 不调用（底层使用 feishu_call），返回空列表"""
         with patch("integrations.feishu.knowledge.feishu_get") as mock_get:
-            result = kb.list_wiki_children("7618158120166034630")
+            with patch("integrations.feishu.knowledge.feishu_call",
+                       return_value={"data": {"items": [], "has_more": False}}):
+                result = kb.list_wiki_children("7618158120166034630")
         assert result == []
         mock_get.assert_not_called()
 
     def test_list_children_space_prefix_no_api_call(self, kb):
-        """传入 space_XXX → 返回空列表，不调用 feishu_get"""
+        """传入 space_XXX → feishu_get 不调用（底层使用 feishu_call），返回空列表"""
         with patch("integrations.feishu.knowledge.feishu_get") as mock_get:
-            result = kb.list_wiki_children("space_7618158120166034630")
+            with patch("integrations.feishu.knowledge.feishu_call",
+                       return_value={"data": {"items": [], "has_more": False}}):
+                result = kb.list_wiki_children("space_7618158120166034630")
         assert result == []
         mock_get.assert_not_called()
 
     def test_list_children_normal_token_calls_api(self, kb):
-        """传入正常 node token → 调用 feishu_get，返回子页面列表"""
-        with patch("integrations.feishu.knowledge.feishu_get", return_value={
-            "data": {"items": [{"node_token": "child_tok1", "title": "子页面1"}]}
-        }) as mock_get:
+        """传入正常 node token → 调用 feishu_call，返回子页面列表"""
+        with patch("integrations.feishu.knowledge.feishu_call", return_value={
+            "data": {"items": [{"node_token": "child_tok1", "title": "子页面1"}], "has_more": False}
+        }) as mock_call:
             result = kb.list_wiki_children("FalZwGDOkiqpbQkeAjGc8jaznMd")
-        mock_get.assert_called_once()
+        mock_call.assert_called_once()
         assert len(result) == 1
         assert result[0]["node_token"] == "child_tok1"
 
@@ -161,12 +165,12 @@ class TestCreateWikiChildPage:
         """方案A payload 中 obj_type == 'docx'，不能是 'wiki'"""
         captured = {}
 
-        def capture_post(path, json=None, **kwargs):
-            if "/wiki/v2/spaces" in path and json:
-                captured.update(json)
+        def capture_call(path, method="GET", json_body=None, params=None, as_="tenant", **kwargs):
+            if "/wiki/v2/spaces" in path and json_body:
+                captured.update(json_body)
             return {"data": {"node": {"node_token": "new_tok_abc", "obj_token": "docx_xyz"}}}
 
-        with patch("integrations.feishu.knowledge.feishu_post", side_effect=capture_post):
+        with patch("integrations.feishu.knowledge.feishu_call", side_effect=capture_call):
             kb.create_wiki_child_page("测试页面", "FalZwGDOkiqpbQkeAjGc8jaznMd")
 
         assert "obj_type" in captured, "payload 应含 obj_type 字段"
@@ -177,12 +181,12 @@ class TestCreateWikiChildPage:
         """space_id 作为父页面时，payload 不含 parent_node_token（在根目录创建）"""
         captured = {}
 
-        def capture_post(path, json=None, **kwargs):
-            if "/wiki/v2/spaces" in path and json:
-                captured.update(json)
+        def capture_call(path, method="GET", json_body=None, params=None, as_="tenant", **kwargs):
+            if "/wiki/v2/spaces" in path and json_body:
+                captured.update(json_body)
             return {"data": {"node": {"node_token": "root_tok", "obj_token": "docx_root"}}}
 
-        with patch("integrations.feishu.knowledge.feishu_post", side_effect=capture_post):
+        with patch("integrations.feishu.knowledge.feishu_call", side_effect=capture_call):
             kb.create_wiki_child_page("根目录页面", "7618158120166034630")
 
         assert "parent_node_token" not in captured, \
@@ -192,12 +196,12 @@ class TestCreateWikiChildPage:
         """普通 node token 作为父页面时，payload 含 parent_node_token"""
         captured = {}
 
-        def capture_post(path, json=None, **kwargs):
-            if "/wiki/v2/spaces" in path and json:
-                captured.update(json)
+        def capture_call(path, method="GET", json_body=None, params=None, as_="tenant", **kwargs):
+            if "/wiki/v2/spaces" in path and json_body:
+                captured.update(json_body)
             return {"data": {"node": {"node_token": "child_tok", "obj_token": "docx_child"}}}
 
-        with patch("integrations.feishu.knowledge.feishu_post", side_effect=capture_post):
+        with patch("integrations.feishu.knowledge.feishu_call", side_effect=capture_call):
             kb.create_wiki_child_page("子页面", "FalZwGDOkiqpbQkeAjGc8jaznMd")
 
         assert "parent_node_token" in captured, "普通父页面应有 parent_node_token"
@@ -214,40 +218,40 @@ class TestAppendTextChunking:
         return FeishuKnowledge()
 
     def test_55_lines_split_into_2_batches(self, kb):
-        """55 行内容 → 2 批（40 + 15），feishu_post 被调用 2 次"""
+        """55 行内容 → 2 批（40 + 15），feishu_call 被调用 2 次"""
         content = "\n".join([f"行{i}" for i in range(55)])
-        post_count = [0]
+        call_count = [0]
 
-        def count_post(path, json=None, **kwargs):
-            post_count[0] += 1
+        def count_call(path, method="GET", json_body=None, params=None, as_="tenant", **kwargs):
+            call_count[0] += 1
             return {}
 
-        with patch("integrations.feishu.knowledge.feishu_post", side_effect=count_post):
+        with patch("integrations.feishu.knowledge.feishu_call", side_effect=count_call):
             with patch("time.sleep"):
                 kb._append_text("docx_abc", content)
 
-        assert post_count[0] == 2, f"55行应分2批，实际调用 feishu_post {post_count[0]} 次"
+        assert call_count[0] == 2, f"55行应分2批，实际调用 feishu_call {call_count[0]} 次"
 
     def test_40_lines_single_batch(self, kb):
-        """恰好 40 行 → 1 批，feishu_post 被调用 1 次"""
+        """恰好 40 行 → 1 批，feishu_call 被调用 1 次"""
         content = "\n".join([f"行{i}" for i in range(40)])
-        post_count = [0]
+        call_count = [0]
 
-        def count_post(path, json=None, **kwargs):
-            post_count[0] += 1
+        def count_call(path, method="GET", json_body=None, params=None, as_="tenant", **kwargs):
+            call_count[0] += 1
             return {}
 
-        with patch("integrations.feishu.knowledge.feishu_post", side_effect=count_post):
+        with patch("integrations.feishu.knowledge.feishu_call", side_effect=count_call):
             with patch("time.sleep"):
                 kb._append_text("docx_abc", content)
 
-        assert post_count[0] == 1, f"40行应1批，实际调用 {post_count[0]} 次"
+        assert call_count[0] == 1, f"40行应1批，实际调用 {call_count[0]} 次"
 
     def test_sleep_between_batches(self, kb):
         """55 行 → 2 批，批次之间有且仅有 1 次 sleep(0.3)"""
         content = "\n".join([f"行{i}" for i in range(55)])
 
-        with patch("integrations.feishu.knowledge.feishu_post", return_value={}):
+        with patch("integrations.feishu.knowledge.feishu_call", return_value={}):
             with patch("time.sleep") as mock_sleep:
                 kb._append_text("docx_abc", content)
 
@@ -258,7 +262,7 @@ class TestAppendTextChunking:
 
     def test_single_line_no_sleep(self, kb):
         """1 行内容 → 1 批，不需要 sleep"""
-        with patch("integrations.feishu.knowledge.feishu_post", return_value={}):
+        with patch("integrations.feishu.knowledge.feishu_call", return_value={}):
             with patch("time.sleep") as mock_sleep:
                 kb._append_text("docx_abc", "只有一行")
 

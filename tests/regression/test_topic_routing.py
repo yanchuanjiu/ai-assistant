@@ -22,17 +22,17 @@ from unittest.mock import patch, MagicMock, call
 def isolated_feishu(request):
     """
     每个测试前保存并清空飞书 bot 的模块级状态，测试后恢复。
-    避免跨测试污染 _thread_anchor / _anchor_to_thread / _seen_message_ids。
+    避免跨测试污染 _thread_anchor / _anchor_to_thread / _dedup_ids。
     """
     import integrations.feishu.bot as fb
     saved_anchor   = dict(fb._thread_anchor)
     saved_reverse  = dict(fb._anchor_to_thread)
-    saved_seen     = dict(fb._seen_message_ids)
+    saved_seen     = dict(fb._feishu_handler._dedup_ids)
     saved_db       = fb._anchor_db
 
     fb._thread_anchor.clear()
     fb._anchor_to_thread.clear()
-    fb._seen_message_ids.clear()
+    fb._feishu_handler._dedup_ids.clear()
     fb._anchor_db = None
 
     yield fb
@@ -41,8 +41,8 @@ def isolated_feishu(request):
     fb._thread_anchor.update(saved_anchor)
     fb._anchor_to_thread.clear()
     fb._anchor_to_thread.update(saved_reverse)
-    fb._seen_message_ids.clear()
-    fb._seen_message_ids.update(saved_seen)
+    fb._feishu_handler._dedup_ids.clear()
+    fb._feishu_handler._dedup_ids.update(saved_seen)
     fb._anchor_db = saved_db
 
 
@@ -149,7 +149,7 @@ class TestFeishuRootIdRouting:
         )
 
     def test_unknown_root_id_fallback(self, isolated_feishu):
-        """TOPIC-23: root_id 未知 → fallback 为 feishu:thread:{root_id}，不 crash"""
+        """TOPIC-23: root_id 未知 → fallback 为 feishu:{chat_id}（主聊天上下文），不 crash"""
         fb = isolated_feishu
         # 不在反向映射中
         data = _make_feishu_msg("回复内容", chat_id="oc_chat",
@@ -157,7 +157,7 @@ class TestFeishuRootIdRouting:
         parsed = fb._parse_feishu_message(data)
 
         assert parsed is not None
-        assert parsed["thread_id"] == "feishu:thread:msg_unknown_xxx"
+        assert parsed["thread_id"] == "feishu:oc_chat"
 
     def test_different_topics_anchors_isolated(self, isolated_feishu):
         """TOPIC-24: 不同话题 anchor 互不干扰"""
@@ -192,29 +192,35 @@ class TestFeishuReplyInThread:
         bot = MagicMock(spec=FeishuBot)
         bot.add_reaction.return_value = "reaction_id"
         bot.reply_in_thread.return_value = reply_in_thread_return
-        bot.send_text.return_value = True
+        bot.send_text.return_value = "msg_sent_001"
         return bot
 
-    def _make_parsed(self, text, thread_id, chat_id="oc_test", msg_id="msg_001"):
-        return {
-            "text": text,
-            "user_id": "user_001",
-            "chat_id": chat_id,
-            "message_id": msg_id,
-            "thread_id": thread_id,
-        }
+    def _make_ctx(self, text, thread_id, chat_id="oc_test", msg_id="msg_001"):
+        from integrations.message_context import MessageContext
+        ctx = MessageContext(
+            text=text,
+            user_id="user_001",
+            chat_id=chat_id,
+            message_id=msg_id,
+            thread_id=thread_id,
+            platform="feishu",
+        )
+        ctx.extra["root_id"] = ""
+        return ctx
 
     def test_topic_first_reply_uses_reply_in_thread(self, isolated_feishu):
         """TOPIC-31: 话题第 1 条回复走 reply_in_thread（不是 send_text）"""
+        from integrations.feishu.bot import FeishuBotHandler
         fb = isolated_feishu
         tid = "feishu:oc_test#topic#项目A"
         fb._thread_anchor[tid] = "msg_001"   # anchor 已注册（首条消息）
 
-        parsed = self._make_parsed("进展如何", thread_id=tid, msg_id="msg_001")
+        ctx = self._make_ctx("进展如何", thread_id=tid, msg_id="msg_001")
         bot = self._make_bot_mock()
+        ctx.extra["bot"] = bot
 
-        with patch("graph.agent.invoke", return_value="项目进展顺利"):
-            fb._run_agent(parsed, bot)
+        handler = FeishuBotHandler()
+        handler.send_reply("项目进展顺利", ctx)
 
         bot.reply_in_thread.assert_called_once()
         # send_text 不应被用来发正文（只可能在失败兜底时才调用）
@@ -223,15 +229,17 @@ class TestFeishuReplyInThread:
 
     def test_topic_second_reply_uses_reply_in_thread(self, isolated_feishu):
         """TOPIC-32: 话题第 2 条消息也走 reply_in_thread"""
+        from integrations.feishu.bot import FeishuBotHandler
         fb = isolated_feishu
         tid = "feishu:oc_test#topic#项目A"
         fb._thread_anchor[tid] = "msg_001"   # anchor = 第1条消息
 
-        parsed = self._make_parsed("还有什么进展", thread_id=tid, msg_id="msg_002")
+        ctx = self._make_ctx("还有什么进展", thread_id=tid, msg_id="msg_002")
         bot = self._make_bot_mock()
+        ctx.extra["bot"] = bot
 
-        with patch("graph.agent.invoke", return_value="另外进展顺利"):
-            fb._run_agent(parsed, bot)
+        handler = FeishuBotHandler()
+        handler.send_reply("另外进展顺利", ctx)
 
         bot.reply_in_thread.assert_called_once()
         args = bot.reply_in_thread.call_args
@@ -239,30 +247,33 @@ class TestFeishuReplyInThread:
 
     def test_default_context_uses_send_text(self, isolated_feishu):
         """TOPIC-33: 无话题前缀的默认消息 → send_text，不走 reply_in_thread"""
+        from integrations.feishu.bot import FeishuBotHandler
         fb = isolated_feishu
         tid = "feishu:oc_test"   # 默认 thread_id（无 #topic#）
-        fb._thread_anchor[tid] = "msg_001"
 
-        parsed = self._make_parsed("普通问题", thread_id=tid, msg_id="msg_002")
+        ctx = self._make_ctx("普通问题", thread_id=tid, msg_id="msg_002")
         bot = self._make_bot_mock()
+        ctx.extra["bot"] = bot
 
-        with patch("graph.agent.invoke", return_value="普通回复"):
-            fb._run_agent(parsed, bot)
+        handler = FeishuBotHandler()
+        handler.send_reply("普通回复", ctx)
 
         bot.reply_in_thread.assert_not_called()
         bot.send_text.assert_called()
 
     def test_long_reply_falls_back_to_send_text(self, isolated_feishu):
         """TOPIC-34: reply_in_thread 返回 False（超长）→ 降级为 send_text"""
+        from integrations.feishu.bot import FeishuBotHandler
         fb = isolated_feishu
         tid = "feishu:oc_test#topic#长文"
         fb._thread_anchor[tid] = "msg_001"
 
-        parsed = self._make_parsed("写份报告", thread_id=tid, msg_id="msg_002")
+        ctx = self._make_ctx("写份报告", thread_id=tid, msg_id="msg_002")
         bot = self._make_bot_mock(reply_in_thread_return=False)
+        ctx.extra["bot"] = bot
 
-        with patch("graph.agent.invoke", return_value="很长的回复"):
-            fb._run_agent(parsed, bot)
+        handler = FeishuBotHandler()
+        handler.send_reply("很长的回复", ctx)
 
         bot.reply_in_thread.assert_called_once()
         # 降级：send_text 被调用发送正文
@@ -272,15 +283,17 @@ class TestFeishuReplyInThread:
 
     def test_reply_in_thread_passes_thread_id(self, isolated_feishu):
         """TOPIC-35: reply_in_thread 传入 thread_id（供注册 bot 回复 message_id）"""
+        from integrations.feishu.bot import FeishuBotHandler
         fb = isolated_feishu
         tid = "feishu:oc_test#topic#注册测试"
         fb._thread_anchor[tid] = "anchor_msg"
 
-        parsed = self._make_parsed("问题", thread_id=tid, msg_id="msg_q")
+        ctx = self._make_ctx("问题", thread_id=tid, msg_id="msg_q")
         bot = self._make_bot_mock()
+        ctx.extra["bot"] = bot
 
-        with patch("graph.agent.invoke", return_value="回复"):
-            fb._run_agent(parsed, bot)
+        handler = FeishuBotHandler()
+        handler.send_reply("回复", ctx)
 
         # reply_in_thread 应收到 thread_id 关键字参数
         _, kwargs = bot.reply_in_thread.call_args
@@ -368,6 +381,7 @@ class TestDingTalkMarkdownCard:
     def _make_handler(self):
         from integrations.dingtalk import bot as dd_bot
         handler = dd_bot._BotHandler.__new__(dd_bot._BotHandler)
+        handler._handler = dd_bot.DingTalkBotHandler()
         handler.dingtalk_client = MagicMock()
         return handler
 
@@ -383,6 +397,7 @@ class TestDingTalkMarkdownCard:
                      card_reply_return="card_id_ok", card_raises=False):
         """运行 handler.process()，捕获后台线程 target 并手动执行。"""
         from integrations.dingtalk import bot as dd_bot
+        from integrations.message_context import MessageContext
         callback = MagicMock()
         callback.data = {}
 
@@ -398,15 +413,28 @@ class TestDingTalkMarkdownCard:
             thread_targets.append(target)
             return MagicMock()
 
-        with patch("integrations.dingtalk.bot._parse_dingtalk_message", return_value=parsed):
-            with patch("integrations.claude_code.session.session_manager") as mock_sm:
-                with patch("dingtalk_stream.card_instance.MarkdownCardInstance",
-                           return_value=mock_card) as MockCard:
-                    with patch("graph.agent.invoke", return_value=invoke_return):
-                        with patch("integrations.dingtalk.bot.threading.Thread",
-                                   side_effect=capture_thread):
-                            mock_sm.get.return_value = None
-                            handler.process(callback)
+        def mock_parse_message(raw):
+            ctx = MessageContext(
+                text=parsed["text"],
+                user_id=parsed["user_id"],
+                chat_id=parsed["chat_id"],
+                thread_id=parsed["thread_id"],
+                platform="dingtalk",
+            )
+            ctx.extra["card"] = raw.get("card")
+            return ctx
+
+        with patch("dingtalk_stream.ChatbotMessage.from_dict", return_value=MagicMock()):
+            with patch.object(dd_bot.DingTalkBotHandler, "parse_message",
+                              side_effect=mock_parse_message):
+                with patch("integrations.claude_code.session.session_manager") as mock_sm:
+                    with patch("dingtalk_stream.card_instance.MarkdownCardInstance",
+                               return_value=mock_card) as MockCard:
+                        with patch("graph.agent.invoke", return_value=invoke_return):
+                            with patch("integrations.base_bot.threading.Thread",
+                                       side_effect=capture_thread):
+                                mock_sm.get.return_value = None
+                                handler.process(callback)
 
         return mock_card, MockCard, thread_targets
 
@@ -424,6 +452,8 @@ class TestDingTalkMarkdownCard:
 
     def test_card_updated_with_llm_reply(self):
         """TOPIC-52: agent.invoke() 完成后 card_instance.update(reply) 被调用"""
+        from integrations.dingtalk import bot as dd_bot
+        from integrations.message_context import MessageContext
         handler = self._make_handler()
         parsed = self._make_parsed()
         callback = MagicMock()
@@ -437,19 +467,32 @@ class TestDingTalkMarkdownCard:
             thread_targets.append(target)
             return MagicMock()
 
+        def mock_parse_message(raw):
+            ctx = MessageContext(
+                text=parsed["text"],
+                user_id=parsed["user_id"],
+                chat_id=parsed["chat_id"],
+                thread_id=parsed["thread_id"],
+                platform="dingtalk",
+            )
+            ctx.extra["card"] = raw.get("card")
+            return ctx
+
         # 必须在 patch 上下文内执行线程函数，否则 graph.agent.invoke 的 mock 会失效
-        with patch("integrations.dingtalk.bot._parse_dingtalk_message", return_value=parsed):
-            with patch("integrations.claude_code.session.session_manager") as mock_sm:
-                with patch("dingtalk_stream.card_instance.MarkdownCardInstance",
-                           return_value=mock_card):
-                    with patch("graph.agent.invoke", return_value="AI 日程如下"):
-                        with patch("integrations.dingtalk.bot.threading.Thread",
-                                   side_effect=capture_thread):
-                            mock_sm.get.return_value = None
-                            handler.process(callback)
-                            # 在 patch 上下文内手动执行后台线程
-                            assert len(thread_targets) == 1, "应启动一个后台线程"
-                            thread_targets[0]()
+        with patch("dingtalk_stream.ChatbotMessage.from_dict", return_value=MagicMock()):
+            with patch.object(dd_bot.DingTalkBotHandler, "parse_message",
+                              side_effect=mock_parse_message):
+                with patch("integrations.claude_code.session.session_manager") as mock_sm:
+                    with patch("dingtalk_stream.card_instance.MarkdownCardInstance",
+                               return_value=mock_card):
+                        with patch("graph.agent.invoke", return_value="AI 日程如下"):
+                            with patch("integrations.base_bot.threading.Thread",
+                                       side_effect=capture_thread):
+                                mock_sm.get.return_value = None
+                                handler.process(callback)
+                                # 在 patch 上下文内手动执行后台线程
+                                assert len(thread_targets) == 1, "应启动一个后台线程"
+                                thread_targets[0]()
 
         mock_card.update.assert_called_once_with("AI 日程如下")
 
@@ -473,8 +516,9 @@ class TestDingTalkMarkdownCard:
         mock_card.update.assert_not_called()
 
     def test_agent_exception_sends_error_text(self):
-        """TOPIC-55: agent.invoke() 抛异常 → send_text 发送错误提示"""
+        """TOPIC-55: agent.invoke() 抛异常 → card.update() 发送错误提示（card 存在时优先用 card）"""
         from integrations.dingtalk import bot as dd_bot
+        from integrations.message_context import MessageContext
         handler = self._make_handler()
         parsed = self._make_parsed()
         callback = MagicMock()
@@ -489,26 +533,36 @@ class TestDingTalkMarkdownCard:
             thread_targets.append(target)
             return MagicMock()
 
-        dt_bot_mock = MagicMock()
+        def mock_parse_message(raw):
+            ctx = MessageContext(
+                text=parsed["text"],
+                user_id=parsed["user_id"],
+                chat_id=parsed["chat_id"],
+                thread_id=parsed["thread_id"],
+                platform="dingtalk",
+            )
+            ctx.extra["card"] = raw.get("card")
+            return ctx
 
-        with patch("integrations.dingtalk.bot._parse_dingtalk_message", return_value=parsed):
-            with patch("integrations.claude_code.session.session_manager") as mock_sm:
-                with patch("dingtalk_stream.card_instance.MarkdownCardInstance",
-                           return_value=mock_card):
-                    with patch("graph.agent.invoke",
-                               side_effect=RuntimeError("LLM 超时")):
-                        with patch("integrations.dingtalk.bot.threading.Thread",
-                                   side_effect=capture_thread):
-                            with patch("integrations.dingtalk.bot.DingTalkBot",
-                                       return_value=dt_bot_mock):
+        with patch("dingtalk_stream.ChatbotMessage.from_dict", return_value=MagicMock()):
+            with patch.object(dd_bot.DingTalkBotHandler, "parse_message",
+                              side_effect=mock_parse_message):
+                with patch("integrations.claude_code.session.session_manager") as mock_sm:
+                    with patch("dingtalk_stream.card_instance.MarkdownCardInstance",
+                               return_value=mock_card):
+                        with patch("graph.agent.invoke",
+                                   side_effect=RuntimeError("LLM 超时")):
+                            with patch("integrations.base_bot.threading.Thread",
+                                       side_effect=capture_thread):
                                 mock_sm.get.return_value = None
                                 handler.process(callback)
                                 # 手动执行后台线程
                                 if thread_targets:
                                     thread_targets[0]()
 
-        dt_bot_mock.send_text.assert_called()
-        error_sent = str(dt_bot_mock.send_text.call_args_list)
+        # 有 card 时，错误提示通过 card.update() 发送
+        mock_card.update.assert_called()
+        error_sent = str(mock_card.update.call_args_list)
         assert "处理出错" in error_sent or "LLM 超时" in error_sent
 
     def test_session_webhook_code_removed(self):
