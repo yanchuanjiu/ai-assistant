@@ -1,31 +1,50 @@
 """
-钉钉知识库（知识库/Wiki）空间操作：
-- 列出空间内所有文档节点（支持关键词过滤）
-- 读取文档文本内容（支持 nodeId 或 alidocs URL）
+钉钉知识库（Wiki Workspace）操作：
+- 列出知识库工作空间内的文档节点（/v2.0/wiki/workspaces + /v2.0/wiki/nodes）
+- 读取文档文本内容（支持 nodeId 或 docs.dingtalk.com URL）
 """
 import logging
+import os
 import re
 from datetime import datetime
-from integrations.dingtalk.client import dt_get, dt_post, _settings, get_current_user_unionid
+from integrations.dingtalk.client import dt_get, dt_post, _settings
 
 logger = logging.getLogger(__name__)
+
+
+def _get_operator_id() -> str:
+    """返回操作人 unionId（v2.0 wiki API 必填）。
+    优先读取 DINGTALK_OPERATOR_ID，其次 DINGTALK_UNION_ID。
+    """
+    uid = (
+        os.getenv("DINGTALK_OPERATOR_ID", "").strip()
+        or os.getenv("DINGTALK_UNION_ID", "").strip()
+    )
+    return uid
 
 
 class DingTalkDocs:
     def __init__(self, space_id: str = None):
         from integrations.storage.config_store import get as cfg_get
-        self.space_id = space_id or cfg_get("DINGTALK_DOCS_SPACE_ID") or _settings.dingtalk_docs_space_id
+        self.workspace_id = (
+            space_id
+            or cfg_get("DINGTALK_DOCS_SPACE_ID")
+            or _settings.dingtalk_docs_space_id
+        )
 
+    # ------------------------------------------------------------------ #
+    # 公开接口
+    # ------------------------------------------------------------------ #
     def list_recent_files(self, limit: int = 20, keyword: str = None) -> list[dict]:
+        """列出知识库工作空间顶层文档节点。
+
+        正确流程（v2.0 wiki API）：
+          1. GET /v2.0/wiki/workspaces/{workspaceId}?operatorId=xxx → 取 rootNodeId
+          2. GET /v2.0/wiki/nodes?parentNodeId={rootNodeId}&operatorId=xxx → 列节点
+
+        operatorId 需在 .env 中配置 DINGTALK_OPERATOR_ID（用户 unionId）。
         """
-        列出知识库空间内的文档节点。
-        优先使用 /v1.0/wiki/spaces/{spaceId}/nodes 接口。
-        keyword: 可选标题关键词过滤（不区分大小写）。
-        """
-        nodes = self._list_wiki_nodes(limit=limit)
-        if nodes is None:
-            # fallback: 尝试旧路径
-            nodes = self._list_drive_files(limit=limit)
+        nodes = self._list_wiki_nodes_v2(limit=limit)
         if nodes is None:
             return []
         if keyword:
@@ -33,151 +52,176 @@ class DingTalkDocs:
             nodes = [n for n in nodes if kw in n.get("name", "").lower()]
         return nodes[:limit]
 
-    def _list_wiki_nodes(self, limit: int = 50) -> list[dict] | None:
-        """调用钉钉知识库节点列表 API，依次尝试多条路径。"""
-        union_id = get_current_user_unionid()
-        base_params: dict = {"maxResults": limit, "orderBy": "modifiedTime", "order": "desc"}
-        if union_id:
-            base_params["unionId"] = union_id
+    # ------------------------------------------------------------------ #
+    # 内部实现
+    # ------------------------------------------------------------------ #
+    def _list_wiki_nodes_v2(self, limit: int = 50) -> list[dict] | None:
+        """使用 /v2.0/wiki API 两步列出知识库节点。"""
+        operator_id = _get_operator_id()
+        if not operator_id:
+            logger.warning(
+                "[wiki/v2] DINGTALK_OPERATOR_ID 未配置，无法调用 v2.0 wiki API。"
+                "请在 .env 中添加 DINGTALK_OPERATOR_ID=<你的 unionId>。"
+                "获取方法：钉钉 → 个人主页 → 更多 → 复制 unionId，或联系管理员从开发者后台查询。"
+            )
+            return None
 
-        # 依次尝试可能的路径（新版 doc space → 旧版 wiki space）
-        candidate_paths = [
-            f"/v1.0/doc/spaces/{self.space_id}/files",        # 新版 docs.dingtalk.com
-            f"/v2.0/doc/spaces/{self.space_id}/files",        # 新版 v2
-            f"/v1.0/wiki/spaces/{self.space_id}/nodes",       # 旧版 wiki
-            f"/v1.0/wiki/spaces/{self.space_id}/nodes/search",# wiki 搜索
-        ]
-        for path in candidate_paths:
-            try:
-                resp = dt_get(path, params=dict(base_params))
-                logger.info(f"[wiki/nodes] path={path} resp keys={list(resp.keys())} preview={str(resp)[:400]}")
-                nodes_raw = (
-                    resp.get("nodes")
-                    or resp.get("items")
-                    or resp.get("files")
-                    or resp.get("nodeList")
-                    or (resp.get("result") or {}).get("nodes")
-                    or (resp.get("result") or {}).get("items")
-                    or (resp.get("data") or {}).get("nodes")
-                    or (resp.get("data") or {}).get("items")
-                    or (resp.get("data") or {}).get("files")
-                )
-                if nodes_raw is None and isinstance(resp, list):
-                    nodes_raw = resp
-                if nodes_raw:
-                    logger.info(f"[wiki/nodes] 成功路径: {path}，节点数: {len(nodes_raw)}")
-                    return [self._normalize_node(n) for n in nodes_raw]
-                logger.debug(f"[wiki/nodes] 路径 {path} 响应无节点: {resp}")
-            except Exception as e:
-                logger.debug(f"[wiki/nodes] 路径 {path} 失败: {e}")
+        # Step 1: 获取 workspace，拿 rootNodeId
+        root_node_id = self._get_root_node_id(operator_id)
+        if not root_node_id:
+            return None
 
-        logger.warning(f"[wiki/nodes] 所有路径均失败，space_id={self.space_id}")
-        return None
+        # Step 2: 列出 rootNodeId 下的子节点
+        return self._fetch_nodes(root_node_id, operator_id, limit=limit)
 
-    def _list_drive_files(self, limit: int = 50) -> list[dict] | None:
-        """Fallback：尝试旧版 drive/spaces 接口（多条路径）。"""
-        union_id = get_current_user_unionid()
-        params: dict = {"parentId": "0", "maxResults": limit, "orderBy": "modifiedTime", "order": "desc"}
-        if union_id:
-            params["unionId"] = union_id
+    def _get_root_node_id(self, operator_id: str) -> str | None:
+        """从 workspace 详情中获取 rootNodeId。"""
+        try:
+            resp = dt_get(
+                f"/v2.0/wiki/workspaces/{self.workspace_id}",
+                params={"operatorId": operator_id, "withPermissionRole": "false"},
+            )
+            logger.info(f"[wiki/workspace] resp preview={str(resp)[:300]}")
+            root = (
+                resp.get("rootNodeId")
+                or (resp.get("result") or {}).get("rootNodeId")
+                or (resp.get("data") or {}).get("rootNodeId")
+            )
+            if root:
+                logger.info(f"[wiki/workspace] rootNodeId={root}")
+                return root
+            logger.warning(f"[wiki/workspace] 未找到 rootNodeId，完整响应: {resp}")
+            return None
+        except Exception as e:
+            logger.warning(f"[wiki/workspace] 获取 workspace 失败: {e}")
+            return None
 
-        candidate_paths = [
-            f"/v1.0/drive/spaces/{self.space_id}/files",
-            f"/v2.0/drive/spaces/{self.space_id}/files",
-        ]
-        for path in candidate_paths:
-            try:
-                resp = dt_get(path, params=dict(params))
-                files = (
-                    resp.get("files")
-                    or resp.get("items")
-                    or (resp.get("data") or {}).get("files")
-                    or []
-                )
-                if files:
-                    return [self._normalize_node(f) for f in files]
-                logger.debug(f"[drive/files] 路径 {path} 响应无文件: {resp}")
-            except Exception as e:
-                logger.debug(f"[drive/files] 路径 {path} 失败: {e}")
+    def _fetch_nodes(
+        self, parent_node_id: str, operator_id: str, limit: int = 50
+    ) -> list[dict] | None:
+        """列出指定 parentNodeId 下的子节点。"""
+        try:
+            params = {
+                "parentNodeId": parent_node_id,
+                "operatorId": operator_id,
+                "maxResults": min(limit, 50),
+                "orderBy": "MODIFIED_TIME_DESC",
+            }
+            resp = dt_get("/v2.0/wiki/nodes", params=params)
+            logger.info(f"[wiki/nodes] resp preview={str(resp)[:400]}")
+            nodes_raw = (
+                resp.get("nodes")
+                or resp.get("items")
+                or (resp.get("result") or {}).get("nodes")
+                or (resp.get("data") or {}).get("nodes")
+            )
+            if nodes_raw is None and isinstance(resp, list):
+                nodes_raw = resp
+            if not nodes_raw:
+                logger.warning(f"[wiki/nodes] 未解析到节点，完整响应: {resp}")
+                return []
+            return [self._normalize_node(n) for n in nodes_raw]
+        except Exception as e:
+            logger.warning(f"[wiki/nodes] 获取节点列表失败: {e}")
+            return None
 
-        logger.warning(f"[drive/files] 所有路径均失败，space_id={self.space_id}。"
-                       "建议使用 MCP 工具 list_nodes(spaceId='{self.space_id}') 替代。")
-        return None
+    def list_children(self, parent_node_id: str, limit: int = 50) -> list[dict] | None:
+        """列出任意节点的子节点（可用于递归浏览知识库目录结构）。"""
+        operator_id = _get_operator_id()
+        if not operator_id:
+            logger.warning("[wiki/v2] DINGTALK_OPERATOR_ID 未配置")
+            return None
+        return self._fetch_nodes(parent_node_id, operator_id, limit=limit)
 
     def _normalize_node(self, n: dict) -> dict:
         """统一节点字段格式。"""
+        node_id = n.get("nodeId") or n.get("fileId") or n.get("id", "")
+        # docs.dingtalk.com URL
+        url = n.get("url", "")
+        if not url and node_id:
+            url = f"https://docs.dingtalk.com/i/nodes/{node_id}"
         return {
-            "id": n.get("nodeId") or n.get("fileId") or n.get("id", ""),
+            "id": node_id,
             "object_id": n.get("objectId") or n.get("docId") or n.get("objId") or "",
-            "name": n.get("title") or n.get("fileName") or n.get("name", ""),
-            "url": n.get("url", ""),
+            "name": n.get("title") or n.get("name") or n.get("fileName", ""),
+            "url": url,
             "type": n.get("type") or n.get("nodeType", ""),
-            "created_at": self._format_ts(n.get("createTime") or n.get("createdTime") or n.get("createAt", "")),
-            "updated_at": self._format_ts(n.get("modifiedTime") or n.get("updateTime", "")),
+            "has_child": bool(n.get("hasChild") or n.get("subNodeCount", 0)),
+            "created_at": self._format_ts(
+                n.get("createTime") or n.get("createdTime") or n.get("createAt", "")
+            ),
+            "updated_at": self._format_ts(
+                n.get("modifiedTime") or n.get("updateTime", "")
+            ),
         }
 
+    # ------------------------------------------------------------------ #
+    # 读取文档内容
+    # ------------------------------------------------------------------ #
     @staticmethod
     def extract_node_id_from_url(url_or_id: str) -> str:
         """从钉钉文档 URL 提取节点 ID，或直接返回 ID。
 
         支持格式：
+          https://docs.dingtalk.com/i/nodes/{nodeId}
           https://alidocs.dingtalk.com/i/nodes/{nodeId}?...
           直接传 nodeId 字符串
         """
-        m = re.search(r'alidocs\.dingtalk\.com/[^/]+/nodes/([A-Za-z0-9]+)', url_or_id)
+        # docs.dingtalk.com 新版 URL
+        m = re.search(r'docs\.dingtalk\.com/i/nodes/([A-Za-z0-9_\-]+)', url_or_id)
+        if m:
+            return m.group(1)
+        # alidocs 旧版 URL
+        m = re.search(r'alidocs\.dingtalk\.com/[^/]+/nodes/([A-Za-z0-9_\-]+)', url_or_id)
         if m:
             return m.group(1)
         return url_or_id.strip()
 
     def read_file_content(self, file_id: str) -> str:
-        """读取钉钉文档的纯文本内容。
+        """读取钉钉文档的纯文本内容（v2.0 wiki nodes content API）。
 
-        支持传入文档 nodeId 或 alidocs URL。
-        优先使用 config_store 中已验证的 DINGTALK_WIKI_API_PATH（wiki 或 drive）。
-        若未配置，自动尝试多条路径，成功后将有效路径写入 config_store。
+        支持传入文档 nodeId 或 docs.dingtalk.com / alidocs URL。
         """
-        from integrations.storage.config_store import get as cfg_get, set as cfg_set
-
-        # 从 URL 中提取 nodeId
         node_id = self.extract_node_id_from_url(file_id)
         if node_id != file_id:
             logger.info(f"[DingTalkDocs] 从 URL 提取 nodeId: {node_id}")
 
-        verified = cfg_get("DINGTALK_WIKI_API_PATH")  # "wiki" | "drive" | ""
+        operator_id = _get_operator_id()
+        params = {"operatorId": operator_id} if operator_id else {}
 
-        paths = [
-            ("wiki", f"/v1.0/wiki/nodes/{node_id}/content"),
-            ("drive", f"/v1.0/drive/files/{node_id}/content"),
+        # v2.0 wiki 节点内容接口
+        content_paths = [
+            f"/v2.0/wiki/nodes/{node_id}/documentContent",
+            f"/v2.0/wiki/nodes/{node_id}/content",
+            f"/v1.0/doc/nodes/{node_id}/content",
         ]
-        # 已验证的路径排在最前
-        if verified == "drive":
-            paths = [paths[1], paths[0]]
 
         last_err = None
-        for path_key, path in paths:
+        for path in content_paths:
             try:
-                resp = dt_get(path)
-                logger.info(f"[read_content] path={path} resp_keys={list(resp.keys())} preview={str(resp)[:300]}")
+                resp = dt_get(path, params=params)
+                logger.info(f"[read_content] path={path} preview={str(resp)[:300]}")
                 content = (
                     resp.get("content")
                     or resp.get("text")
+                    or resp.get("documentContent")
                     or (resp.get("data") or {}).get("content")
                     or (resp.get("data") or {}).get("text")
                     or (resp.get("result") or {}).get("content")
                     or ""
                 )
                 if content:
-                    if verified != path_key:
-                        cfg_set("DINGTALK_WIKI_API_PATH", path_key)
-                        logger.info(f"[DingTalkDocs] 记录有效 API 路径: {path_key}")
                     return content
-                logger.warning(f"[{path}] 响应无内容字段，完整响应: {resp}")
+                logger.debug(f"[read_content] {path} 响应无内容字段: {resp}")
             except Exception as e:
-                logger.warning(f"[{path}] 失败: {e}")
+                logger.debug(f"[read_content] {path} 失败: {e}")
                 last_err = e
 
         logger.error(f"读取钉钉文档 {node_id} 失败: {last_err}")
-        return f"读取失败（nodeId={node_id}）: {last_err}"
+        return (
+            f"读取失败（nodeId={node_id}）: {last_err}\n"
+            f"提示：可改用 MCP 工具 get_document_content(docId='{node_id}') 读取。"
+        )
 
     @staticmethod
     def _format_ts(ts) -> str:
