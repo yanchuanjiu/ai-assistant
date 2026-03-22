@@ -140,13 +140,14 @@ _COMPLEX_MSG_KEYWORDS = [
 ]
 
 
-def _build_system_prompt(messages: list | None = None) -> str:
+def _build_system_prompt(messages: list | None = None, thread_id: str = "") -> str:
     """动态构建系统提示词，每次 agent_node 调用时加载最新 workspace 文件。
 
     - SOUL/USER/MEMORY_CORE：始终注入
     - MEMORY_HISTORY：简单消息时跳过（~1K tokens）
     - SKILLS_PROJECT_MGMT：仅在消息含项目管理关键词时注入（~0.4K tokens）
     - SKILLS_FEISHU_BITABLE：仅在消息含 Bitable/任务关键词时注入
+    - 话题建议指令：主聊天窗口（无 #topic# 后缀）时注入
     """
     from datetime import date
 
@@ -205,6 +206,18 @@ def _build_system_prompt(messages: list | None = None) -> str:
                     parts.append(f"\n---\n## Workspace: {label}\n{content}")
             except FileNotFoundError:
                 pass
+
+    # 话题建议指令（仅主聊天窗口，非命名话题 thread）
+    if thread_id and "#topic#" not in thread_id:
+        parts.append(
+            "\n---\n"
+            "## 话题归类建议\n"
+            "当前对话在主聊天窗口，未归入任何命名话题。"
+            "如果本次回复有明确主题（非泛泛问候），请在**最终回复末尾**另起一行附上：\n"
+            "`💡 建议归入话题：\\`#话题名\\`，发该前缀可在独立上下文继续`\n"
+            "话题名应简洁（2-5个汉字或英文词，反映本次对话主题）。"
+            "若主题不明确则无需附加。仅在不调用工具、即将结束回复时添加。"
+        )
 
     return "\n".join(parts)
 
@@ -436,7 +449,7 @@ def agent_node(state: AgentState) -> dict:
 
     # 截断历史 ToolMessage 内容：保留完整对话历史，仅压缩历史轮工具结果体积
     trimmed = _trim_tool_content(state["messages"])
-    messages = [SystemMessage(content=_build_system_prompt(trimmed))] + trimmed
+    messages = [SystemMessage(content=_build_system_prompt(trimmed, thread_id=thread_id))] + trimmed
 
     # 动态选择工具（渐进式披露）
     tools = _select_tools(messages)
