@@ -47,6 +47,7 @@
 - 从 `logs/llm.jsonl` 检查最近 10 次调用的 input token 数
 - 若有调用超过 30K tokens，说明该 thread 上下文过重，在心跳消息中提醒用户可发 `/clear` 重置
 - v0.8.20 起历史 ToolMessage 截断至 300 字符，检查时若 avg input_tokens 仍 >50K，考虑进一步降低 HISTORY_TOOL_CONTENT_LIMIT
+- ⚠️ 截至3月22日，主飞书线程 avg input 55,883 tokens（650次调用），max 203K。若 avg 仍 >50K，在心跳消息中提醒用户对长会话执行 /clear
 
 **响应速度监控（v0.8.21）**：
 - 从 `logs/interactions.jsonl` 统计最近 50 条中 `slow_response=true`（>15s）的数量和比例
@@ -73,6 +74,14 @@
 - **复现路径**：钉钉用户发送含 "会议纪要" 关键词的消息 → Agent 调用 `analyze_meeting_doc` 工具 → 返回分析结果 → 结果以新消息发出而非 reply_to 原消息。
 - **已知相关代码**：`integrations/dingtalk/bot.py`（响应发送逻辑）、`graph/tools.py`（`analyze_meeting_doc`）。
 - **录入时间**：2026-03-21
+- **状态**：⚠️ 待分析
+
+### BUG-002：飞书话题路由 — 聊天框内 reply 未路由到对应话题
+- **现象**：用户在飞书聊天框内 reply 某个话题线程中的消息，Agent 未将该回复路由到对应话题上下文，而是走主聊天上下文。用户反馈："我回复的这条信息没有加入到 话题 #实时讯息查询"。
+- **影响**：所有飞书多话题使用场景；已在3月22日确认复现。
+- **复现路径**：用户在飞书聊天窗口内 reply 话题线程中某条消息 → root_id 或 parent_id 未被正确识别 → 消息被归入主聊天上下文（或不同话题）。
+- **已知相关代码**：`integrations/feishu/bot.py`（消息路由逻辑，_thread_anchor 映射，root_id 处理）。
+- **录入时间**：2026-03-22
 - **状态**：⚠️ 待分析
 
 ## 规则
